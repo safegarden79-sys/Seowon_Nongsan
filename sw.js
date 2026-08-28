@@ -3,7 +3,7 @@
    그래야 새 판이 올라오면 바로 내려가고, 신호가 끊겨도 앱은 열린다.
    경매 화면 사진과 바깥에서 받아오는 인식 엔진은 한 번 받으면 안 바뀌므로
    담아둔 것을 먼저 쓴다. 서버와 실시간으로 주고받는 /api/ 는 건드리지 않는다. */
-const CACHE = "seowon-v10";
+const CACHE = "seowon-v11";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icon.png"];
 
 self.addEventListener("install", e => {
@@ -28,7 +28,14 @@ async function serverFirst(req) {
     const res = await fetch(req);
     if (res && res.ok) {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+      /* 홈 화면 아이콘은 ./index.html 로 열리고 주소창은 / 로 열린다.
+         화면을 새로 받았으면 두 자리 모두 갱신해야, 신호가 끊긴 뒤 어느 쪽으로 열어도
+         마지막 판이 뜬다. */
+      const also = req.mode === "navigate" ? res.clone() : null;
+      caches.open(CACHE).then(c => {
+        c.put(req, copy);
+        if (also) c.put("./index.html", also);
+      }).catch(() => {});
     }
     return res;
   } catch (e) {
