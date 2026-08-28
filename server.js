@@ -88,7 +88,12 @@ function applyOp(user, op) {
         old ? updated++ : added++;
         if (state.got[r.id] && state.got[r.id].n > r.qty) state.got[r.id].n = r.qty;
       });
-      bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}`);
+      /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 사진을 여러 장 한꺼번에
+         읽었을 때 시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
+      const 시장 = {};
+      (op.rows || []).forEach(r => { if (r && r.mkt) 시장[r.mkt] = (시장[r.mkt] || 0) + 1; });
+      const 내역 = Object.keys(시장).map(m => `${m} ${시장[m]}`).join(" · ");
+      bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${내역 ? ` (${내역})` : ""}`);
       return;
     }
     case "got": {                                    // 박스 몇 개 챙겼는지
@@ -96,7 +101,10 @@ function applyOp(user, op) {
       if (!lot) return;
       const n = Math.max(0, Math.min(lot.qty || 0, Number(op.n) || 0));
       state.got[op.id] = { n, by, at: now };
-      bump(by, `${lot.item || "품목"} ${n}/${lot.qty}`);
+      /* 같은 품목이라도 생산자와 단위가 다르면 다른 줄이다. 셋을 함께 적어야
+         기록만 보고도 어느 줄을 고쳤는지 알 수 있다. */
+      const 이름 = [lot.item || "품목", lot.who, lot.unit && `${lot.unit}`].filter(Boolean).join(" · ");
+      bump(by, `${이름} · ${n}/${lot.qty}`);
       return;
     }
     case "car": {                                    // 상차 체크

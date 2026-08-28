@@ -205,6 +205,8 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .fbtn.red{background:var(--hot);border-color:var(--hot);color:#2A1616}
 .hidden{display:none!important}
+.revmkt{flex:none;font-size:10px;font-weight:700;color:var(--dim);border:1px solid var(--line);
+  border-radius:99px;padding:3px 7px;white-space:nowrap}
 .updbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:90;padding:12px 14px;
   border-radius:12px;background:var(--warn);color:#2A2116;font-size:13px;font-weight:700;
   text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.45)}
@@ -1045,10 +1047,21 @@ function fillItems(rows, subtotals, seoul){
     if(best&&bd<20000) r.item=best.item;              // 같은 품종은 번호대가 붙어 있다
   });
   if(seoul&&subtotals.length){                        // ③ [○○ 소계] 구분선
-    rows.forEach(r=>{
-      if(r.item||r.y==null) return;
-      const blk=subtotals.find(s=>s.y>r.y);
-      if(blk&&blk.name) r.item=blk.name;
+    /* 소계 줄을 하나라도 못 읽으면 그 위 품종까지 아래 소계에 딸려 들어간다.
+       (실측: 꽈리고추 소계를 못 읽어 꽈리 4줄이 전부 청양고추로 들어갔다)
+       한 품종 안에서는 단위가 같으므로, 소계 바로 위 줄의 단위와 다른 줄에는
+       이름을 붙이지 않고 비워 둔다. 잘못 채우는 것보다 비어 있는 편이 낫다. */
+    subtotals.forEach(blk=>{
+      if(!blk.name) return;
+      const mine=rows.filter(r=>r.y!=null&&r.y<blk.y&&!subtotals.some(s=>s.y<blk.y&&s.y>r.y));
+      if(!mine.length) return;
+      const near=mine.reduce((a,b)=>(a&&a.y>b.y?a:b),null);   // 소계 바로 위 줄
+      const unit=near?near.unit:"";
+      mine.forEach(r=>{
+        if(r.item) return;
+        if(unit&&r.unit&&r.unit!==unit) return;               // 단위가 어긋난다 — 다른 품종이다
+        r.item=blk.name;
+      });
     });
   }
   rows.forEach((r,i)=>{                               // ④ 바로 위·아래의 같은 단위 줄
@@ -1150,7 +1163,8 @@ function parseAuction(rawWords,W,names,mkt){
     if(!q.price&&!q.qty&&!item&&!who)return;
     const known=(state.lots||[]).map(l=>l.who).filter(Boolean);
     rows.push({no:an.t,item:fixItem(item,seoul),who:fixWho(who,known),
-      unit,grade,qty:q.qty,price:q.price,sure:q.sure,y:an.y});
+      unit,grade,qty:q.qty,price:q.price,sure:q.sure,y:an.y,
+      mkt:seoul?MKT_SEOUL:MKT_DONGWHA});          // 사진마다 시장이 다르므로 줄마다 달아둔다
   });
   /* [○○ 소계] 구분선 읽기 */
   const subs=[];
@@ -1212,7 +1226,7 @@ document.getElementById("ocrinput").onchange=async e=>{
       let names=null;
       if(shot===MKT_DONGWHA){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
       const r=parseAuction(words,canvas.width,names,shot);
-      mkt=r.mkt||shot;
+      mkt=r.mkt||shot;                       // 선택칸의 처음 값으로만 쓴다 (줄마다 제 시장을 갖는다)
       all=all.concat(r.rows);
       if(!date) date=detectDate(data.text||"");
       ocrBar((i+1)/files.length);
@@ -1231,8 +1245,10 @@ document.getElementById("ocrinput").onchange=async e=>{
 };
 
 /* ---------- 확인 화면 ---------- */
+let revMktForced=false;                    // 선택칸을 직접 바꾸면 그때만 전체에 적용한다
 function openReview(rows,mkt,date,raw){
   revRows=rows; revRaw=raw;
+  revMktForced=false;
   document.getElementById("rev_mkt").value=mkt;
   document.getElementById("rev_date").value=date;
   document.getElementById("rev_rawtext").textContent=raw;
@@ -1244,6 +1260,7 @@ function drawReview(){
   const box=document.getElementById("rev_rows");
   box.innerHTML=revRows.map((r,i)=>`<div class="revrow ${r.sure?"":"unsure"}" data-i="${i}">
       <div class="rev1">
+        <span class="revmkt">${esc((revMktForced?document.getElementById("rev_mkt").value:(r.mkt||"")).replace("청과",""))}</span>
         <input class="f-item" value="${esc(r.item)}" data-k="item" placeholder="품목">
         <input class="f-who" value="${esc(r.who)}" data-k="who" placeholder="생산자">
         <button class="del" data-del-row="${i}">✕</button>
@@ -1256,9 +1273,13 @@ function drawReview(){
       </div>
     </div>`).join("");
   const bad=revRows.filter(r=>!r.sure).length;
-  document.getElementById("rev_msg").textContent = !revRows.length ? "읽어낸 줄이 없습니다."
+  const noItem=revRows.filter(r=>!r.item).length;
+  const mkts=[...new Set(revRows.map(r=>r.mkt).filter(Boolean))];
+  const mix=(!revMktForced&&mkts.length>1) ? ` 사진마다 시장이 달라 줄별로 ${mkts.join("·")} 로 나눠 넣습니다.` : "";
+  const miss=noItem ? ` 품목을 못 읽은 ${noItem}줄은 비워 두었습니다 — 채워 주세요.` : "";
+  document.getElementById("rev_msg").textContent = (!revRows.length ? "읽어낸 줄이 없습니다."
     : bad ? `${revRows.length}줄 중 ${bad}줄은 단가·금액 검산이 맞지 않습니다(붉은 줄). 수량과 단가를 원본과 대조해 주세요.`
-          : `${revRows.length}줄 모두 단가 × 수량 = 금액 검산을 통과했습니다. 품목·생산자만 확인해 주세요.`;
+          : `${revRows.length}줄 모두 단가 × 수량 = 금액 검산을 통과했습니다. 품목·생산자만 확인해 주세요.`) + mix + miss;
 }
 document.getElementById("rev_rows").addEventListener("input",e=>{
   const inp=e.target.closest("input[data-k]"); if(!inp)return;
@@ -1282,6 +1303,7 @@ document.getElementById("rev_clear").onclick=function(){
   document.getElementById("rev_msg").textContent="읽어온 내용을 모두 지웠습니다. 닫고 사진을 다시 읽어오시면 됩니다.";
 };
 
+document.getElementById("rev_mkt").onchange=()=>{ revMktForced=true; drawReview(); };
 document.getElementById("rev_raw").onclick=()=>document.getElementById("rev_rawtext").classList.toggle("hidden");
 document.getElementById("rev_close").onclick=()=>document.getElementById("review").classList.add("hidden");
 document.getElementById("rev_add").onclick=()=>{
@@ -1290,7 +1312,8 @@ document.getElementById("rev_add").onclick=()=>{
   const rows=[];
   revRows.forEach(r=>{
     if(!r.item&&!r.who&&!r.price)return;
-    const row=Object.assign({mkt,date},r); row.id=lotKey(row); delete row.sure;
+    const row=Object.assign({date},r,{mkt:revMktForced?mkt:(r.mkt||mkt)});
+    row.id=lotKey(row); delete row.sure;
     rows.push(row);
   });
   if(!rows.length){ document.getElementById("review").classList.add("hidden");
