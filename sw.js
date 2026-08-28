@@ -1,6 +1,6 @@
 /* 서원농산 작업 체크 — 오프라인 캐시
    한 번 접속해 두면 시장 지하처럼 신호가 약한 곳에서도 그대로 열린다. */
-const CACHE = "seowon-v8";
+const CACHE = "seowon-v9";
 const CORE = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", e => {

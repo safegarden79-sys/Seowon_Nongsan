@@ -1057,7 +1057,40 @@ function fillItems(rows, subtotals, seoul){
   return rows;
 }
 
-function parseAuction(rawWords,W,names){
+/* 어느 시장 화면인지 가려낸다.
+   동화청과 화면에는 '동화청과'가 그대로 찍히지만, 서울청과 화면에는 시장 이름이 아예 없다
+   (머리글이 '오늘의 경매결과 > 품목별' 뿐이다). 그래서 이름을 찾지 않고,
+   그 화면에만 나오는 말머리로 가린다.
+     서울청과 — 오늘의 경매결과 · 품목별 · 품종별 소계 · 단위:/등급:/수량: 라벨
+     동화청과 — 동화청과 · 원표 · 경락단가 · 낙찰내역 (단위는 라벨 없이 4.0KG 형태)
+   글씨로 못 가리면 마지막에 물품번호 열의 좌우 위치로 판단한다. */
+const MKT_SEOUL="서울청과", MKT_DONGWHA="동화청과";
+
+function sixColX(words,W){
+  const six=mergeWords(words).filter(w=>isNo6(w.t));
+  if(six.length<2) return null;
+  const xs=six.map(w=>w.x0).sort((a,b)=>a-b);
+  return xs[Math.floor(xs.length/2)];
+}
+
+function marketOf(text,words,W){
+  const t=String(text||"").replace(/\s+/g,"");
+  const hits=re=>(t.match(re)||[]).length;
+  let d=0,s=0;
+  if(/동화청과|동화/.test(t))            d+=4;
+  if(/원표|경락단가|낙찰내역/.test(t))    d+=2;
+  if(/오늘의경매결과|경매결과/.test(t))   s+=4;
+  if(/품종별소계|품목별/.test(t))         s+=2;
+  s+=Math.min(3,hits(/단위[:;.,]?\d/g));
+  s+=Math.min(3,hits(/등급[:;.,]?[가-힣A-Za-z]/g));
+  s+=Math.min(3,hits(/수량[:;.,]?\d/g));
+  if(s>d+1) return MKT_SEOUL;
+  if(d>s+1) return MKT_DONGWHA;
+  const x=sixColX(words,W);
+  return (x!=null&&x<=W*0.35)?MKT_DONGWHA:MKT_SEOUL;
+}
+
+function parseAuction(rawWords,W,names,mkt){
   const words=mergeWords(rawWords);
   let six=words.filter(w=>isNo6(w.t));
   if(six.length<2) return {rows:[],mkt:null};
@@ -1066,7 +1099,7 @@ function parseAuction(rawWords,W,names){
   six=six.filter(w=>Math.abs(w.x0-medX)<W*0.07).sort((a,b)=>a.y-b.y);
   const gs=six.slice(1).map((s,i)=>s.y-six[i].y).filter(g=>g>4).sort((a,b)=>a-b);
   const gap=gs.length?gs[Math.floor(gs.length/2)]:60;
-  const seoul=medX>W*0.35;
+  const seoul=mkt?(mkt===MKT_SEOUL):(medX>W*0.35);   // 시장이 정해져 왔으면 그대로 따른다
   const rows=[];
   six.forEach(an=>{
     const top=seoul?an.y-gap*0.85:an.y-gap*0.45;
@@ -1125,7 +1158,7 @@ function parseAuction(rawWords,W,names){
   subs.sort((a,b)=>a.y-b.y);
   fillItems(rows,subs,seoul);
   rows.forEach(r=>{ delete r.y; });
-  return {rows,mkt:seoul?"서울청과":"동화청과"};
+  return {rows,mkt:seoul?MKT_SEOUL:MKT_DONGWHA};
 }
 
 function detectDate(text){
@@ -1167,11 +1200,12 @@ document.getElementById("ocrinput").onchange=async e=>{
       const canvas=await prep(files[i]);
       const {data}=await w.recognize(canvas,{},{text:true,blocks:true});
       raw+=(data.text||"")+"\n";
-      const dw=/원표|경락단가|낙찰내역|동화/.test(data.text||"");
+      const words=flatWords(data);
+      const shot=marketOf(data.text||"",words,canvas.width);
       let names=null;
-      if(dw){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
-      const r=parseAuction(flatWords(data),canvas.width,names);
-      if(r.mkt) mkt=r.mkt;
+      if(shot===MKT_DONGWHA){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
+      const r=parseAuction(words,canvas.width,names,shot);
+      mkt=r.mkt||shot;
       all=all.concat(r.rows);
       if(!date) date=detectDate(data.text||"");
       ocrBar((i+1)/files.length);
