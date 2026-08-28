@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#262624">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>서원농산 작업 체크</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+:root{
+  --bg:#262624;        /* 클로드 다크모드 배경 */
+  --surface:#2F2F2C;
+  --surface2:#383834;
+  --line:#4A4A43;
+  --text:#F5F3EE;
+  --muted:#B4AFA3;
+  --dim:#8B867B;
+  --ok:#6BCB8B;
+  --warn:#E8A33D;
+  --hot:#E88B8B;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;
+  padding-bottom:88px;-webkit-text-size-adjust:100%;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tnum{font-variant-numeric:tabular-nums}
+button{font-family:inherit}
+
+header{position:sticky;top:0;z-index:20;background:rgba(38,38,36,.97);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:10px 16px 0}
+.brand{font-size:23px;font-weight:800;text-align:center;margin:0;color:var(--text);letter-spacing:.01em}
+.eyebrow{font-size:11px;letter-spacing:.16em;color:var(--dim);font-weight:600;margin:0}
+h1{font-size:20px;margin:2px 0 0;color:var(--text)}
+.headrow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.big{font-size:30px;font-weight:800;line-height:1;color:var(--text)}
+.biglab{font-size:13px;color:var(--muted);margin-left:3px}
+.sub{font-size:11px;color:var(--dim);margin:5px 0 0;text-align:right}
+.bar{height:6px;border-radius:99px;background:#403F3A;overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;background:var(--ok);transition:width .3s}
+
+.tabs{display:flex;gap:4px;margin-top:8px}
+.tab{flex:1;padding:10px 8px;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--dim);font-size:14px;font-weight:700}
+.tab.on{color:var(--text);border-bottom-color:var(--warn)}
+
+.searchwrap{position:relative;margin-top:12px}
+input[type=search],textarea,input[type=text],input[type=number],select{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:11px 34px 11px 34px;color:var(--text);font-size:14px;font-family:inherit;
+  appearance:none;-webkit-appearance:none}
+textarea,input[type=text],input[type=number],select{padding:11px 12px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--warn)}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+.sicon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:15px}
+.sclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);font-size:16px;padding:6px 8px}
+
+.chips{display:flex;gap:6px;margin-top:10px;padding-bottom:12px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:600;
+  background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.chip.on{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+.chip.mode.on{background:var(--surface2);border-color:#6A6A60;color:var(--text)}
+.div{width:1px;height:20px;background:var(--line);flex:0 0 auto;margin:0 4px;align-self:center}
+
+main{padding:16px}
+.panelbtn{width:100%;display:flex;align-items:center;gap:9px;padding:13px 14px;border-radius:12px;
+  background:var(--surface);border:1px solid var(--line);color:var(--text);
+  font-size:14px;font-weight:600;text-align:left;margin-bottom:8px}
+.panelbtn .arrow{margin-left:auto;color:var(--muted);font-size:12px}
+.panel{border-radius:12px;background:var(--surface);border:1px solid var(--line);
+  padding:14px;margin-bottom:8px;font-size:13px;line-height:1.55}
+.acc{margin-bottom:12px}
+.m{font-weight:700;color:var(--text)}
+.n{color:var(--ok);font-weight:700}
+.meta{color:var(--muted);font-size:12px;margin:4px 0 0}
+.spot{color:var(--text);font-size:12px;margin:2px 0 0;opacity:.85}
+hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+.warnt{color:var(--hot);font-weight:700;margin:8px 0 4px}
+.li{color:var(--muted);font-size:12px;margin:3px 0}
+.wn{margin-bottom:10px}
+.wn b{color:#C6D96B;font-size:12px;display:block}
+.wn span{color:var(--text);font-size:13px;opacity:.9}
+
+section{margin-bottom:20px}
+.shead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;margin:0 0 8px}
+.tick{width:4px;height:16px;border-radius:99px;flex:0 0 auto}
+.stitle{font-size:14px;font-weight:800;color:var(--text)}
+.scount{font-size:11px;color:var(--dim)}
+.sline{flex:1;height:1px;background:var(--line)}
+.sarrow{color:var(--dim);font-size:11px}
+
+.card{border-radius:16px;background:var(--surface);border:1px solid var(--line);margin-bottom:8px;overflow:hidden}
+.card.done{background:rgba(107,203,139,.09);border-color:rgba(107,203,139,.35)}
+.row{display:flex;align-items:flex-start}
+.cbx{padding:14px 4px 14px 14px;background:none;border:0}
+.box{width:28px;height:28px;border-radius:9px;border:2px solid #6A6A60;display:flex;align-items:center;justify-content:center;color:transparent;font-size:16px;font-weight:900}
+.card.done .box{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+.body{flex:1;min-width:0;padding:14px 8px 14px 0;background:none;border:0;text-align:left}
+.title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.name{font-size:15px;font-weight:800;color:var(--text)}
+.card.done .name{color:var(--dim);text-decoration:line-through}
+.plate{font-size:13px;font-weight:800;padding:2px 7px;border-radius:7px;border:1px solid}
+.card.done .plate{border-color:var(--line)!important;color:var(--dim)!important}
+.tag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px}
+.tag.time{background:rgba(232,163,61,.18);color:#F0BE72}
+.tag.flag{background:rgba(232,139,139,.18);color:#F0A8A8}
+.tag.grade{background:var(--surface2);color:var(--muted)}
+.tag.rc{background:var(--surface2);color:var(--muted)}
+.tag.fix{background:rgba(232,163,61,.2);color:#F0BE72;border:1px solid rgba(232,163,61,.4)}
+.card.done .tag{background:none;color:var(--dim)}
+.loc{font-size:13px;color:var(--text);opacity:.85;margin:5px 0 0;line-height:1.4}
+.memo{font-size:12px;color:var(--muted);margin:4px 0 0;line-height:1.4}
+.card.done .loc,.card.done .memo{color:var(--dim);opacity:1}
+.mynote{font-size:12px;color:#F0BE72;margin:6px 0 0;line-height:1.4}
+.notebtn{padding:14px 13px;background:none;border:0;color:var(--dim);font-size:15px}
+.editor{padding:0 14px 14px}
+.editor textarea{padding:9px 12px;border-radius:10px;background:#22221F;font-size:13px;min-height:56px;resize:vertical}
+.ebtns{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.ebtn{padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700;border:0}
+.ebtn.g{background:var(--surface2);color:var(--muted)}
+.ebtn.r{background:rgba(232,139,139,.2);color:#F0A8A8}
+.ebtn.y{background:var(--warn);color:#2A2116}
+
+/* 낙찰 카드 */
+.lot .body{padding-right:4px}
+/* 한 줄 표 */
+.kindwrap{margin:0 0 12px 12px}
+.kindhead{display:flex;align-items:baseline;gap:8px;margin:8px 0 4px}
+.kindname{font-size:13px;font-weight:800;color:var(--text)}
+.kindsum{font-size:11px;color:#E3C87A;flex:1}
+.lhead,.lrow{display:grid;align-items:center;
+  grid-template-columns:18px minmax(0,1.45fr) 46px minmax(0,1fr) 30px 26px 28px minmax(56px,auto) 20px;
+  gap:4px}
+.lhead{font-size:9px;color:var(--dim);padding:0 6px 3px;letter-spacing:-.02em}
+.lhead span{text-align:center;overflow:hidden}
+.lhead .c-item,.lhead .c-who{text-align:left}
+.lhead .c-qty,.lhead .c-amt{text-align:right}
+.card.lotrow{border-radius:10px;margin-bottom:4px}
+.lrow{padding:9px 6px;font-size:12px;line-height:1.2}
+.lrow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.lbox{width:18px;height:18px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:900;color:transparent}
+.card.lotrow.done .lbox{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+.c-item{text-align:left!important;font-weight:800;color:var(--text)}
+.c-no{font-size:11px;color:#8FC7E8}
+.c-who{text-align:left!important;color:var(--text);opacity:.9}
+.c-unit,.c-grade{color:var(--muted)}
+.c-grade{font-weight:700;color:#F0BE72}
+.c-qty{text-align:right!important;font-weight:800;color:var(--text)}
+.c-amt{text-align:right!important;color:var(--muted);font-size:11px}
+.c-add{background:none;border:0;color:var(--warn);font-size:16px;font-weight:700;padding:0;line-height:1}
+.card.lotrow.done .c-item,.card.lotrow.done .c-qty{color:var(--dim)}
+.card.lotrow.done .lrow{opacity:.72}
+.lnote{font-size:11px;color:#F0BE72;padding:0 8px 8px 28px;display:flex;gap:8px}
+.lnote .lby{color:var(--dim);margin-left:auto;white-space:nowrap}
+.cathead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;
+  margin:12px 0 6px 10px;font-family:inherit}
+.catname{font-size:13px;font-weight:800;color:#F0BE72}
+.wholevel{padding-left:10px;border-left:1px solid var(--line);margin-left:12px}
+.subhead{display:flex;align-items:center;gap:8px;margin:9px 0 5px 2px}
+.subname{font-size:13px;font-weight:700;color:var(--text)}
+.tag.size{background:var(--surface2);color:var(--muted);font-weight:700}
+.subcount{font-size:11px;color:var(--dim)}
+.full{color:var(--ok)!important;font-weight:700}
+.qty{display:flex;align-items:center;gap:2px;padding:12px 12px 12px 0}
+.qbtn{width:30px;height:30px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);
+  color:var(--text);font-size:16px;font-weight:700;line-height:1}
+.qnum{min-width:52px;text-align:center;font-size:13px;font-weight:800;color:var(--text)}
+.qnum small{color:var(--dim);font-weight:600}
+.money{font-size:12px;color:var(--muted);margin:4px 0 0}
+.money b{color:#F0BE72;font-weight:700}
+
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.gal img{width:100%;aspect-ratio:3/5;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
+.galwrap{position:relative}
+.galby{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.65);color:#fff;border-radius:6px;font-size:10px;padding:2px 6px}
+.galdel{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);border:0;color:#fff;border-radius:8px;font-size:12px;padding:3px 7px}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;display:flex;align-items:center;justify-content:center;padding:12px}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain}
+
+.formrow{display:flex;gap:8px;margin-bottom:8px}
+.formrow>*{flex:1;min-width:0}
+label.fl{font-size:11px;color:var(--dim);display:block;margin:0 0 4px}
+.bigbtn{width:100%;padding:13px;border-radius:12px;font-size:14px;font-weight:800;border:1px solid var(--line);
+  background:var(--surface2);color:var(--text);margin-bottom:8px}
+.bigbtn.danger{background:var(--hot);border-color:var(--hot);color:#2A1616}
+.bigbtn.accent{background:var(--warn);border-color:var(--warn);color:#2A2116}
+.hint{font-size:12px;color:var(--dim);line-height:1.5;margin:2px 0 10px}
+
+.empty{text-align:center;padding:44px 0;color:var(--muted);font-size:14px;line-height:1.6}
+.empty button{margin-top:10px;background:none;border:0;color:var(--ok);font-size:14px;text-decoration:underline;text-underline-offset:4px}
+
+footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,36,.97);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);padding:11px 16px calc(11px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:12px}
+.saved{flex:1;min-width:0;font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fbtn{padding:9px 12px;border-radius:9px;font-size:12px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.fbtn.red{background:var(--hot);border-color:var(--hot);color:#2A1616}
+.hidden{display:none!important}
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{flex:1}
+.who{font-size:12px;font-weight:700;color:#2A2116;background:var(--warn);border-radius:99px;padding:4px 10px;white-space:nowrap}
+.conn{font-size:11px;color:var(--dim);white-space:nowrap;min-width:52px;text-align:right}
+.conn.on{color:var(--ok)}
+.conn.off{color:var(--hot)}
+.stampline{font-size:11px;color:var(--dim);margin:5px 0 0}
+.stampline b{color:#F0BE72;font-weight:700}
+.pickbtn{display:inline-block;padding:12px 18px;margin:4px 6px 0 0;border-radius:12px;font-size:15px;font-weight:800;
+  background:var(--surface2);border:1px solid var(--line);color:var(--text)}
+.pickbtn.on{background:var(--warn);border-color:var(--warn);color:#2A2116}
+.feed{border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:10px 12px;margin-bottom:8px}
+.feed div{font-size:12px;color:var(--muted);padding:3px 0}
+.feed b{color:var(--text)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:60;display:flex;align-items:flex-end}
+.sheet{background:var(--bg);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;
+  padding:16px 16px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sheethead b{font-size:17px}
+.revrow{padding:9px 0;border-bottom:1px solid var(--line)}
+.rev1{display:flex;gap:6px;align-items:center}
+.rev1 input{flex:1;min-width:0;width:100%;padding:9px 8px;border-radius:9px;font-size:14px}
+.rev1 .f-who{flex:0 0 34%}
+.rev2{display:flex;gap:6px;margin-top:6px}
+.rev2 label{flex:1;min-width:0;font-size:10px;color:var(--dim);display:flex;flex-direction:column;gap:3px}
+.rev2 input{width:100%;min-width:0;padding:7px 4px;border-radius:8px;font-size:13px;text-align:center}
+.revrow .del{background:none;border:0;color:var(--hot);font-size:16px;padding:6px 2px;flex:0 0 auto}
+.rawtext{background:#22221F;border:1px solid var(--line);border-radius:10px;padding:10px;
+  font-size:11px;color:var(--muted);white-space:pre-wrap;max-height:240px;overflow:auto}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brandrow">
+    <span class="who" id="mename">–</span>
+    <p class="brand">(주)서원농산</p>
+    <span class="conn" id="connstat">연결 중</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="car">🚚 상차 체크</button>
+    <button class="tab" data-tab="lot">📦 낙찰 내역</button>
+  </div>
+
+  <div class="searchwrap">
+    <span class="sicon">⌕</span>
+    <input type="search" id="q" placeholder="검색" autocomplete="off">
+    <button class="sclear hidden" id="qclear" aria-label="지우기">✕</button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+</header>
+
+<main>
+  <div id="carview">
+    <button class="panelbtn" id="refbtn">📋 계정 · 파렛트 반납 정보 <span class="arrow">▸</span></button>
+    <div class="panel hidden" id="refpanel"></div>
+    <button class="panelbtn" id="workbtn">📝 품목 · 소분 작업 메모 <span class="arrow">▸</span></button>
+    <div class="panel hidden" id="workpanel"></div>
+    <div id="carlist"></div>
+  </div>
+
+  <div id="lotview" class="hidden">
+    <button class="bigbtn accent" id="ocrbtn">📷 경매 화면 사진에서 읽어오기</button>
+    <input type="file" id="ocrinput" accept="image/*" multiple class="hidden">
+    <p class="hint" id="ocrstat">사진을 고르면 글자를 인식해 목록 초안을 만듭니다. 인식 뒤 확인 화면에서 고칠 수 있습니다.</p>
+    <div class="bar hidden" id="ocrbar" style="margin-bottom:10px"><i style="width:0%"></i></div>
+    <button class="bigbtn" id="engbtn">🔌 인식 엔진 준비 확인 (와이파이에서 1회)</button>
+    <button class="bigbtn" id="upbtn">🖼 사진만 보관하기</button>
+    <input type="file" id="upinput" accept="image/*" multiple class="hidden">
+    <div id="galwrap"></div>
+
+    <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
+    <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
+    <div class="panel hidden" id="addpanel"></div>
+
+
+    <div id="lotlist"></div>
+  </div>
+</main>
+
+<footer>
+  <span class="saved" id="saved">체크하면 자동 저장됩니다</span>
+  <span id="footbtns"></span>
+</footer>
+
+<div id="lightbox" class="lightbox hidden"><img id="lbimg" alt=""></div>
+
+<div id="pick" class="modal hidden">
+  <div class="sheet">
+    <div class="sheethead"><b>누구신가요?</b></div>
+    <p class="hint">이름을 골라야 누가 무엇을 챙겼는지 함께 보입니다. 이 폰에 기억됩니다.</p>
+    <div id="pickbtns"></div>
+    <input type="text" id="pickcustom" placeholder="다른 이름 직접 입력" style="margin-top:8px">
+    <button class="bigbtn accent" id="pickok" style="margin-top:8px">시작하기</button>
+    <p class="hint" style="margin-top:12px">서버 주소 (같은 주소로 접속했다면 비워두세요)</p>
+    <input type="text" id="pickserver" placeholder="https://주소">
+  </div>
+</div>
+
+<div id="review" class="modal hidden">
+  <div class="sheet">
+    <div class="sheethead">
+      <b>인식 결과 확인</b>
+      <span>
+        <button class="ebtn r" id="rev_clear">전부 지우기</button>
+        <button class="ebtn g" id="rev_close">닫기</button>
+      </span>
+    </div>
+    <p class="hint" id="rev_msg"></p>
+    <div class="formrow">
+      <div><label class="fl">시장</label><select id="rev_mkt"><option>서울청과</option><option>동화청과</option></select></div>
+      <div><label class="fl">날짜</label><input type="text" id="rev_date" placeholder="2026-08-26"></div>
+    </div>
+    <div id="rev_rows"></div>
+    <button class="bigbtn accent" id="rev_add">확인했습니다 · 목록에 넣기</button>
+    <button class="bigbtn" id="rev_raw">인식된 원문 보기</button>
+    <pre id="rev_rawtext" class="rawtext hidden"></pre>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+/* ==================== 차량 기준 자료 ==================== */
+const HEAD={accounts:[
+  {market:"서울청과",no:"372",id:"cp372",pw:"seowon0372",spot:"경매장 54~53 남1번기둥 옥외 (파 80~90개)"},
+  {market:"동화청과",no:"70",id:"070",pw:"0406",spot:"경매장 72~73"}],
+  bike:"가게 오토바이 (6987)",
+  pallet:["서울청과 : 53번 앞 372 기재 후 문자 전송","동화청과 : 경매장 실내 전동차 위에 70번 기재 후 문자 전송"]};
+
+const Z={
+  seoulMain:{key:"seoulMain",label:"서울 1·11·17번",tone:"amber"},
+  seoulB:{key:"seoulB",label:"서울 지하",tone:"sky"},
+  seoulEtc:{key:"seoulEtc",label:"서울 기타 번호",tone:"amber"},
+  dongwha:{key:"dongwha",label:"동화 69·70번",tone:"cyan"},
+  dongwhaEtc:{key:"dongwhaEtc",label:"동화 기타",tone:"cyan"},
+  chuksan:{key:"chuksan",label:"구 축산",tone:"violet"},
+  susan:{key:"susan",label:"수산 앞",tone:"teal"},
+  outside:{key:"outside",label:"외부·가게 인근",tone:"rose"},
+  hapjim:{key:"hapjim",label:"합짐",tone:"lime"}};
+
+const TONE={
+  amber:{bar:"#E8A33D",plate:"rgba(232,163,61,.55)",ptext:"#F2C67E"},
+  sky:{bar:"#6FB6E8",plate:"rgba(111,182,232,.55)",ptext:"#A8D3F0"},
+  cyan:{bar:"#4FC3C7",plate:"rgba(79,195,199,.55)",ptext:"#96DEE0"},
+  violet:{bar:"#B197E8",plate:"rgba(177,151,232,.55)",ptext:"#CFBDF2"},
+  rose:{bar:"#E88B8B",plate:"rgba(232,139,139,.55)",ptext:"#F0AEAE"},
+  lime:{bar:"#B5CC5A",plate:"rgba(181,204,90,.55)",ptext:"#D2E08F"},
+  teal:{bar:"#5FBFA0",plate:"rgba(95,191,160,.55)",ptext:"#9BDCC5"}};
+
+const SECTIONS=[{key:"ilil",title:"일일"},{key:"segyero",title:"세계로"},{key:"seoul",title:"개별 거래처"},
+  {key:"chorok",title:"초록 · 배추전 외"},{key:"b7273",title:"7273 · 69~70번 실내 / 버섯집"},
+  {key:"welbing",title:"웰빙 · 마지막 손님 · 송화가게"},{key:"basement",title:"지하 S35 · 지하2층"},
+  {key:"susan",title:"수산 앞 · 03:00 할당"},
+  {key:"chuksan",title:"구 축산"},{key:"hapjim",title:"합짐"}];
+
+const STOPS=[
+ {id:"ilil-0437",s:"ilil",z:Z.seoulB,name:"일일",car:"0437",loc:"지하1층 A1~2번  1톤탑",time:"11:15",memo:"영수증 운전석"},
+ {id:"sg-1138",s:"segyero",z:Z.seoulMain,name:"세계로 1소하",car:"1138",loc:"1번 맞은편 망카",time:"12:30"},
+ {id:"sg-ansan",s:"segyero",z:Z.seoulMain,name:"세계로 2안산",car:"",loc:"1번 맞은편 망카"},
+ {id:"sg-4643",s:"segyero",z:Z.seoulMain,name:"세계로 3정릉",car:"4643",loc:"1번 맞은편 망카 (작은거)"},
+ {id:"sg-4374",s:"segyero",z:Z.seoulMain,name:"세계로 4방학",car:"4374",loc:"1번 맞은편 망카"},
+ {id:"sg-1155",s:"segyero",z:Z.seoulMain,name:"세계로 5연수",car:"1155",loc:"1번 실내 망카",memo:"영수증 함 있음"},
+ {id:"sg-8623",s:"segyero",z:Z.seoulMain,name:"세계로 부평",car:"8623",loc:"1번 실내 395번 파렛트",time:"03:00 출발"},
+ {id:"sg-janggi",s:"segyero",z:Z.seoulMain,name:"세계로 장기",car:"",loc:"1번 실내 파렛트",time:"03:00 이후",memo:"부평차 빠지고 들어옴"},
+ {id:"sg-4181",s:"segyero",z:Z.seoulMain,name:"세계로 학익",car:"4181",loc:"1번 실내 파렛트",time:"03:00 출발",memo:"용차일 경우 구 다농 위치"},
+ {id:"sg-gurae",s:"segyero",z:Z.seoulMain,name:"세계로 구래",car:"",loc:"11번 맞은편 가로등 파렛트",time:"02:00"},
+ {id:"sg-seongbok",s:"segyero",z:Z.seoulMain,name:"세계로 성복",car:"",loc:"11번 맞은편 가로등 파렛트",time:"03:30 이후"},
+ {id:"sg-onam",s:"segyero",z:Z.seoulMain,name:"세계로 오남",car:"",loc:"11번 맞은편 가로등 옆 파렛트",time:"02:30",memo:"오남 2차 납품 : 17번 맞은편 A30"},
+ {id:"sg-yatap",s:"segyero",z:Z.seoulMain,name:"세계로 야탑",car:"",loc:"11번 맞은편 · 오남 상차 후 자리"},
+ {id:"sg-bp-yong",s:"segyero",z:Z.seoulMain,name:"세계로 부평 (용차)",car:"",loc:"중앙통로 후 실내 우측 346번 파렛트"},
+ {id:"sg-1616",s:"segyero",z:Z.seoulMain,name:"세계로 시흥",car:"1616",loc:"17번 A31번 가로등",time:"04:30"},
+ {id:"garam",s:"seoul",z:Z.seoulB,name:"가람",car:"",loc:"지하1층 청과1 앞 오른쪽 속도제한"},
+ {id:"c2945",s:"seoul",z:Z.seoulEtc,name:"2945",car:"2945",loc:"박가네 건너편"},
+ {id:"gak-3021",s:"seoul",z:Z.seoulEtc,name:"각화동",car:"3021",loc:"101번",memo:"박스에 212번 기재 / 현장 자전거 212번 품목기재"},
+ {id:"gak-6642",s:"seoul",z:Z.seoulEtc,name:"각화동",car:"6642",loc:"105번 맞은편",memo:"박스 108, 225 기재"},
+ {id:"ara-1509",s:"seoul",z:Z.dongwhaEtc,name:"아라농산",car:"1509",loc:"동화청과 경매장 가기 전 좌측 아라"},
+ {id:"sam-2150",s:"seoul",z:Z.seoulEtc,name:"삼성",car:"2150",loc:"26번~29번 5톤",memo:"파렛트 랩 작업"},
+ {id:"nok-8591",s:"seoul",z:Z.seoulEtc,name:"녹색",car:"8591",loc:"63번 1톤탑",rc:"no",memo:"원본 8916 → 8591 로 수정됨"},
+ {id:"c8591",s:"seoul",z:Z.seoulEtc,name:"8591",car:"8591",loc:"65번",rc:"no"},
+ {id:"c6623",s:"seoul",z:Z.seoulEtc,name:"6623",car:"6623",loc:"상혁이형 손님",time:"06:00 이후"},
+ {id:"c2527",s:"seoul",z:Z.seoulEtc,name:"2527",car:"2527",loc:"채소2동(신축건물) 3번 인근",time:"03:50"},
+ {id:"c7201",s:"seoul",z:Z.seoulEtc,name:"경매시 상차",car:"7201",loc:"212번"},
+ {id:"chorok-9147",s:"chorok",z:Z.seoulEtc,name:"초록",car:"9147",loc:"27번 322번 파렛트 작업",time:"12:00",memo:"21번 동화청과 통로 통과 직진 / 경매 전 선취여부 확인요망"},
+ {id:"baechu-0967",s:"chorok",z:Z.seoulEtc,name:"배추전",car:"0967",loc:"16번",rc:"cash"},
+ {id:"c9880",s:"chorok",z:Z.outside,name:"9880",car:"9880",loc:"롯데마트 뒤쪽 끝",memo:"또는 7741"},
+ {id:"c5780",s:"chorok",z:Z.outside,name:"5780",car:"5780",loc:"서원농산 가게 인근 송파 대로변 또는 남문"},
+ {id:"b7273-1",s:"b7273",z:Z.dongwha,name:"7273 ①",car:"7273",loc:"경매장 실내 좌측 끝 파렛트",memo:"영수증, 랩작업"},
+ {id:"b7273-2",s:"b7273",z:Z.dongwha,name:"7273 ② 양곡",car:"7273",loc:"서2문 좌측 (가락공업사)",time:"3시까지"},
+ {id:"b7273-3",s:"b7273",z:Z.dongwha,name:"7273 ③ 광사",car:"7273",loc:"347번 입고 · 초록 인근",time:"04:10"},
+ {id:"b7273-4",s:"b7273",z:Z.dongwha,name:"7273 ④ 모다",car:"7273",loc:"A18~19 (지게차)",time:"04:30~05:00",memo:"가로등 정면보고 왼쪽 깊숙이 놔두기"},
+ {id:"b7273-5",s:"b7273",z:Z.dongwha,name:"7273 ⑤ 시흥",car:"7273",loc:"17번 맞은편 A31 가로등 (지게차)"},
+ {id:"b7273-6",s:"b7273",z:Z.dongwha,name:"7273 ⑥ 야탑",car:"7273",loc:"A8~9번 (지게차)"},
+ {id:"wb-4801",s:"welbing",z:Z.seoulEtc,name:"웰빙 시흥",car:"4801",loc:"23번 경매장 끝 차량 앞 파렛트 또는 망카"},
+ {id:"wb-9658",s:"welbing",z:Z.seoulEtc,name:"웰빙 상도",car:"9658",loc:"44번 경매장 입구"},
+ {id:"last-0302",s:"welbing",z:Z.outside,name:"0302 마지막 손님",car:"0302",loc:"상차 요구 시 : 서원 가게 인근",rc:"no"},
+ {id:"last-3920",s:"welbing",z:Z.dongwhaEtc,name:"3920 용차",car:"3920",loc:"상차 요구 없을 시 : 동화경매장 · 동화과일경매 21번 통로"},
+ {id:"song-0977",s:"welbing",z:Z.dongwhaEtc,name:"송화가게",car:"0977",loc:"동화 과일가게 화장실 옆",memo:"재우부장 · 인테직원"},
+ {id:"c3268",s:"basement",z:Z.seoulB,name:"3268",car:"3268",loc:"지하1층 S35"},
+ {id:"c5178",s:"basement",z:Z.seoulB,name:"5178",car:"5178",loc:"지하1층 S35",time:"03:30경",rc:"no"},
+ {id:"c8827",s:"basement",z:Z.seoulB,name:"8827",car:"8827",loc:"지하1층 S35"},
+ {id:"c0379",s:"basement",z:Z.seoulB,name:"0379",car:"0379",loc:"지하2층 A1~5",rc:"no"},
+ {id:"c3379",s:"susan",z:Z.susan,name:"3379",car:"3379",loc:"수산 앞 1열~4열",time:"03:00"},
+ {id:"c5783",s:"susan",z:Z.susan,name:"5783",car:"5783",loc:"수산 앞 1열~4열",time:"03:00"},
+ {id:"c4657",s:"chuksan",z:Z.chuksan,name:"4657",car:"4657",loc:"구 축산 1열~",rc:"no"},
+ {id:"c4244",s:"chuksan",z:Z.chuksan,name:"4244",car:"4244",loc:"구 축산 1열~",rc:"no"},
+ {id:"c0381",s:"chuksan",z:Z.chuksan,name:"0381",car:"0381",loc:"구 축산 1열~",rc:"no"},
+ {id:"c8845",s:"chuksan",z:Z.chuksan,name:"8845",car:"8845",loc:"구 축산 1열~",rc:"no"},
+ {id:"c8742",s:"chuksan",z:Z.chuksan,name:"8742",car:"8742",loc:"구 축산 1열~",rc:"no"},
+ {id:"c2917",s:"chuksan",z:Z.chuksan,name:"2917",car:"2917",loc:"구 축산 1열~",rc:"no"},
+ {id:"c0248",s:"chuksan",z:Z.chuksan,name:"0248",car:"0248",loc:"구 축산 1열~",rc:"no"},
+ {id:"c0900",s:"chuksan",z:Z.chuksan,name:"0900",car:"0900",loc:"구 축산 1열~",rc:"no"},
+ {id:"c0303",s:"chuksan",z:Z.chuksan,name:"0303",car:"0303",loc:"구 축산 2열·3열 파렛트 적재"},
+ {id:"c3162",s:"chuksan",z:Z.chuksan,name:"3162 (1333)",car:"3162",loc:"구 축산 4열~5열",memo:"용차 먼저 상차 후 나머지 1333"},
+ {id:"c4374y",s:"chuksan",z:Z.chuksan,name:"4374 (용차)",car:"4374",loc:"구 축산 포장마차",memo:"용차 먼저 상차 후 나머지 1333"},
+ {id:"c0788",s:"chuksan",z:Z.chuksan,name:"0788",car:"0788",loc:"구 축산 1열",time:"06:00 이후",rc:"no"},
+ {id:"c8714",s:"chuksan",z:Z.chuksan,name:"8714",car:"8714",loc:"구 축산 1열",time:"06:00 이후",rc:"no"},
+ {id:"hj-bp",s:"hapjim",z:Z.hapjim,name:"합짐 부평 · 반석 버섯",car:"",loc:"중앙 65번 경매장 통로 좌측"},
+ {id:"hj-md",s:"hapjim",z:Z.hapjim,name:"합짐 명동 버섯",car:"",loc:"동화 69번 경매장 통로 좌측"},
+ {id:"hj-yg",s:"hapjim",z:Z.hapjim,name:"합짐 양곡 · 진호네 오이",car:"",loc:"동화 69번 경매장 통로 우측"},
+ {id:"hj-ys",s:"hapjim",z:Z.hapjim,name:"영수농산",car:"",loc:"38번 경매장 안 쪽",memo:"파렛트는 물어보기"}];
+
+/* 매일 고정 거래처 — 미완료/완료 집계는 이 항목들만 대상으로 한다 */
+const FIX_IDS=new Set(["ilil-0437","chorok-9147","nok-8591","c3379","c5783","sam-2150","wb-4801","wb-9658"]);
+STOPS.forEach(s=>{ if(s.s==="segyero"||FIX_IDS.has(s.id)) s.fix=true; });
+
+const WORK_NOTES=[
+ {t:"일일",d:"소분 홍초 2키 · 2키 · 2키, 청양 2키 / 소분작업(흰봉투 1키로, 홍색 2키로, 흰봉투 3키로, 노랑봉투 5키로)"},
+ {t:"세계로",d:"미니(DMZ) 서울청과 53번 경매 전 미리 선취 후 기재 372-2(갯수). 초록은 경매 전 선취여부 확인요망"},
+ {t:"초록",d:"파프리카 재고, 아삭이 적당(청양 특)"},
+ {t:"녹광(풋고추)",d:"‖(슬러쉬) 상, 품목(특), A(특), B(상) / 홍초 특 박스 작업 시 홍초기재 후 특 또는 상 기재"},
+ {t:"파프리카",d:"빨·주·노 / 반홍(홍청양·청양 섞은 것) 비율 : 홍청양 1/5(20%), 청양 4/5(80%)"},
+ {t:"소분",d:"꽈리대봉 350~360, 소봉 130~140(세로 7개씩), 청양대봉 450~460(5개씩 4줄 2층 총 40봉), 홍고추 140"},
+ {t:"중도매인",d:"69번 통로 전 영선유통 우측"},
+ {t:"규격",d:"피망 L(특) · M(상), 파프리카 L(20알) · XL(20알), 미듬 M(30알)"},
+ {t:"벌크",d:"아삭이(오이맛) 상 10키로"}];
+
+/* ==================== 낙찰 내역 기본값 (업로드한 경매 화면) ==================== */
+/* 낙찰 내역은 기본으로 비어 있다. 사진 인식 또는 직접 추가로 채운다. */
+const SEED_LOTS=[];
+
+/* ==================== 낙찰 항목 식별 ====================
+   같은 내용의 낙찰 줄은 언제 다시 불러와도 같은 id를 갖게 한다.
+   → 목록을 새로 받아도 세어둔 박스 수가 그대로 따라붙는다. */
+function lotKey(l){
+  return "K|"+[l.mkt,l.date,l.no,l.item,l.who,l.unit,l.grade].map(x=>String(x??"").trim()).join("|");
+}
+function withKeys(arr){
+  const seen={};
+  return arr.map(l=>{
+    let k=lotKey(l);
+    seen[k]=(seen[k]||0)+1;
+    if(seen[k]>1) k+="#"+seen[k];      // 완전히 동일한 줄이 두 번 나오면 구분
+    return Object.assign({},l,{id:k});
+  });
+}
+
+/* ==================== 상태 ==================== */
+const KEY="seowon-check-v2";
+let state={done:{},notes:{},lots:null,got:{},images:[],savedAt:null};
+let tab="car", filter="all", groupMode="doc", query="", lotMkt="all";
+let collapsed={}, openNote=null, confirmReset=false;
+
+try{const raw=localStorage.getItem(KEY); if(raw) state=Object.assign(state,JSON.parse(raw));}catch(e){}
+if(!state.lots) state.lots=SEED_LOTS.slice();
+if(!state.images) state.images=[];
+if(!state.got) state.got={};
+
+/* 이전 버전에 들어있던 예시 낙찰 데이터를 한 번 정리한다 */
+if(state.ver!==4){ state.lots=[]; state.got={}; state.ver=4; }
+
+function save(){
+  state.savedAt=new Date().toISOString();
+  try{ localStorage.setItem(KEY,JSON.stringify(state)); }
+  catch(e){ document.getElementById("saved").textContent="⚠ 저장공간 부족 — 사진을 일부 지워주세요"; return false; }
+  renderFooter(); return true;
+}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const won=n=>Number(n||0).toLocaleString("ko-KR");
+
+/* ==================== 차량 탭 ==================== */
+function visibleStops(){
+  const kw=query.trim().toLowerCase();
+  return STOPS.filter(s=>{
+    if(filter==="todo" && (!s.fix||state.done[s.id]))return false;
+    if(filter==="done" && (!s.fix||!state.done[s.id]))return false;
+    if(!kw)return true;
+    return [s.name,s.car,s.loc,s.memo,s.time,state.notes[s.id]].filter(Boolean).join(" ").toLowerCase().includes(kw);
+  });
+}
+function carGroups(vis){
+  if(groupMode==="doc"){
+    return SECTIONS.map(sec=>{const f=STOPS.find(s=>s.s===sec.key);
+      return {key:sec.key,title:sec.title,tone:f?f.z.tone:"amber",items:vis.filter(s=>s.s===sec.key)};
+    }).filter(g=>g.items.length);
+  }
+  return Object.keys(Z).map(k=>({key:Z[k].key,title:Z[k].label,tone:Z[k].tone,items:vis.filter(s=>s.z.key===Z[k].key)})).filter(g=>g.items.length);
+}
+function rcTag(rc){
+  if(rc==="no")   return `<span class="tag flag">영수증 X</span>`;
+  if(rc==="cash") return `<span class="tag flag">현금수령</span>`;
+  return `<span class="tag rc">영수증 O</span>`;
+}
+function carCard(s){
+  const d=!!state.done[s.id], t=TONE[s.z.tone], note=state.notes[s.id];
+  return `<div class="card ${d?"done":""}" data-id="${s.id}">
+    <div class="row">
+      <button class="cbx" data-act="toggle" aria-label="완료"><span class="box">✓</span></button>
+      <button class="body" data-act="toggle">
+        <div class="title"><span class="name">${esc(s.name)}</span>
+          ${s.fix?`<span class="tag fix">고정</span>`:""}
+          ${s.car?`<span class="plate mono" style="border-color:${t.plate};color:${t.ptext}">${esc(s.car)}</span>`:""}
+          ${s.time?`<span class="tag time">⏱ ${esc(s.time)}</span>`:""}
+          ${rcTag(s.rc)}</div>
+        <p class="loc">${esc(s.loc||"위치 미기재")}</p>
+        ${s.memo?`<p class="memo">${esc(s.memo)}</p>`:""}
+        ${note?`<p class="mynote">✎ ${esc(note)}${(state.stampNote&&state.stampNote[s.id])?` — ${esc(state.stampNote[s.id].by)}`:""}</p>`:""}
+        ${(d&&state.stampCar&&state.stampCar[s.id])?`<p class="stampline"><b>${esc(state.stampCar[s.id].by)}</b> 완료 · ${ago(state.stampCar[s.id].at)}</p>`:""}
+      </button>
+      <button class="notebtn" data-act="note" aria-label="메모">✎</button>
+    </div>
+    ${openNote===s.id?`<div class="editor">
+      <textarea id="ta-${s.id}" placeholder="현장 메모 (수량, 변경된 위치 등)">${esc(note||"")}</textarea>
+      <div class="ebtns"><button class="ebtn g" data-act="ncancel">닫기</button><button class="ebtn y" data-act="nsave">메모 저장</button></div>
+    </div>`:""}</div>`;
+}
+
+/* ==================== 낙찰 탭 ==================== */
+function visibleLots(){
+  const kw=query.trim().toLowerCase();
+  return state.lots.filter(l=>{
+    if(lotMkt!=="all" && !l.mkt.startsWith(lotMkt)) return false;
+    const g=state.got[l.id]||0;
+    if(filter==="todo"&&g>=l.qty)return false;
+    if(filter==="done"&&g<l.qty)return false;
+    if(!kw)return true;
+    return [l.item,l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
+  });
+}
+function lotCard(l){
+  const g=state.got[l.id]||0, d=g>=l.qty&&l.qty>0;
+  const note=(state.lotnotes||{})[l.id];
+  const stamp=(state.stampGot&&state.stampGot[l.id])?state.stampGot[l.id]:null;
+  return `<div class="card lotrow ${d?"done":""}" data-id="${l.id}">
+    <div class="lrow" data-act="lottoggle">
+      <span class="lbox">${d?"✓":""}</span>
+      <span class="c-item">${esc(l.item||"-")}</span>
+      <span class="c-no mono">${esc(l.no||"")}</span>
+      <span class="c-who">${esc(l.who||"-")}</span>
+      <span class="c-unit tnum">${esc(String(l.unit||"").replace(/[Kk][Gg]/,""))}</span>
+      <span class="c-grade">${esc(l.grade||"")}</span>
+      <span class="c-qty tnum">${l.qty}</span>
+      <span class="c-amt tnum">${won(l.price*l.qty)}</span>
+      <button class="c-add" data-act="lotnote" aria-label="주석">+</button>
+    </div>
+    ${(note||stamp&&d)?`<div class="lnote">${note?`✎ ${esc(note.text||note)}`:""}${
+      (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</div>`:""}
+    ${openLotNote===l.id?`<div class="editor">
+      <textarea id="lta-${l.id}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
+      <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
+    </div>`:""}
+  </div>`;
+}
+
+/* 중분류 판정 — 품목명을 큰 갈래로 나눈다 */
+const CATS=["파프리카·피망","고추","버섯","기타"];
+function catOf(item){
+  const t=item||"";
+  if(/파프리카|피망/.test(t)) return "파프리카·피망";
+  if(/고추|청양|꽈리|오이맛|녹광|홍초|아삭/.test(t)) return "고추";
+  if(/버섯/.test(t)) return "버섯";
+  return "기타";
+}
+const sumQty=rs=>rs.reduce((a,l)=>a+l.qty,0);
+const sumGot=rs=>rs.reduce((a,l)=>a+Math.min(state.got[l.id]||0,l.qty),0);
+const sumAmt=rs=>rs.reduce((a,l)=>a+l.price*l.qty,0);
+const sizeKey=l=>(parseFloat(l.unit)||0)*100+({"특":1,"상":2,"중":3,"하":4}[l.grade]||0);
+
+/* 시장 → 품목군 → 품종 (경매 화면의 품종별 소계와 같은 짜임새) */
+function lotGroups(vis){
+  const byMkt={};
+  vis.forEach(l=>{ const m=l.mkt||"기타"; (byMkt[m]=byMkt[m]||[]).push(l); });
+  const order=["서울청과","동화청과"];
+  return Object.keys(byMkt)
+    .sort((a,b)=>(order.indexOf(a)+1||9)-(order.indexOf(b)+1||9)||a.localeCompare(b,"ko"))
+    .map(m=>{
+      const rows=byMkt[m], byCat={};
+      rows.forEach(l=>{ const c=catOf(l.item); (byCat[c]=byCat[c]||[]).push(l); });
+      const cats=CATS.filter(c=>byCat[c]).map(c=>{
+        const crows=byCat[c], byItem={};
+        crows.forEach(l=>{ const k=(l.item||"품목 미상").trim(); (byItem[k]=byItem[k]||[]).push(l); });
+        const kinds=Object.keys(byItem).sort((a,b)=>a.localeCompare(b,"ko")).map(k=>({
+          key:`k:${m}:${k}`, title:k,
+          rows:byItem[k].slice().sort((a,b)=>(a.who||"").localeCompare(b.who||"","ko")||sizeKey(a)-sizeKey(b)),
+          qty:sumQty(byItem[k]), got:sumGot(byItem[k]), amt:sumAmt(byItem[k])
+        }));
+        return { key:`c:${m}:${c}`, title:c, kinds, qty:sumQty(crows), got:sumGot(crows), amt:sumAmt(crows) };
+      });
+      return { key:"m:"+m, title:m, tone:m.startsWith("서울")?"amber":"cyan",
+               items:rows, cats, qty:sumQty(rows), got:sumGot(rows), amt:sumAmt(rows) };
+    });
+}
+
+/* ==================== 렌더 ==================== */
+function render(){
+  document.getElementById("carview").classList.toggle("hidden",tab!=="car");
+  document.getElementById("lotview").classList.toggle("hidden",tab!=="lot");
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  document.getElementById("q").placeholder = tab==="car"?"차량번호 · 상호 · 위치 검색":"품목 · 생산자 · 번호 검색";
+
+  const chips=document.getElementById("chips");
+  if(tab==="car"){
+    const total=STOPS.length;
+    const fixAll=STOPS.filter(s=>s.fix);
+    const fixDone=fixAll.filter(s=>state.done[s.id]).length, fixLeft=fixAll.length-fixDone;
+    chips.innerHTML=`
+      <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${total}</button>
+      <button class="chip ${filter==="todo"?"on":""}" data-f="todo">고정 미완료 ${fixLeft}</button>
+      <button class="chip ${filter==="done"?"on":""}" data-f="done">고정 완료 ${fixDone}</button>
+      <span class="div"></span>
+      <button class="chip mode ${groupMode==="doc"?"on":""}" data-g="doc">표 순서</button>
+      <button class="chip mode ${groupMode==="zone"?"on":""}" data-g="zone">구역별</button>`;
+    const vis=visibleStops(), groups=carGroups(vis), list=document.getElementById("carlist");
+    if(!groups.length){ list.innerHTML=emptyHTML(); bindEmpty(); return; }
+    list.innerHTML=groups.map(g=>{
+      const gd=g.items.filter(i=>state.done[i.id]).length, open=!collapsed[g.key];
+      return `<section data-g="${g.key}"><button class="shead" data-act="fold">
+        <span class="tick" style="background:${TONE[g.tone].bar}"></span>
+        <span class="stitle">${esc(g.title)}</span><span class="scount tnum">${gd}/${g.items.length}</span>
+        <span class="sline"></span><span class="sarrow">${open?"▾":"▸"}</span></button>
+        ${open?g.items.map(carCard).join(""):""}</section>`;}).join("");
+  } else {
+    const rows=state.lots.length, doneRows=state.lots.filter(l=>(state.got[l.id]||0)>=l.qty).length;
+    chips.innerHTML=`
+      <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${rows}</button>
+      <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${rows-doneRows}</button>
+      <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
+      <span class="div"></span>
+      <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
+      <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
+      <button class="chip mode ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과</button>`;
+    renderGallery();
+    const groups=lotGroups(visibleLots()), list=document.getElementById("lotlist");
+    if(!groups.length){ list.innerHTML=emptyHTML(); bindEmpty(); return; }
+    const cnt=(got,qty)=>`<span class="scount tnum ${got>=qty&&qty?"full":""}">${got}/${qty}</span>`;
+    list.innerHTML=groups.map(g=>{
+      const open=!collapsed[g.key];
+      return `<section data-g="${g.key}">
+        <button class="shead" data-act="fold" data-k="${g.key}">
+          <span class="tick" style="background:${TONE[g.tone].bar}"></span>
+          <span class="stitle">${esc(g.title)}</span>${cnt(g.got,g.qty)}
+          <span class="sline"></span><span class="sarrow">${open?"▾":"▸"}</span></button>
+        ${open?g.cats.map(c=>{
+          const copen=!collapsed[c.key];
+          return `<button class="cathead" data-act="fold" data-k="${c.key}">
+            <span class="catname">${esc(c.title)}</span>${cnt(c.got,c.qty)}
+            <span class="sline"></span><span class="sarrow">${copen?"▾":"▸"}</span></button>
+            ${copen?c.kinds.map(k=>`
+              <div class="kindwrap">
+                <div class="kindhead"><span class="kindname">${esc(k.title)}</span>
+                  <span class="kindsum tnum">수량 ${k.qty} · ${won(k.amt)}원</span>${cnt(k.got,k.qty)}</div>
+                <div class="lhead">
+                  <span class="lbox"></span><span class="c-item">품종</span><span class="c-no">번호</span>
+                  <span class="c-who">생산자</span><span class="c-unit">단위</span><span class="c-grade">등급</span>
+                  <span class="c-qty">수량</span><span class="c-amt">가격</span><span class="c-add"></span>
+                </div>
+                ${k.rows.map(lotCard).join("")}
+              </div>`).join(""):""}`;
+        }).join(""):""}
+        </section>`;}).join("");
+  }
+}
+function emptyHTML(){return `<div class="empty">조건에 맞는 항목이 없습니다.<br><button id="resetview">전체 보기</button></div>`;}
+function bindEmpty(){const b=document.getElementById("resetview"); if(b)b.onclick=()=>{
+  query="";filter="all";lotMkt="all";document.getElementById("q").value="";
+  document.getElementById("qclear").classList.add("hidden");render();};}
+
+function renderGallery(){
+  const w=document.getElementById("galwrap");
+  const shared=state.shared||[];
+  const feed=liveLog.length?`<div class="feed">${liveLog.slice(0,6).map(l=>
+      `<div><b>${esc(l.by)}</b> ${esc(l.text)} · ${ago(l.at)}</div>`).join("")}</div>`:"";
+  if(shared.length){
+    w.innerHTML=feed+`<div class="gal">`+shared.map(im=>
+      `<div class="galwrap"><img src="${im.url}" data-img="${im.id}" alt="경매 화면">
+       <button class="galdel" data-del="${im.id}">✕</button>
+       <span class="galby">${esc(im.by)}</span></div>`).join("")+`</div>`;
+    return;
+  }
+  if(!state.images.length){
+    w.innerHTML=feed+`<p class="hint">경매 결과 화면을 올리면 세 사람 모두의 화면에 함께 보입니다.</p>`;
+    return;
+  }
+  if(false){ w.innerHTML=`<p class="hint">경매 결과 화면을 캡처해 올려두면, 목록을 대조할 때 앱 안에서 바로 크게 볼 수 있습니다.</p>`; return; }
+  w.innerHTML=`<div class="gal">`+state.images.map(im=>
+    `<div class="galwrap"><img src="${im.data}" data-img="${im.id}" alt="경매 화면">
+     <button class="galdel" data-del="${im.id}">✕</button></div>`).join("")+`</div>`;
+}
+
+function renderFooter(){
+  document.getElementById("saved").textContent=state.savedAt
+    ? new Date(state.savedAt).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})+" 저장됨"
+    : "체크하면 자동 저장됩니다";
+  const box=document.getElementById("footbtns");
+  box.innerHTML=confirmReset
+    ? `<button class="fbtn" data-r="cancel">취소</button> <button class="fbtn red" data-r="do">전원 초기화</button>`
+    : `<button class="fbtn" data-r="ask">↺ 새 작업 시작</button>`;
+  box.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.r==="ask")confirmReset=true;
+    else if(b.dataset.r==="cancel")confirmReset=false;
+    else{ confirmReset=false; pushOp({t:"newday"});
+          state.done={};state.notes={};state.got={};state.lots=[];save();render(); }
+    renderFooter();});
+}
+
+/* ==================== 이벤트 ==================== */
+document.querySelector(".tabs").addEventListener("click",e=>{
+  const b=e.target.closest(".tab"); if(!b)return;
+  tab=b.dataset.tab; filter="all"; render();});
+
+document.getElementById("chips").addEventListener("click",e=>{
+  const b=e.target.closest(".chip"); if(!b)return;
+  if(b.dataset.f)filter=b.dataset.f;
+  if(b.dataset.g)groupMode=b.dataset.g;
+  if(b.dataset.mk)lotMkt=b.dataset.mk;
+  render();});
+
+document.querySelector("main").addEventListener("click",e=>{
+  const btn=e.target.closest("[data-act]");
+  if(btn){
+    const act=btn.dataset.act;
+    if(act==="fold"){const k=btn.dataset.k||btn.closest("section").dataset.g;collapsed[k]=!collapsed[k];return render();}
+    const card=btn.closest(".card"); if(!card)return;
+    const id=card.dataset.id;
+    if(act==="toggle"){
+      const done=!state.done[id];
+      const st=STOPS.find(x=>x.id===id);
+      pushOp({t:"car",id,done,name:st?st.name:id});
+    }
+    else if(act==="note"){ openNote=openNote===id?null:id; render();
+      const ta=document.getElementById("ta-"+id); if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);} }
+    else if(act==="ncancel"){ openNote=null; render(); }
+    else if(act==="nsave"){ const v=document.getElementById("ta-"+id).value.trim();
+      const st=STOPS.find(x=>x.id===id);
+      openNote=null; pushOp({t:"note",id,text:v,name:st?st.name:id}); }
+    else if(act==="lottoggle"){
+      const l=state.lots.find(x=>x.id===id); if(!l)return;
+      const g=(state.got[id]||0)>=l.qty ? 0 : l.qty;
+      pushOp({t:"got",id,n:g});
+    }
+    else if(act==="lotnote"){
+      openLotNote=openLotNote===id?null:id; render();
+      const ta=document.getElementById("lta-"+id);
+      if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
+    }
+    else if(act==="lncancel"){ openLotNote=null; render(); }
+    else if(act==="lnsave"){
+      const v=document.getElementById("lta-"+id).value.trim();
+      openLotNote=null; pushOp({t:"lotnote",id,text:v});
+    }
+    return;
+  }
+  const img=e.target.closest("[data-img]");
+  if(img){ const im=(state.shared||[]).find(x=>x.id===img.dataset.img)||state.images.find(x=>x.id===img.dataset.img);
+    if(im){ document.getElementById("lbimg").src=im.url||im.data;
+      document.getElementById("lightbox").classList.remove("hidden"); } return; }
+  if(false){ const im=null;
+    document.getElementById("lbimg").src=im.data;
+    document.getElementById("lightbox").classList.remove("hidden"); return; }
+  const del=e.target.closest("[data-del]");
+  if(del){
+    if((state.shared||[]).some(x=>x.id===del.dataset.del)) return pushOp({t:"delphoto",id:del.dataset.del});
+    state.images=state.images.filter(x=>x.id!==del.dataset.del); save(); renderGallery(); }
+});
+
+document.getElementById("lightbox").onclick=()=>document.getElementById("lightbox").classList.add("hidden");
+
+const qin=document.getElementById("q"),qclear=document.getElementById("qclear");
+qin.addEventListener("input",()=>{query=qin.value;qclear.classList.toggle("hidden",!query);render();});
+qclear.onclick=()=>{qin.value="";query="";qclear.classList.add("hidden");render();qin.blur();};
+
+/* 사진 업로드 */
+document.getElementById("upbtn").onclick=()=>document.getElementById("upinput").click();
+document.getElementById("upinput").onchange=async e=>{
+  const files=[...e.target.files]; e.target.value="";
+  for(const f of files){
+    let data;
+    try{ data=await shrink(f); }
+    catch(err){ alert("사진을 불러오지 못했습니다."); continue; }
+    if(serverUrl){ pushOp({t:"photo",data}); continue; }
+    state.images.push({id:"img"+Date.now()+Math.random().toString(36).slice(2,6),data,at:new Date().toISOString()});
+    if(!save()){                       // 저장공간 초과 → 방금 사진만 되돌리고 체크 기록은 지킨다
+      state.images.pop(); save();
+      alert("저장공간이 가득 찼습니다. 오래된 사진을 지운 뒤 다시 올려주세요.\n(체크해 둔 내용은 그대로 있습니다)");
+      break;
+    }
+  }
+  renderGallery();
+};
+function shrink(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const max=1100, r=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement("canvas");
+      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg",0.62));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("load"));};
+    img.src=url;
+  });
+}
+
+/* 접이식 패널 */
+function panel(btnId,panelId,html){
+  const b=document.getElementById(btnId),p=document.getElementById(panelId);
+  if(html!==undefined)p.innerHTML=html;
+  b.onclick=()=>{const open=!p.classList.contains("hidden");
+    p.classList.toggle("hidden",open); b.querySelector(".arrow").textContent=open?"▸":"▾";};
+}
+panel("refbtn","refpanel",
+  HEAD.accounts.map(a=>`<div class="acc"><div><span class="m">${a.market}</span> <span class="n mono">${a.no}</span></div>
+    <p class="meta mono">ID ${a.id} · PW ${a.pw}</p><p class="spot">${a.spot}</p></div>`).join("")
+  +`<hr><p class="li">${HEAD.bike}</p><p class="warnt">파렛트 반납</p>`
+  +HEAD.pallet.map(x=>`<p class="li">· ${x}</p>`).join(""));
+panel("workbtn","workpanel",WORK_NOTES.map(n=>`<div class="wn"><b>${n.t}</b><span>${esc(n.d)}</span></div>`).join(""));
+
+panel("addbtn","addpanel",`
+  <div class="formrow"><div><label class="fl">시장</label>
+    <select id="f_mkt"><option>서울청과</option><option>동화청과</option></select></div>
+    <div><label class="fl">날짜</label><input type="text" id="f_date" placeholder="2026-08-26"></div></div>
+  <div class="formrow"><div><label class="fl">품목</label><input type="text" id="f_item" placeholder="청양고추"></div>
+    <div><label class="fl">생산자</label><input type="text" id="f_who" placeholder="홍길동"></div></div>
+  <div class="formrow"><div><label class="fl">단량</label><input type="text" id="f_unit" placeholder="10.0"></div>
+    <div><label class="fl">등급</label><input type="text" id="f_grade" placeholder="특"></div>
+    <div><label class="fl">번호</label><input type="text" id="f_no" placeholder="030104"></div></div>
+  <div class="formrow"><div><label class="fl">수량</label><input type="number" id="f_qty" placeholder="10"></div>
+    <div><label class="fl">단가</label><input type="number" id="f_price" placeholder="14000"></div></div>
+  <button class="bigbtn accent" id="f_add">목록에 추가</button>`);
+document.getElementById("f_add").onclick=()=>{
+  const v=id=>document.getElementById(id).value.trim();
+  if(!v("f_item")||!v("f_qty")){ alert("품목과 수량을 입력하세요."); return; }
+  const row={mkt:v("f_mkt"),date:v("f_date")||new Date().toISOString().slice(0,10),
+    no:v("f_no"),item:v("f_item"),who:v("f_who"),unit:v("f_unit"),grade:v("f_grade"),
+    qty:Number(v("f_qty")),price:Number(v("f_price")||0)};
+  row.id=lotKey(row);
+  const dup=state.lots.findIndex(x=>x.id===row.id);
+  if(dup>=0) state.lots[dup]=row; else state.lots.push(row);
+  ["f_item","f_who","f_no","f_qty","f_price"].forEach(i=>document.getElementById(i).value="");
+  save(); render();
+};
+/* ==================== 사진에서 낙찰내역 읽기 ==================== */
+let ocrWorker=null, revRows=[], revRaw="";
+const stat=t=>{const el=document.getElementById("ocrstat"); if(el)el.textContent=t;};
+function ocrBar(p){
+  const b=document.getElementById("ocrbar");
+  if(p==null){ b.classList.add("hidden"); return; }
+  b.classList.remove("hidden"); b.firstElementChild.style.width=Math.round(p*100)+"%";
+}
+
+async function getWorker(){
+  if(ocrWorker) return ocrWorker;
+  if(typeof Tesseract==="undefined")
+    throw new Error("인식 엔진을 내려받지 못했습니다. 와이파이에 연결한 뒤 다시 시도해 주세요.");
+  stat("인식 엔진을 준비하는 중입니다… 처음 한 번만 시간이 걸립니다.");
+  ocrWorker=await Tesseract.createWorker("kor+eng",1,{
+    logger:m=>{ if(m.status==="loading language traineddata"||m.status==="initializing tesseract") ocrBar(m.progress); }
+  });
+  await ocrWorker.setParameters({user_defined_dpi:"300"});
+  ocrBar(null);
+  return ocrWorker;
+}
+
+/* 확대 + 흑백 변환만 한다. 대비를 과하게 올리면 오히려 글자가 뭉개진다.
+   (검은 배경 화면도 인식기가 알아서 처리한다) */
+function prep(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const r=Math.min(2.4,Math.max(1,2200/img.width));
+      const c=document.createElement("canvas");
+      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
+      const g=c.getContext("2d");
+      g.imageSmoothingQuality="high";
+      g.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      const d=g.getImageData(0,0,c.width,c.height), a=d.data;
+      for(let i=0;i<a.length;i+=4) a[i]=a[i+1]=a[i+2]=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)|0;
+      g.putImageData(d,0,0);
+      res(c);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("사진을 열지 못했습니다."));};
+    img.src=url;
+  });
+}
+
+/* 동화청과 화면은 생산자 글씨가 작아 한 번에 잘 안 읽힌다.
+   생산자 열만 잘라 크게 키워 다시 읽고, 세로 위치로 각 줄에 붙인다. */
+async function producerPass(worker, canvas){
+  const W=canvas.width, L=Math.round(W*0.33), R=Math.round(W*0.53), w=R-L;
+  const s=Math.min(2.4, 900/w);
+  const c=document.createElement("canvas");
+  c.width=Math.round(w*s); c.height=Math.round(canvas.height*s);
+  c.getContext("2d").drawImage(canvas, L,0,w,canvas.height, 0,0,c.width,c.height);
+  await worker.setParameters({tessedit_pageseg_mode:"6"});
+  let names=[];
+  try{
+    const {data}=await worker.recognize(c,{},{text:true,blocks:true});
+    (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>{
+      const t=(l.text||"").replace(/[^가-힣]/g,"");
+      if(t.length>=2&&t.length<=6&&!/소계|합계|생산자/.test(t))
+        names.push({t, y:((l.bbox.y0+l.bbox.y1)/2)/s});
+    })));
+  }catch(e){}
+  await worker.setParameters({tessedit_pageseg_mode:"3"});
+  return names;
+}
+
+function flatWords(data){
+  const out=[];
+  (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>{
+    const t=(w.text||"").trim();
+    if(t) out.push({t,x0:w.bbox.x0,x1:w.bbox.x1,y:(w.bbox.y0+w.bbox.y1)/2,h:w.bbox.y1-w.bbox.y0});
+  }))));
+  return out.sort((a,b)=>a.y-b.y||a.x0-b.x0);
+}
+const num=t=>Number(String(t).replace(/[^\d]/g,""))||0;
+const isMoney=t=>/\d{1,3}(?:,\d{3})+/.test(t);        // '9,000 원' 처럼 붙어 있어도 인식
+const moneyVal=t=>{const m=String(t).match(/\d{1,3}(?:,\d{3})+/);return m?num(m[0]):0;};
+const isNo6=t=>/^\d{6}$/.test(t);
+const HAN=/^[가-힣]{2,6}[)\]]?$/;
+const GRADE=/^(특|상|중|하|[LMSXlmsx]{1,2})$/;
+
+function fixQty(monies,ocrQty){
+  if(monies.length>=2){
+    const p=monies[0],amt=monies[1];
+    if(p>0&&amt>=p){const q=amt/p,r=Math.round(q);
+      if(r>0&&r<10000&&Math.abs(q-r)<0.02) return {qty:r,price:p,sure:true};}
+  }
+  return {qty:ocrQty||0,price:monies[0]||0,sure:false};
+}
+
+/* 인식기가 한글을 낱자로 쪼개는 경우가 많다.
+   같은 줄에서 바짝 붙은 조각을 하나의 낱말로 되붙인다. */
+function mergeWords(words){
+  const lines=[];
+  words.slice().sort((a,b)=>a.y-b.y||a.x0-b.x0).forEach(w=>{
+    const L=lines.find(L=>Math.abs(L.y-w.y)<Math.max(8,w.h*0.55));
+    if(L){L.items.push(w);L.y=(L.y*L.n+w.y)/(L.n+1);L.n++;}
+    else lines.push({y:w.y,n:1,items:[w]});
+  });
+  const out=[];
+  lines.forEach(L=>{
+    L.items.sort((a,b)=>a.x0-b.x0);
+    let cur=null;
+    L.items.forEach(w=>{
+      if(cur&&w.x0-cur.x1<Math.max(6,cur.h*0.55)){cur.t+=w.t;cur.x1=w.x1;}
+      else{if(cur)out.push(cur);cur={t:w.t,x0:w.x0,x1:w.x1,y:L.y,h:w.h};}
+    });
+    if(cur)out.push(cur);
+  });
+  return out.sort((a,b)=>a.y-b.y||a.x0-b.x0);
+}
+
+/* 품목명 교정 — 낱글자 오인식이 많아 편집거리보다 핵심어 판별이 정확하다 */
+function cleanTxt(s){ return String(s||"").replace(/[\s_·.,:;'"`~^]/g,""); }
+
+function fixItem(raw, seoul){
+  const t=cleanTxt(raw);
+  if(!t) return "";
+  const P=x=>seoul?x[0]:x[1];
+  if(/파프리카|파프리|프리카|파프|프리/.test(t)){
+    if(/홍|빨|red/i.test(t)) return "홍파프리카";
+    if(/노랑|노란|황|yellow/i.test(t)) return "노랑파프리카";
+    if(/주황|오렌지/.test(t)) return "주황파프리카";
+    return "파프리카";
+  }
+  if(/피망|미망|피밍/.test(t)){
+    if(/홍|빨/.test(t)) return "홍피망";
+    if(/청|정/.test(t)) return "청피망";
+    return "피망";
+  }
+  if(/꽈리|까리|과리|꼬리|파리고추/.test(t))   return P(["꽈리고추","고추(꽈리)"]);
+  if(/아삭/.test(t))                          return P(["아삭이고추","고추(아삭이)"]);
+  if(/오이맛|오이/.test(t))                   return P(["오이맛고추","고추(오이맛)"]);
+  if(/녹광|녹괌|녹랑|록광/.test(t))            return P(["녹광고추","고추(녹광)"]);
+  if(/홍청양|청양홍/.test(t))                 return "홍청양";
+  if(/청양|정양|청앙/.test(t))                return P(["청양고추","고추(청양)"]);
+  if(/홍/.test(t)&&/고추|고주/.test(t))        return P(["홍고추","고추(홍)"]);
+  if(/버섯/.test(t)) return "버섯";
+  return t;
+}
+
+/* 생산자 이름 — 이미 등록된 이름과 한 글자 차이면 그 이름으로 맞춘다 */
+function dist(a,b){
+  const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
+  for(let j=0;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[m][n];
+}
+function fixWho(raw, known){
+  const t=cleanTxt(raw);
+  if(t.length<2||!known||!known.length) return t;
+  if(known.includes(t)) return t;
+  let best=null,bd=99,tie=0;
+  known.forEach(k=>{ if(Math.abs(k.length-t.length)>1) return;
+    const d=dist(t,k); if(d<bd){bd=d;best=k;tie=1;} else if(d===bd) tie++; });
+  return (bd<=1&&tie===1&&best)?best:t;
+}
+
+
+/* 품목을 못 읽은 줄 메우기
+   ① 같은 물품번호를 가진 줄에서 가져온다
+   ② 화면의 [○○ 소계] 구분선을 읽어 그 위 줄들에 적용한다
+   ③ 그래도 비면, 단위가 같은 바로 위·아래 줄에서 가져온다 (경매 화면은 품종끼리 붙어 있다) */
+function fillItems(rows, subtotals, seoul){
+  const N=r=>parseInt(String(r.no||"").replace(/\D/g,""),10);
+  rows.forEach(r=>{                                   // ① 같은 물품번호
+    if(r.item) return;
+    const same=rows.find(x=>x.item&&x.no&&r.no&&x.no===r.no);
+    if(same) r.item=same.item;
+  });
+  rows.forEach(r=>{                                   // ② 번호가 가장 가까운 같은 단위 줄
+    if(r.item) return;
+    const n=N(r); if(isNaN(n)) return;
+    let best=null,bd=Infinity;
+    rows.forEach(x=>{ if(!x.item||x.unit!==r.unit) return;
+      const d=Math.abs(N(x)-n); if(!isNaN(d)&&d<bd){bd=d;best=x;} });
+    if(best&&bd<20000) r.item=best.item;              // 같은 품종은 번호대가 붙어 있다
+  });
+  if(seoul&&subtotals.length){                        // ③ [○○ 소계] 구분선
+    rows.forEach(r=>{
+      if(r.item||r.y==null) return;
+      const blk=subtotals.find(s=>s.y>r.y);
+      if(blk&&blk.name) r.item=blk.name;
+    });
+  }
+  rows.forEach((r,i)=>{                               // ④ 바로 위·아래의 같은 단위 줄
+    if(r.item) return;
+    for(let d=1;d<rows.length;d++){
+      const up=rows[i-d], dn=rows[i+d];
+      if(up&&up.item&&up.unit===r.unit){ r.item=up.item; return; }
+      if(dn&&dn.item&&dn.unit===r.unit){ r.item=dn.item; return; }
+    }
+  });
+  return rows;
+}
+
+function parseAuction(rawWords,W,names){
+  const words=mergeWords(rawWords);
+  let six=words.filter(w=>isNo6(w.t));
+  if(six.length<2) return {rows:[],mkt:null};
+  const xs=six.map(w=>w.x0).slice().sort((a,b)=>a-b);
+  const medX=xs[Math.floor(xs.length/2)];
+  six=six.filter(w=>Math.abs(w.x0-medX)<W*0.07).sort((a,b)=>a.y-b.y);
+  const gs=six.slice(1).map((s,i)=>s.y-six[i].y).filter(g=>g>4).sort((a,b)=>a-b);
+  const gap=gs.length?gs[Math.floor(gs.length/2)]:60;
+  const seoul=medX>W*0.35;
+  const rows=[];
+  six.forEach(an=>{
+    const top=seoul?an.y-gap*0.85:an.y-gap*0.45;
+    const bot=seoul?an.y+gap*0.20:an.y+gap*0.45;
+    const band=words.filter(w=>w.y>top&&w.y<bot);
+    const txt=band.map(w=>w.t).join(" ");
+    if(/소계|합계/.test(txt))return;
+
+    const monies=band.filter(w=>isMoney(w.t)&&w.x0>W*0.55).sort((a,b)=>a.y-b.y).map(w=>moneyVal(w.t));
+    let unit=(txt.match(/단위\s*[:;.,]?\s*(\d+(?:\.\d+)?)/)||[])[1]
+          || (txt.match(/(\d+(?:\.\d+)?)\s*[KkGg][GgKk]/)||[])[1] || "";
+    if(!unit&&!seoul){const u=band.find(w=>/[Kk][Gg]/.test(w.t)); if(u) unit=(u.t.match(/[\d.]+/)||[""])[0];}
+    let grade=(txt.match(/등급\s*[:;.,]?\s*([가-힣A-Za-z]{1,2})/)||[])[1]||"";
+    if(!grade){const g=band.find(w=>GRADE.test(w.t)); if(g) grade=g.t;}
+    const qtyTxt=(txt.match(/수량\s*[:;.,]?\s*(\d+)/)||[])[1];
+    let qtyTok=0;
+    if(qtyTxt) qtyTok=Number(qtyTxt);
+    else{const c=band.filter(w=>/^\d{1,3}$/.test(w.t)&&w.x0>W*0.55&&w.x1<W*0.8);if(c.length)qtyTok=num(c[0].t);}
+
+    const hangul=band.filter(w=>HAN.test(w.t)&&!GRADE.test(w.t)&&!/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t));
+    let item="",who="";
+    if(seoul){
+      const left=hangul.filter(w=>w.x1<W*0.35).sort((a,b)=>a.y-b.y);
+      who=left[0]?left[0].t:""; item=left[1]?left[1].t:"";
+    }else{
+      const mid=hangul.filter(w=>w.x0>W*0.12&&w.x1<W*0.62).sort((a,b)=>a.x0-b.x0);
+      const col=band.filter(w=>w.x0>W*0.13&&w.x1<W*0.40).sort((a,b)=>a.x0-b.x0);
+      const joined=col.map(x=>x.t).join("").replace(/\s/g,"");
+      item=/고추|파프리카|피망|버섯|오이/.test(joined)?joined:(mid[0]?mid[0].t:"");
+      const dedup=t=>{const h=t.length/2;
+        return (t.length%2===0&&t.slice(0,h)===t.slice(h))?t.slice(0,h):t;};
+      const cand=band.filter(w=>w.x0>W*0.35&&w.x1<W*0.50)
+        .map(w=>dedup(w.t.replace(/[^가-힣]/g,"")))
+        .filter(t=>t.length>=2&&t.length<=6&&!/^(특|상|중|하)$/.test(t))
+        .sort((a,b)=>b.length-a.length);
+      who=cand[0]||(mid.find(w=>!/고추|파프리카|피망|버섯|오이/.test(w.t))||{t:""}).t;
+      if(names&&names.length){                      // 생산자 열을 다시 읽은 결과가 있으면 그것을 쓴다
+        const hit=names.find(n=>n.y>top&&n.y<bot);
+        if(hit) who=hit.t;
+      }
+    }
+    const q=fixQty(monies,qtyTok);
+    if(!q.price&&!q.qty&&!item&&!who)return;
+    const known=(state.lots||[]).map(l=>l.who).filter(Boolean);
+    rows.push({no:an.t,item:fixItem(item,seoul),who:fixWho(who,known),
+      unit,grade,qty:q.qty,price:q.price,sure:q.sure,y:an.y});
+  });
+  /* [○○ 소계] 구분선 읽기 */
+  const subs=[];
+  words.filter(w=>/소계/.test(w.t)).forEach(w=>{
+    const line=words.filter(x=>Math.abs(x.y-w.y)<Math.max(10,w.h*0.7)).sort((a,b)=>a.x0-b.x0)
+      .map(x=>x.t).join("");
+    const nm=(line.match(/([가-힣]{2,10})\s*소계/)||[])[1];
+    if(nm) subs.push({y:w.y,name:fixItem(nm,seoul)});
+  });
+  subs.sort((a,b)=>a.y-b.y);
+  fillItems(rows,subs,seoul);
+  rows.forEach(r=>{ delete r.y; });
+  return {rows,mkt:seoul?"서울청과":"동화청과"};
+}
+
+function detectDate(text){
+  let m=text.match(/(20\d{2})\s*[년\-.]\s*(\d{1,2})\s*[월\-.]\s*(\d{1,2})/);
+  if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+  return new Date().toISOString().slice(0,10);
+}
+
+let openLotNote=null;
+let clearArm=false;
+document.getElementById("clearlots").onclick=function(){
+  if(!clearArm){
+    clearArm=true; this.textContent="정말 지울까요? 한 번 더 누르세요 (전원 공통)";
+    this.classList.add("danger");
+    setTimeout(()=>{ clearArm=false; this.textContent="🗑 낙찰 내역 전체 삭제"; this.classList.remove("danger"); },5000);
+    return;
+  }
+  clearArm=false; this.textContent="🗑 낙찰 내역 전체 삭제"; this.classList.remove("danger");
+  state.lots=[]; state.got={}; save(); render();
+  pushOp({t:"clearlots"});
+  stat("낙찰 내역을 모두 지웠습니다. 상차 체크는 그대로입니다.");
+};
+
+document.getElementById("ocrbtn").onclick=()=>document.getElementById("ocrinput").click();
+document.getElementById("engbtn").onclick=async()=>{
+  try{ await getWorker(); stat("✅ 인식 엔진 준비 완료. 이제 오프라인에서도 사진을 읽을 수 있습니다."); }
+  catch(e){ stat("⚠ "+e.message); }
+};
+
+document.getElementById("ocrinput").onchange=async e=>{
+  const files=[...e.target.files]; e.target.value="";
+  if(!files.length)return;
+  let all=[], raw="", mkt="서울청과", date="";
+  try{
+    const w=await getWorker();
+    for(let i=0;i<files.length;i++){
+      stat(`사진 ${i+1}/${files.length} 인식 중… 20초쯤 걸립니다.`);
+      ocrBar((i+0.2)/files.length);
+      const canvas=await prep(files[i]);
+      const {data}=await w.recognize(canvas,{},{text:true,blocks:true});
+      raw+=(data.text||"")+"\n";
+      const dw=/원표|경락단가|낙찰내역|동화/.test(data.text||"");
+      let names=null;
+      if(dw){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
+      const r=parseAuction(flatWords(data),canvas.width,names);
+      if(r.mkt) mkt=r.mkt;
+      all=all.concat(r.rows);
+      if(!date) date=detectDate(data.text||"");
+      ocrBar((i+1)/files.length);
+    }
+  }catch(err){ ocrBar(null); stat("⚠ "+err.message); return; }
+  ocrBar(null);
+  if(!all.length){
+    stat("표를 찾지 못했습니다. 아래 원문을 확인하시고, 필요하면 직접 추가로 넣어주세요.");
+    openReview([],mkt,date||new Date().toISOString().slice(0,10),raw);
+    document.getElementById("rev_rawtext").classList.remove("hidden");
+    return;
+  }
+  stat(`${all.length}줄을 읽었습니다. 확인 화면에서 검토해 주세요.`);
+  openReview(all,mkt,date,raw);
+};
+
+/* ---------- 확인 화면 ---------- */
+function openReview(rows,mkt,date,raw){
+  revRows=rows; revRaw=raw;
+  document.getElementById("rev_mkt").value=mkt;
+  document.getElementById("rev_date").value=date;
+  document.getElementById("rev_rawtext").textContent=raw;
+  document.getElementById("rev_rawtext").classList.add("hidden");
+  drawReview();
+  document.getElementById("review").classList.remove("hidden");
+}
+function drawReview(){
+  const box=document.getElementById("rev_rows");
+  box.innerHTML=revRows.map((r,i)=>`<div class="revrow ${r.sure?"":"unsure"}" data-i="${i}">
+      <div class="rev1">
+        <input class="f-item" value="${esc(r.item)}" data-k="item" placeholder="품목">
+        <input class="f-who" value="${esc(r.who)}" data-k="who" placeholder="생산자">
+        <button class="del" data-del-row="${i}">✕</button>
+      </div>
+      <div class="rev2">
+        <label>단량<input value="${esc(r.unit)}" data-k="unit"></label>
+        <label>등급<input value="${esc(r.grade)}" data-k="grade"></label>
+        <label>수량<input value="${r.qty}" data-k="qty" inputmode="numeric"></label>
+        <label>단가<input value="${r.price}" data-k="price" inputmode="numeric"></label>
+      </div>
+    </div>`).join("");
+  const bad=revRows.filter(r=>!r.sure).length;
+  document.getElementById("rev_msg").textContent = !revRows.length ? "읽어낸 줄이 없습니다."
+    : bad ? `${revRows.length}줄 중 ${bad}줄은 단가·금액 검산이 맞지 않습니다(붉은 줄). 수량과 단가를 원본과 대조해 주세요.`
+          : `${revRows.length}줄 모두 단가 × 수량 = 금액 검산을 통과했습니다. 품목·생산자만 확인해 주세요.`;
+}
+document.getElementById("rev_rows").addEventListener("input",e=>{
+  const inp=e.target.closest("input[data-k]"); if(!inp)return;
+  const i=+inp.closest(".revrow").dataset.i, k=inp.dataset.k;
+  revRows[i][k]=(k==="qty"||k==="price")?num(inp.value):inp.value;
+});
+document.getElementById("rev_rows").addEventListener("click",e=>{
+  const b=e.target.closest("[data-del-row]"); if(!b)return;
+  revRows.splice(+b.dataset.delRow,1); drawReview();
+});
+let revClearArm=false;
+document.getElementById("rev_clear").onclick=function(){
+  if(!revRows.length){ document.getElementById("review").classList.add("hidden"); return; }
+  if(!revClearArm){
+    revClearArm=true; this.textContent="한 번 더";
+    setTimeout(()=>{ revClearArm=false; this.textContent="전부 지우기"; },4000);
+    return;
+  }
+  revClearArm=false; this.textContent="전부 지우기";
+  revRows=[]; drawReview();
+  document.getElementById("rev_msg").textContent="읽어온 내용을 모두 지웠습니다. 닫고 사진을 다시 읽어오시면 됩니다.";
+};
+
+document.getElementById("rev_raw").onclick=()=>document.getElementById("rev_rawtext").classList.toggle("hidden");
+document.getElementById("rev_close").onclick=()=>document.getElementById("review").classList.add("hidden");
+document.getElementById("rev_add").onclick=()=>{
+  const mkt=document.getElementById("rev_mkt").value;
+  const date=document.getElementById("rev_date").value.trim()||new Date().toISOString().slice(0,10);
+  const rows=[];
+  revRows.forEach(r=>{
+    if(!r.item&&!r.who&&!r.price)return;
+    const row=Object.assign({mkt,date},r); row.id=lotKey(row); delete row.sure;
+    rows.push(row);
+  });
+  if(!rows.length){ document.getElementById("review").classList.add("hidden");
+    stat("넣을 줄이 없어 그냥 닫았습니다."); return; }
+  pushOp({t:"lots",rows});
+  document.getElementById("review").classList.add("hidden");
+  stat(serverUrl ? `${rows.length}줄을 넣었습니다. 다른 사람 화면에도 곧 나타납니다.`
+                 : `${rows.length}줄을 목록에 넣었습니다.`);
+};
+
+/* ==================== 공유 서버 연결 ==================== */
+const UKEY="seowon-user", SKEY="seowon-server";
+let me=localStorage.getItem(UKEY)||"";
+let serverUrl=localStorage.getItem(SKEY)|| (location.protocol.startsWith("http")?location.origin:"");
+let online=false, pending=[], liveLog=[], es=null;
+try{ pending=JSON.parse(localStorage.getItem("seowon-pending")||"[]"); }catch(e){ pending=[]; }
+
+const savePending=()=>{ try{ localStorage.setItem("seowon-pending",JSON.stringify(pending)); }catch(e){} };
+function setConn(ok,txt){
+  online=ok;
+  const el=document.getElementById("connstat");
+  if(el){ el.textContent=txt||(ok?"● 연결됨":"○ 오프라인"); el.className="conn "+(ok?"on":"off"); }
+}
+const ago=t=>{
+  const s=Math.floor((Date.now()-t)/1000);
+  if(s<60)return "방금";
+  if(s<3600)return Math.floor(s/60)+"분 전";
+  return new Date(t).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+};
+
+/* 서버 상태를 화면 상태로 옮긴다 */
+function applyServer(sv){
+  state.lots=Object.values(sv.lots||{});
+  state.got={}; Object.keys(sv.got||{}).forEach(k=>state.got[k]=sv.got[k].n);
+  state.stampGot=sv.got||{};
+  state.done={}; state.stampCar=sv.cars||{};
+  Object.keys(sv.cars||{}).forEach(k=>state.done[k]=true);
+  state.notes={}; state.stampNote=sv.notes||{};
+  Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
+  state.lotnotes=sv.lotnotes||{};
+  state.shared=(sv.photos||[]).map(p=>Object.assign({},p,{url:serverUrl+"/photos/"+p.id+".jpg"}));
+  liveLog=sv.log||[];
+  pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
+  save(); render();
+}
+function localEcho(op){
+  if(op.t==="got") state.got[op.id]=op.n;
+  if(op.t==="car"){ if(op.done) state.done[op.id]=true; else delete state.done[op.id]; }
+  if(op.t==="note"){ if(op.text) state.notes[op.id]=op.text; else delete state.notes[op.id]; }
+  if(op.t==="lotnote"){
+    state.lotnotes=state.lotnotes||{};
+    if(op.text) state.lotnotes[op.id]={text:op.text,by:me||"나",at:Date.now()};
+    else delete state.lotnotes[op.id];
+  }
+  if(op.t==="lots"){                       // 서버가 없어도 내 화면에는 바로 들어가야 한다
+    (op.rows||[]).forEach(r=>{
+      const i=state.lots.findIndex(x=>x.id===r.id);
+      if(i>=0) state.lots[i]=Object.assign({},state.lots[i],r);
+      else state.lots.push(Object.assign({addedBy:me||"나",addedAt:Date.now()},r));
+      if(state.got[r.id]>r.qty) state.got[r.id]=r.qty;
+    });
+  }
+  if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; }
+  if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; }
+}
+
+function connect(){
+  if(!serverUrl){ setConn(false,"서버 미설정"); return; }
+  if(es) try{ es.close(); }catch(e){}
+  setConn(false,"연결 중");
+  es=new EventSource(serverUrl+"/api/stream");
+  es.onopen=()=>{ setConn(true); flush(); };
+  es.onmessage=e=>{ try{ applyServer(JSON.parse(e.data)); setConn(true); }catch(err){} };
+  es.onerror=()=>{ setConn(false); };
+}
+
+async function flush(){
+  if(!serverUrl||!pending.length) return;
+  const batch=pending.slice();
+  try{
+    const r=await fetch(serverUrl+"/api/op",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({user:me,ops:batch})});
+    if(!r.ok) throw new Error();
+    pending=pending.slice(batch.length); savePending(); setConn(true);
+  }catch(e){ setConn(false); }
+}
+function pushOp(op){
+  localEcho(op); save(); render();
+  if(!serverUrl) return;                   // 서버를 안 쓰면 이 폰에만 저장된다
+  pending.push(op); savePending(); flush();
+}
+setInterval(()=>{ if(pending.length) flush(); },4000);
+window.addEventListener("online",()=>{ flush(); connect(); });
+
+/* ---------- 이름 고르기 ---------- */
+function openPick(){
+  const box=document.getElementById("pickbtns");
+  box.innerHTML=["A","B","C"].map(n=>`<button class="pickbtn ${me===n?"on":""}" data-n="${n}">${n}</button>`).join("");
+  document.getElementById("pickcustom").value=(["A","B","C"].includes(me)?"":me);
+  document.getElementById("pickserver").value=localStorage.getItem(SKEY)||"";
+  document.getElementById("pick").classList.remove("hidden");
+}
+document.getElementById("pickbtns").addEventListener("click",e=>{
+  const b=e.target.closest("[data-n]"); if(!b)return;
+  me=b.dataset.n; document.getElementById("pickcustom").value="";
+  document.querySelectorAll("#pickbtns .pickbtn").forEach(x=>x.classList.toggle("on",x.dataset.n===me));
+});
+document.getElementById("pickok").onclick=()=>{
+  const custom=document.getElementById("pickcustom").value.trim();
+  if(custom) me=custom.slice(0,12);
+  if(!me){ alert("이름을 고르거나 입력해 주세요."); return; }
+  const sv=document.getElementById("pickserver").value.trim().replace(/\/$/,"");
+  if(sv){ serverUrl=sv; localStorage.setItem(SKEY,sv); }
+  localStorage.setItem(UKEY,me);
+  document.getElementById("mename").textContent=me;
+  document.getElementById("pick").classList.add("hidden");
+  connect();
+};
+document.getElementById("mename").onclick=openPick;
+document.getElementById("connstat").onclick=openPick;
+
+document.getElementById("mename").textContent=me||"이름";
+if(!me) openPick(); else connect();
+
+render(); renderFooter();
+</script>
+</body>
+</html>

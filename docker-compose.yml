@@ -1,0 +1,11 @@
+services:
+  seowon:
+    build: .
+    container_name: seowon-check
+    restart: always          # 서버가 재부팅돼도 자동으로 다시 켜진다
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data.json:/app/data.json
+      - ./photos:/app/photos
+      - ./backup:/app/backup

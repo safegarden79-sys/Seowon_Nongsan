@@ -1,0 +1,7 @@
+# 서버가 스스로 만드는 자료 — 저장소에 올리지 않는다
+data.json
+data.json.tmp
+photos/
+backup/
+node_modules/
+*.log

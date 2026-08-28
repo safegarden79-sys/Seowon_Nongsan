@@ -1,0 +1,12 @@
+# Render 배포 설정 (Blueprint)
+# 대시보드에서 손으로 만들 때는 이 값들을 그대로 넣으면 된다.
+services:
+  - type: web
+    name: seowon-check
+    runtime: node
+    plan: free
+    region: singapore        # 한국에서 가장 가까운 지역
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
