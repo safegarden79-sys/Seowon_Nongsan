@@ -2,9 +2,10 @@
    외부 라이브러리 없이 Node 만으로 동작한다.  실행:  node server.js
    기본 포트 3000. 환경변수 PORT 로 변경 가능. */
 
-const http = require("http");
-const fs   = require("fs");
-const path = require("path");
+const http   = require("http");
+const fs     = require("fs");
+const path   = require("path");
+const crypto = require("crypto");
 
 const ROOT   = __dirname;
 const DATA   = path.join(ROOT, "data.json");
@@ -13,6 +14,16 @@ const PORT   = process.env.PORT || 3000;
 const MAX_PHOTOS = 60;
 
 if (!fs.existsSync(PHOTOS)) fs.mkdirSync(PHOTOS, { recursive: true });
+
+/* 화면 파일이 바뀌면 이 값이 달라진다. 접속자에게 함께 내려보내서
+   새 판이 올라오면 각자 폰이 스스로 받아 적용하게 한다. */
+const BUILD = (() => {
+  const h = crypto.createHash("sha1");
+  for (const f of ["index.html", "sw.js"]) {
+    try { h.update(fs.readFileSync(path.join(ROOT, f))); } catch (e) {}
+  }
+  return h.digest("hex").slice(0, 8);
+})();
 
 /* ---------- 상태 ---------- */
 let state = { version: 0, lots: {}, got: {}, cars: {}, notes: {}, lotnotes: {}, photos: [], log: [], workday: today() };
@@ -37,8 +48,9 @@ function persist() {
 
 /* ---------- 접속자에게 밀어주기 (SSE) ---------- */
 const clients = new Set();
+const payload = () => Object.assign({ build: BUILD }, state);   // 판 번호를 얹어 보낸다
 function broadcast() {
-  const msg = "data: " + JSON.stringify(state) + "\n\n";
+  const msg = "data: " + JSON.stringify(payload()) + "\n\n";
   for (const res of clients) { try { res.write(msg); } catch (e) { clients.delete(res); } }
 }
 function bump(by, text) {
@@ -156,13 +168,13 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
-    return res.end(JSON.stringify({ ok: true, version: state.version, 접속자: clients.size,
+    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 접속자: clients.size,
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 가동초: Math.round(process.uptime()) }));
   }
 
   if (u.pathname === "/api/state") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
-    return res.end(JSON.stringify(state));
+    return res.end(JSON.stringify(payload()));
   }
 
   if (u.pathname === "/api/stream") {
@@ -173,7 +185,7 @@ const server = http.createServer((req, res) => {
       "X-Accel-Buffering": "no"
     });
     res.write("retry: 3000\n\n");
-    res.write("data: " + JSON.stringify(state) + "\n\n");
+    res.write("data: " + JSON.stringify(payload()) + "\n\n");
     clients.add(res);
     const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
     req.on("close", () => { clearInterval(ping); clients.delete(res); });
@@ -199,7 +211,10 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname.startsWith("/photos/")) {
     const f = path.join(PHOTOS, path.basename(u.pathname));
-    if (fs.existsSync(f)) { res.writeHead(200, { "Content-Type": "image/jpeg" }); return fs.createReadStream(f).pipe(res); }
+    if (fs.existsSync(f)) {                        // 사진 이름은 한 번 정해지면 안 바뀐다 — 오래 담아둬도 된다
+      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=31536000, immutable" });
+      return fs.createReadStream(f).pipe(res);
+    }
     res.writeHead(404); return res.end();
   }
 
@@ -207,7 +222,12 @@ const server = http.createServer((req, res) => {
   let name = u.pathname === "/" ? "/index.html" : u.pathname;
   const file = path.join(ROOT, path.normalize(name).replace(/^(\.\.[/\\])+/, ""));
   if (fs.existsSync(file) && fs.statSync(file).isFile()) {
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
+    /* 화면·스크립트는 늘 서버에 다시 물어보게 한다. 그래야 새 판이 바로 내려간다. */
+    const fresh = /\.(html|js|webmanifest)$/i.test(file);
+    res.writeHead(200, {
+      "Content-Type": TYPES[path.extname(file)] || "application/octet-stream",
+      "Cache-Control": fresh ? "no-cache" : "public, max-age=86400"
+    });
     return fs.createReadStream(file).pipe(res);
   }
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -236,6 +256,6 @@ process.on("uncaughtException", e => { console.error("오류:", e.message); pers
 process.on("unhandledRejection", e => console.error("오류:", e));
 
 server.listen(PORT, () => {
-  console.log(`서원농산 공유 서버 실행 중 — 포트 ${PORT}`);
+  console.log(`서원농산 공유 서버 실행 중 — 포트 ${PORT} · 화면 판 ${BUILD}`);
   console.log(`작업일 ${state.workday} · 낙찰 ${Object.keys(state.lots).length}줄 · 접속자에게 실시간 전달`);
 });

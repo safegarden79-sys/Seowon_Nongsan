@@ -205,6 +205,9 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .fbtn.red{background:var(--hot);border-color:var(--hot);color:#2A1616}
 .hidden{display:none!important}
+.updbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:90;padding:12px 14px;
+  border-radius:12px;background:var(--warn);color:#2A2116;font-size:13px;font-weight:700;
+  text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.45)}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brand{flex:1}
 .who{font-size:12px;font-weight:700;color:#2A2116;background:var(--warn);border-radius:99px;padding:4px 10px;white-space:nowrap}
@@ -293,6 +296,8 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
 </footer>
 
 <div id="lightbox" class="lightbox hidden"><img id="lbimg" alt=""></div>
+
+<div id="updbar" class="updbar hidden">새 판이 올라왔습니다 · 눌러서 지금 적용</div>
 
 <div id="pick" class="modal hidden">
   <div class="sheet">
@@ -1327,7 +1332,43 @@ function applyServer(sv){
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   save(); render();
+  checkBuild(sv.build);
 }
+
+/* ---------- 새 판 자동 적용 ----------
+   서버가 화면 파일이 바뀔 때마다 다른 판 번호를 함께 내려보낸다.
+   내가 켤 때 받은 번호와 달라지면 새로 올라온 것이니 스스로 받아 적용한다.
+   다만 손대는 중에 화면이 튀면 안 되므로, 무언가 열려 있거나 아직 서버에
+   못 보낸 조작이 남아 있으면 끝날 때까지 기다렸다가 적용한다. */
+let myBuild=null, waitingBuild=null, buildTimer=null;
+
+function busyNow(){
+  if(pending.length) return true;                       // 아직 못 보낸 조작이 있다
+  const open=id=>{const el=document.getElementById(id); return !!el&&!el.classList.contains("hidden");};
+  if(open("review")||open("pick")||open("lightbox")) return true;
+  const a=document.activeElement;
+  return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+
+function checkBuild(b){
+  if(!b) return;
+  if(!myBuild){ myBuild=b; return; }                    // 켤 때 받은 번호를 기준으로 삼는다
+  if(b===myBuild||b===waitingBuild) return;
+  waitingBuild=b;
+  applyNewBuild();
+}
+
+function applyNewBuild(){
+  if(!waitingBuild) return;
+  if(busyNow()){
+    document.getElementById("updbar").classList.remove("hidden");
+    clearTimeout(buildTimer);
+    buildTimer=setTimeout(applyNewBuild,3000);          // 손을 뗄 때까지 기다린다
+    return;
+  }
+  location.reload();
+}
+document.getElementById("updbar").onclick=()=>location.reload();
 function localEcho(op){
   if(op.t==="got") state.got[op.id]=op.n;
   if(op.t==="car"){ if(op.done) state.done[op.id]=true; else delete state.done[op.id]; }
