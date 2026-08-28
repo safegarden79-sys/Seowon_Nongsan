@@ -8,11 +8,17 @@ const path   = require("path");
 const crypto = require("crypto");
 
 const ROOT   = __dirname;
-const DATA   = path.join(ROOT, "data.json");
-const PHOTOS = path.join(ROOT, "photos");
+/* 자료를 어디에 둘지. Render 에 유료 디스크를 붙이면 그 경로를 DATA_DIR 로 준다.
+   (예: DATA_DIR=/var/data) 그러면 다시 배포해도 자료가 살아남는다.
+   주지 않으면 지금까지처럼 프로그램 폴더에 둔다. */
+const DIR    = process.env.DATA_DIR || ROOT;
+const DATA   = path.join(DIR, "data.json");
+const PHOTOS = path.join(DIR, "photos");
+const BACKUP = path.join(DIR, "backup");
 const PORT   = process.env.PORT || 3000;
 const MAX_PHOTOS = 60;
 
+if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
 if (!fs.existsSync(PHOTOS)) fs.mkdirSync(PHOTOS, { recursive: true });
 
 /* 화면 파일이 바뀌면 이 값이 달라진다. 접속자에게 함께 내려보내서
@@ -239,7 +245,6 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
 }
 
 /* 하루 한 번 자료를 백업해 둔다 (최근 14개 보관) */
-const BACKUP = path.join(ROOT, "backup");
 function backup() {
   try {
     if (!fs.existsSync(BACKUP)) fs.mkdirSync(BACKUP, { recursive: true });

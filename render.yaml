@@ -10,3 +10,12 @@ services:
     startCommand: node server.js
     healthCheckPath: /api/health
     autoDeploy: true
+    # 자료를 배포 후에도 남기려면 Starter 이상으로 올리고 디스크를 붙인 뒤,
+    # 환경변수 DATA_DIR 를 디스크 경로로 지정한다. (무료 플랜에는 디스크를 붙일 수 없다)
+    #   disk:
+    #     name: seowon-data
+    #     mountPath: /var/data
+    #     sizeGB: 1
+    #   envVars:
+    #     - key: DATA_DIR
+    #       value: /var/data

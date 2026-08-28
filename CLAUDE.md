@@ -9,7 +9,7 @@
 |---|---|
 | `server.js` | 공유 서버. 외부 라이브러리 없음(Node 기본 모듈만). SSE 로 실시간 전달 |
 | `index.html` | 앱 화면 전체. OCR(Tesseract.js CDN), 오프라인 대기열 포함 |
-| `sw.js` | 서비스워커. 오프라인 사용 |
+| `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다 |
 | `data.json` | 서버가 자동 생성/갱신. 낙찰·체크·메모·사진목록 |
 | `photos/` | 공유된 경매 화면 사진 |
 | `backup/` | 6시간마다 자동 백업 (최근 14개) |
@@ -19,6 +19,7 @@
 ```bash
 node server.js            # 기본 포트 3000
 PORT=8080 node server.js  # 포트 변경
+DATA_DIR=/var/data node server.js   # 자료를 다른 곳(유료 디스크 등)에 둘 때
 ```
 
 ## 24시간 구동

@@ -1449,6 +1449,16 @@ document.getElementById("mename").textContent=me||"이름";
 if(!me) openPick(); else connect();
 
 render(); renderFooter();
+
+/* 오프라인 대비 — 한 번 열어두면 신호가 약해도 화면은 뜬다.
+   담아두기 규칙은 sw.js 에 있다. 화면은 서버 우선이라 새 판이 늦게 오는 일은 없다. */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      setInterval(()=>{ try{ reg.update(); }catch(e){} }, 30*60e3);
+    }).catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
