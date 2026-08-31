@@ -1264,17 +1264,20 @@ document.getElementById("ocrinput").onchange=async e=>{
   let all=[], raw="", mkt="서울청과", date="";
   ocrRunning=true;
   let w=null;                                // 폰에서 읽어야 할 때만 인식 엔진을 내려받는다
-  let 폰으로읽음=0;
+  let 폰으로읽음=0, 서버포기=null;
   try{
     for(let i=0;i<files.length;i++){
       ocrBar((i+0.2)/files.length);
       let words=null, text="", W=0, names=null, shot=null;
 
-      /* 서버(구글)가 읽어주면 훨씬 정확하고 빠르다 */
-      if(serverVision&&serverUrl){
+      /* 서버(구글)가 읽어주면 훨씬 정확하고 빠르다.
+         한 번 실패하면 남은 사진은 곧바로 폰에서 읽는다. 열쇠나 결제 문제라면
+         장마다 헛걸음할 뿐이고, 그만큼 늦어지기 때문이다. */
+      if(serverVision&&serverUrl&&!서버포기){
         stat(`사진 ${i+1}/${files.length} 인식 중… 몇 초 걸립니다.`);
         try{ ({words,text,W}=await readByServer(files[i])); }
-        catch(err){ words=null; stat(`서버 인식이 안 됩니다(${err.message}). 이 폰에서 읽습니다.`); }
+        catch(err){ words=null; 서버포기=err.message;
+          stat(`서버 인식이 안 됩니다(${err.message}). 이 폰에서 읽습니다.`); }
       }
 
       /* 서버를 못 쓰면 예전처럼 이 폰에서 읽는다 (신호가 없을 때도 이쪽으로 온다) */
@@ -1335,7 +1338,7 @@ document.getElementById("ocrinput").onchange=async e=>{
   stat(`${내역} 넣었습니다.`
     + (이미있음 ? ` 이미 있던 ${이미있음}줄은 그대로 두었습니다.` : "")
     + (품목없음 ? ` 품목을 못 읽은 ${품목없음}줄은 목록에 노란 '품목?' 로 표시됩니다.` : "")
-    + (폰으로읽음 ? ` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다.)` : ""));
+    + (폰으로읽음 ? ` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다${서버포기?` — ${서버포기}`:""}.)` : ""));
 };
 
 /* ---------- 확인 화면 ---------- */
