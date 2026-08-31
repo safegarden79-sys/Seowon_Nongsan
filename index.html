@@ -136,25 +136,42 @@ section{margin-bottom:20px}
 .kindname{font-size:13px;font-weight:800;color:var(--text)}
 .kindsum{font-size:11px;color:#E3C87A;flex:1}
 .lhead,.lrow{display:grid;align-items:center;
-  grid-template-columns:18px minmax(0,1.45fr) 46px minmax(0,1fr) 30px 26px 28px minmax(56px,auto) 20px;
-  gap:4px}
+  /* 숫자 칸은 들어갈 만큼만 주고 남는 자리를 품목·생산자에 몰아준다.
+     좁은 안드로이드 화면(360px)에서도 글자가 잘리지 않게 하기 위함이다. */
+  grid-template-columns:16px minmax(0,1.5fr) 40px minmax(0,1.05fr) 26px 16px 24px minmax(50px,auto) 18px;
+  gap:3px}
 .lhead{font-size:9px;color:var(--dim);padding:0 6px 3px;letter-spacing:-.02em}
 .lhead span{text-align:center;overflow:hidden}
 .lhead .c-item,.lhead .c-who{text-align:left}
 .lhead .c-qty,.lhead .c-amt{text-align:right}
 .card.lotrow{border-radius:10px;margin-bottom:4px}
-.lrow{padding:9px 6px;font-size:12px;line-height:1.2}
+.lrow{padding:9px 5px;font-size:12px;line-height:1.25}
 .lrow>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
-.lbox{width:18px;height:18px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;
+/* 품목과 생산자는 자르지 않는다. 자리가 모자라면 줄을 접어서라도 다 보여준다.
+   '고추(오이맛)' 처럼 띄어쓰기가 없는 이름도 접히도록 anywhere 를 함께 준다. */
+.lrow>.c-item,.lrow>.c-who{white-space:normal;text-overflow:clip;
+  word-break:keep-all;overflow-wrap:anywhere}
+/* 아주 좁은 화면(320px 같은 옛 기기)에서는 숫자 칸을 한 번 더 줄여
+   품목·생산자가 한 줄에 들어가게 한다. */
+@media (max-width:360px){
+  .lhead,.lrow{grid-template-columns:15px minmax(0,1.5fr) 36px minmax(0,1.05fr) 22px 14px 22px minmax(44px,auto) 16px;
+    gap:2px}
+  .lrow{padding:9px 3px;font-size:11.5px}
+  .lhead{padding:0 3px 3px}
+  .c-no,.c-amt{font-size:9px}
+  .lbox{width:15px;height:15px}
+}
+.lbox{width:16px;height:16px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;
   align-items:center;justify-content:center;font-size:11px;font-weight:900;color:transparent}
 .card.lotrow.done .lbox{background:var(--ok);border-color:var(--ok);color:#1E2A20}
 .c-item{text-align:left!important;font-weight:800;color:var(--text)}
-.c-no{font-size:11px;color:#8FC7E8}
+.c-noitem{color:var(--warn)}                 /* 품목을 못 읽은 줄 — 직접 채워야 한다 */
+.c-no{font-size:10px;color:#8FC7E8;letter-spacing:-.03em}
 .c-who{text-align:left!important;color:var(--text);opacity:.9}
 .c-unit,.c-grade{color:var(--muted)}
 .c-grade{font-weight:700;color:#F0BE72}
 .c-qty{text-align:right!important;font-weight:800;color:var(--text)}
-.c-amt{text-align:right!important;color:var(--muted);font-size:11px}
+.c-amt{text-align:right!important;color:var(--muted);font-size:10px;letter-spacing:-.03em}
 .c-add{background:none;border:0;color:var(--warn);font-size:16px;font-weight:700;padding:0;line-height:1}
 .card.lotrow.done .c-item,.card.lotrow.done .c-qty{color:var(--dim)}
 .card.lotrow.done .lrow{opacity:.72}
@@ -458,7 +475,11 @@ const SEED_LOTS=[];
    같은 내용의 낙찰 줄은 언제 다시 불러와도 같은 id를 갖게 한다.
    → 목록을 새로 받아도 세어둔 박스 수가 그대로 따라붙는다. */
 function lotKey(l){
-  return "K|"+[l.mkt,l.date,l.no,l.item,l.who,l.unit,l.grade].map(x=>String(x??"").trim()).join("|");
+  /* 같은 낙찰을 다시 읽어도 같은 줄로 알아보게 하는 열쇠.
+     품목·생산자·등급은 인식이 자주 틀린다(실측: 같은 사람이 "박지혜"와 "박지"로 읽혔다).
+     수량과 단가는 거래금액 ÷ 단가 검산을 통과한 값이라 가장 믿을 만하다.
+     실제 19줄로 확인했을 때 이 조합만으로 모두 구분된다. */
+  return "K|"+[l.mkt,l.date,l.no,l.qty,l.price].map(x=>String(x??"").trim()).join("|");
 }
 function withKeys(arr){
   const seen={};
@@ -559,7 +580,7 @@ function lotCard(l){
   return `<div class="card lotrow ${d?"done":""}" data-id="${l.id}">
     <div class="lrow" data-act="lottoggle">
       <span class="lbox">${d?"✓":""}</span>
-      <span class="c-item">${esc(l.item||"-")}</span>
+      <span class="c-item${l.item?"":" c-noitem"}">${esc(l.item||"품목?")}</span>
       <span class="c-no mono">${esc(l.no||"")}</span>
       <span class="c-who">${esc(l.who||"-")}</span>
       <span class="c-unit tnum">${esc(String(l.unit||"").replace(/[Kk][Gg]/,""))}</span>
@@ -1285,8 +1306,36 @@ document.getElementById("ocrinput").onchange=async e=>{
     document.getElementById("rev_rawtext").classList.remove("hidden");
     return;
   }
-  stat(`${all.length}줄을 읽었습니다.${폰으로읽음?` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다)`:""} 확인 화면에서 검토해 주세요.`);
-  openReview(all,mkt,date,raw);
+
+  /* 검수 없이 바로 목록에 넣는다.
+     다시 올렸을 때는 시장별로 이미 있는 줄과 견주어 새 줄만 더한다.
+     이미 있는 줄은 손대지 않는다 — 챙긴 박스 수·주석이 그대로 남아야 한다. */
+  const 날짜 = date || new Date().toISOString().slice(0,10);
+  const 있는것 = new Set((state.lots||[]).map(l=>l.id));
+  const 넣을것 = [], 시장별 = {};
+  let 이미있음 = 0, 품목없음 = 0;
+  all.forEach(r=>{
+    if(!r.item && !r.who && !r.price) return;              // 아무것도 못 읽은 줄은 버린다
+    const row = Object.assign({date:날짜}, r, {mkt:r.mkt||mkt});
+    delete row.sure; delete row.y;
+    row.id = lotKey(row);
+    if(있는것.has(row.id)){ 이미있음++; return; }           // 같은 줄 — 그대로 둔다
+    있는것.add(row.id);                                    // 한 번에 올린 사진끼리 겹치는 것도 막는다
+    시장별[row.mkt] = (시장별[row.mkt]||0) + 1;
+    if(!row.item) 품목없음++;
+    넣을것.push(row);
+  });
+
+  if(!넣을것.length){
+    stat(`새로 넣을 줄이 없습니다. 읽은 ${all.length}줄은 모두 이미 목록에 있습니다.`);
+    return;
+  }
+  pushOp({t:"lots",rows:넣을것});
+  const 내역 = Object.keys(시장별).map(m=>`${m} ${시장별[m]}줄`).join(" · ");
+  stat(`${내역} 넣었습니다.`
+    + (이미있음 ? ` 이미 있던 ${이미있음}줄은 그대로 두었습니다.` : "")
+    + (품목없음 ? ` 품목을 못 읽은 ${품목없음}줄은 목록에 노란 '품목?' 로 표시됩니다.` : "")
+    + (폰으로읽음 ? ` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다.)` : ""));
 };
 
 /* ---------- 확인 화면 ---------- */
