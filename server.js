@@ -11,7 +11,7 @@ const ROOT   = __dirname;
 /* 자료를 어디에 둘지. Render 에 유료 디스크를 붙이면 그 경로를 DATA_DIR 로 준다.
    (예: DATA_DIR=/var/data) 그러면 다시 배포해도 자료가 살아남는다.
    주지 않으면 지금까지처럼 프로그램 폴더에 둔다. */
-const DIR    = process.env.DATA_DIR || ROOT;
+const DIR    = path.resolve(process.env.DATA_DIR || ROOT);   // 상대 경로로 들어와도 절대 경로로 바꾼다
 const DATA   = path.join(DIR, "data.json");
 const PHOTOS = path.join(DIR, "photos");
 const BACKUP = path.join(DIR, "backup");
@@ -28,12 +28,17 @@ if (!fs.existsSync(PHOTOS)) fs.mkdirSync(PHOTOS, { recursive: true });
    디스크를 붙이고도 DATA_DIR 를 안 주면 프로그램 폴더에 쓰게 되는데,
    그러면 다시 배포할 때마다 그날 자료가 사라진다. 겉으로는 멀쩡해 보여서 놓치기 쉽다. */
 const 자료위치 = (() => {
-  if (DIR === ROOT) return "프로그램 폴더 — 배포하면 사라집니다";
+  /* DATA_DIR 를 '/var/data' 가 아니라 'var/data' 로 넣으면 프로그램 폴더 안에 만들어진다.
+     쓰기는 되므로 겉으로는 멀쩡해 보이지만 배포 때 그대로 사라진다. 그래서 경로가
+     프로그램 폴더 안쪽인지를 먼저 본다. */
+  const 안쪽 = DIR === ROOT || DIR.startsWith(ROOT + path.sep);
   try {
     const t = path.join(DIR, ".쓰기시험");
     fs.writeFileSync(t, "1"); fs.unlinkSync(t);
-    return DIR + " — 배포해도 남습니다";
   } catch (e) { return DIR + " — 쓸 수 없습니다! (" + e.code + ")"; }
+  if (DIR === ROOT) return "프로그램 폴더 — 배포하면 사라집니다";
+  if (안쪽) return DIR + " — 프로그램 폴더 안이라 배포하면 사라집니다 (DATA_DIR 를 / 로 시작하는 경로로 고치세요)";
+  return DIR + " — 배포해도 남습니다";
 })();
 
 /* 화면 파일이 바뀌면 이 값이 달라진다. 접속자에게 함께 내려보내서
