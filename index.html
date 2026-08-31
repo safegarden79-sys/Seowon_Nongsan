@@ -1190,8 +1190,22 @@ function parseAuction(rawWords,W,names,mkt){
     const hangul=band.filter(w=>HAN.test(w.t)&&!GRADE.test(w.t)&&!/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t));
     let item="",who="";
     if(seoul){
-      const left=hangul.filter(w=>w.x1<W*0.35).sort((a,b)=>a.y-b.y);
-      who=left[0]?left[0].t:""; item=left[1]?left[1].t:"";
+      /* 왼쪽 칸은 위가 생산자, 아래가 품목이다. 생산자가 '7' 처럼 숫자로 찍히는 줄이
+         실제로 있어서 한글만 받으면 그 줄의 생산자를 놓치고 품목이 밀려 올라간다.
+         그래서 글자 종류가 아니라 자리로 가른다. 같은 줄에 늘 붙어 있는
+         '단위:'와 '등급:' 을 높이 기준으로 삼는다. */
+      const 왼쪽=band.filter(w=>w.x1<W*0.35 && !isNo6(w.t) && !/^원$/.test(w.t)
+        && !/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t))
+        .sort((a,b)=>a.y-b.y);
+      const 가까이=y=>왼쪽.length?왼쪽.reduce((a,b)=>Math.abs(b.y-y)<Math.abs(a.y-y)?b:a):null;
+      const 단위칸=band.find(w=>/단위/.test(w.t)), 등급칸=band.find(w=>/등급/.test(w.t));
+      let 생산자칸 = 단위칸 ? 가까이(단위칸.y) : null;
+      let 품목칸   = 등급칸 ? 가까이(등급칸.y) : null;
+      if(품목칸 && 품목칸===생산자칸) 품목칸=null;      // 한 칸밖에 못 읽었다
+      if(!생산자칸) 생산자칸 = 왼쪽[0] || null;
+      if(!품목칸)   품목칸   = 왼쪽.find(x=>x!==생산자칸 && (!생산자칸 || x.y>=생산자칸.y)) || null;
+      who = 생산자칸 ? 생산자칸.t : "";
+      item = 품목칸 ? 품목칸.t : "";
     }else{
       const mid=hangul.filter(w=>w.x0>W*0.12&&w.x1<W*0.62).sort((a,b)=>a.x0-b.x0);
       const col=band.filter(w=>w.x0>W*0.13&&w.x1<W*0.40).sort((a,b)=>a.x0-b.x0);
