@@ -24,6 +24,18 @@ const MAX_PHOTOS = 60;
 if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
 if (!fs.existsSync(PHOTOS)) fs.mkdirSync(PHOTOS, { recursive: true });
 
+/* 자료를 정말 붙여둔 디스크에 쓰고 있는지 한눈에 보이게 한다.
+   디스크를 붙이고도 DATA_DIR 를 안 주면 프로그램 폴더에 쓰게 되는데,
+   그러면 다시 배포할 때마다 그날 자료가 사라진다. 겉으로는 멀쩡해 보여서 놓치기 쉽다. */
+const 자료위치 = (() => {
+  if (DIR === ROOT) return "프로그램 폴더 — 배포하면 사라집니다";
+  try {
+    const t = path.join(DIR, ".쓰기시험");
+    fs.writeFileSync(t, "1"); fs.unlinkSync(t);
+    return DIR + " — 배포해도 남습니다";
+  } catch (e) { return DIR + " — 쓸 수 없습니다! (" + e.code + ")"; }
+})();
+
 /* 화면 파일이 바뀌면 이 값이 달라진다. 접속자에게 함께 내려보내서
    새 판이 올라오면 각자 폰이 스스로 받아 적용하게 한다. */
 const BUILD = (() => {
@@ -202,7 +214,7 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
-    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 글자인식: VISION_KEY ? "구글" : "폰에서", 접속자: clients.size,
+    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 글자인식: VISION_KEY ? "구글" : "폰에서", 자료위치, 접속자: clients.size,
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 가동초: Math.round(process.uptime()) }));
   }
 
@@ -329,5 +341,6 @@ process.on("unhandledRejection", e => console.error("오류:", e));
 
 server.listen(PORT, () => {
   console.log(`서원농산 공유 서버 실행 중 — 포트 ${PORT} · 화면 판 ${BUILD}`);
+  console.log(`자료 ${자료위치} · 글자 인식 ${VISION_KEY ? "구글" : "폰에서"}`);
   console.log(`작업일 ${state.workday} · 낙찰 ${Object.keys(state.lots).length}줄 · 접속자에게 실시간 전달`);
 });
