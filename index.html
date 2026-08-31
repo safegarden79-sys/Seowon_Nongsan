@@ -890,6 +890,35 @@ async function getWorker(){
 
 /* 확대 + 흑백 변환만 한다. 대비를 과하게 올리면 오히려 글자가 뭉개진다.
    (검은 배경 화면도 인식기가 알아서 처리한다) */
+/* 서버(구글)로 보낼 사진. 너무 크면 줄이기만 하고 손대지 않는다.
+   Tesseract 용 전처리(확대·흑백)는 구글에는 오히려 해가 된다. */
+function forServer(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const r=Math.min(1,2600/Math.max(img.width,img.height));
+      const c=document.createElement("canvas");
+      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
+      const g=c.getContext("2d");
+      g.imageSmoothingQuality="high";
+      g.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      res({data:c.toDataURL("image/jpeg",0.9), W:c.width});
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("사진을 열지 못했습니다."));};
+    img.src=url;
+  });
+}
+
+async function readByServer(file){
+  const {data,W}=await forServer(file);
+  const r=await fetch(serverUrl+"/api/ocr",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({data})});
+  const j=await r.json().catch(()=>({ok:false,error:"서버가 알 수 없는 답을 보냈습니다"}));
+  if(!j.ok) throw new Error(j.error||"서버가 사진을 읽지 못했습니다");
+  return {words:j.words||[], text:j.text||"", W:j.width||W};
+}
+
 function prep(file){
   return new Promise((res,rej)=>{
     const url=URL.createObjectURL(file), img=new Image();
@@ -1213,22 +1242,38 @@ document.getElementById("ocrinput").onchange=async e=>{
   if(!files.length)return;
   let all=[], raw="", mkt="서울청과", date="";
   ocrRunning=true;
+  let w=null;                                // 폰에서 읽어야 할 때만 인식 엔진을 내려받는다
+  let 폰으로읽음=0;
   try{
-    const w=await getWorker();
     for(let i=0;i<files.length;i++){
-      stat(`사진 ${i+1}/${files.length} 인식 중… 20초쯤 걸립니다.`);
       ocrBar((i+0.2)/files.length);
-      const canvas=await prep(files[i]);
-      const {data}=await w.recognize(canvas,{},{text:true,blocks:true});
-      raw+=(data.text||"")+"\n";
-      const words=flatWords(data);
-      const shot=marketOf(data.text||"",words,canvas.width);
-      let names=null;
-      if(shot===MKT_DONGWHA){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
-      const r=parseAuction(words,canvas.width,names,shot);
+      let words=null, text="", W=0, names=null, shot=null;
+
+      /* 서버(구글)가 읽어주면 훨씬 정확하고 빠르다 */
+      if(serverVision&&serverUrl){
+        stat(`사진 ${i+1}/${files.length} 인식 중… 몇 초 걸립니다.`);
+        try{ ({words,text,W}=await readByServer(files[i])); }
+        catch(err){ words=null; stat(`서버 인식이 안 됩니다(${err.message}). 이 폰에서 읽습니다.`); }
+      }
+
+      /* 서버를 못 쓰면 예전처럼 이 폰에서 읽는다 (신호가 없을 때도 이쪽으로 온다) */
+      if(!words){
+        폰으로읽음++;
+        stat(`사진 ${i+1}/${files.length} 인식 중… 20초쯤 걸립니다.`);
+        if(!w) w=await getWorker();
+        const canvas=await prep(files[i]);
+        const {data}=await w.recognize(canvas,{},{text:true,blocks:true});
+        words=flatWords(data); text=data.text||""; W=canvas.width;
+        shot=marketOf(text,words,W);
+        if(shot===MKT_DONGWHA){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
+      }
+
+      raw+=text+"\n";
+      if(!shot) shot=marketOf(text,words,W);
+      const r=parseAuction(words,W,names,shot);
       mkt=r.mkt||shot;                       // 선택칸의 처음 값으로만 쓴다 (줄마다 제 시장을 갖는다)
       all=all.concat(r.rows);
-      if(!date) date=detectDate(data.text||"");
+      if(!date) date=detectDate(text);
       ocrBar((i+1)/files.length);
     }
   }catch(err){ ocrRunning=false; ocrBar(null); stat("⚠ "+err.message); return; }
@@ -1240,7 +1285,7 @@ document.getElementById("ocrinput").onchange=async e=>{
     document.getElementById("rev_rawtext").classList.remove("hidden");
     return;
   }
-  stat(`${all.length}줄을 읽었습니다. 확인 화면에서 검토해 주세요.`);
+  stat(`${all.length}줄을 읽었습니다.${폰으로읽음?` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다)`:""} 확인 화면에서 검토해 주세요.`);
   openReview(all,mkt,date,raw);
 };
 
@@ -1329,6 +1374,7 @@ const UKEY="seowon-user", SKEY="seowon-server";
 let me=localStorage.getItem(UKEY)||"";
 let serverUrl=localStorage.getItem(SKEY)|| (location.protocol.startsWith("http")?location.origin:"");
 let online=false, pending=[], liveLog=[], es=null;
+let serverVision=false;                  // 서버가 구글 글자 인식을 대신해 준다
 try{ pending=JSON.parse(localStorage.getItem("seowon-pending")||"[]"); }catch(e){ pending=[]; }
 
 const savePending=()=>{ try{ localStorage.setItem("seowon-pending",JSON.stringify(pending)); }catch(e){} };
@@ -1358,6 +1404,7 @@ function applyServer(sv){
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   save(); render();
+  serverVision=!!sv.vision;
   checkBuild(sv.build);
 }
 

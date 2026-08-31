@@ -16,6 +16,9 @@ const DATA   = path.join(DIR, "data.json");
 const PHOTOS = path.join(DIR, "photos");
 const BACKUP = path.join(DIR, "backup");
 const PORT   = process.env.PORT || 3000;
+/* 구글 글자 인식(Cloud Vision) 열쇠. 없으면 이 기능만 꺼지고 나머지는 그대로 돈다.
+   폰이 열쇠를 알 필요가 없도록 서버가 대신 물어본다. */
+const VISION_KEY = process.env.GOOGLE_VISION_KEY || "";
 const MAX_PHOTOS = 60;
 
 if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
@@ -54,7 +57,7 @@ function persist() {
 
 /* ---------- 접속자에게 밀어주기 (SSE) ---------- */
 const clients = new Set();
-const payload = () => Object.assign({ build: BUILD }, state);   // 판 번호를 얹어 보낸다
+const payload = () => Object.assign({ build: BUILD, vision: !!VISION_KEY }, state);   // 판 번호와 인식기 유무를 얹어 보낸다
 function broadcast() {
   const msg = "data: " + JSON.stringify(payload()) + "\n\n";
   for (const res of clients) { try { res.write(msg); } catch (e) { clients.delete(res); } }
@@ -164,6 +167,23 @@ function applyOp(user, op) {
   }
 }
 
+/* 구글이 준 낱말을 화면 쪽이 쓰는 상자 형식으로 바꾼다.
+   {글자, 왼쪽, 오른쪽, 가운데높이, 글자높이} — Tesseract 가 주던 것과 같은 모양이다. */
+function 글자상자(ann) {
+  const out = [];
+  ((ann.pages) || []).forEach(p => (p.blocks || []).forEach(b => (b.paragraphs || []).forEach(pa =>
+    (pa.words || []).forEach(w => {
+      const t = (w.symbols || []).map(s => s.text || "").join("").trim();
+      const v = (w.boundingBox || {}).vertices || [];
+      if (!t || v.length < 4) return;
+      const xs = v.map(q => q.x || 0), ys = v.map(q => q.y || 0);
+      const y0 = Math.min(...ys), y1 = Math.max(...ys);
+      out.push({ t, x0: Math.min(...xs), x1: Math.max(...xs), y: (y0 + y1) / 2, h: y1 - y0 });
+    })
+  )));
+  return out.sort((a, b) => a.y - b.y || a.x0 - b.x0);
+}
+
 /* ---------- 요청 처리 ---------- */
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json",
@@ -182,7 +202,7 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
-    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 접속자: clients.size,
+    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 글자인식: VISION_KEY ? "구글" : "폰에서", 접속자: clients.size,
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 가동초: Math.round(process.uptime()) }));
   }
 
@@ -203,6 +223,45 @@ const server = http.createServer((req, res) => {
     clients.add(res);
     const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
     req.on("close", () => { clearInterval(ping); clients.delete(res); });
+    return;
+  }
+
+  /* 사진을 받아 구글에 글자 인식을 맡기고, 글자마다 위치 상자를 돌려준다.
+     화면 쪽 표 해석(parseAuction)이 쓰는 형식 그대로 맞춰 보낸다. */
+  if (u.pathname === "/api/ocr" && req.method === "POST") {
+    if (!VISION_KEY) {
+      res.writeHead(503, { "Content-Type": TYPES[".json"] });
+      return res.end(JSON.stringify({ ok: false, error: "서버에 글자 인식 열쇠가 없습니다" }));
+    }
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 2.4e7) req.destroy(); });
+    req.on("end", async () => {
+      try {
+        const m = /^data:image\/(jpeg|png);base64,(.+)$/.exec(JSON.parse(body).data || "");
+        if (!m) throw new Error("사진을 읽지 못했습니다");
+        const r = await fetch("https://vision.googleapis.com/v1/images:annotate?key=" + encodeURIComponent(VISION_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requests: [{
+            image: { content: m[2] },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+            imageContext: { languageHints: ["ko", "en"] }
+          }] })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error((j.error && j.error.message) || ("구글이 거절했습니다 (" + r.status + ")"));
+        const one = (j.responses || [])[0] || {};
+        if (one.error) throw new Error(one.error.message || "구글이 사진을 읽지 못했습니다");
+        const ann = one.fullTextAnnotation || {};
+        res.writeHead(200, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: true, text: ann.text || "", words: 글자상자(ann),
+          width: ((ann.pages || [])[0] || {}).width || 0 }));
+      } catch (e) {
+        console.error("글자 인식 실패:", e.message);
+        res.writeHead(502, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
     return;
   }
 

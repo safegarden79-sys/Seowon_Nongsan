@@ -20,7 +20,16 @@
 node server.js            # 기본 포트 3000
 PORT=8080 node server.js  # 포트 변경
 DATA_DIR=/var/data node server.js   # 자료를 다른 곳(유료 디스크 등)에 둘 때
+GOOGLE_VISION_KEY=... node server.js  # 사진 글자 인식을 구글에 맡길 때
 ```
+
+## 사진 글자 인식
+
+`GOOGLE_VISION_KEY` 가 있으면 폰이 사진을 서버로 보내고, 서버가 구글 Cloud Vision
+(`DOCUMENT_TEXT_DETECTION`)에 물어본 뒤 **글자마다 위치 상자**를 돌려준다.
+그 상자는 Tesseract 가 주던 것과 같은 모양이라 `parseAuction` 이 그대로 받는다.
+열쇠가 없거나 신호가 끊기면 예전처럼 폰에서 Tesseract 로 읽는다(정확도는 낮다).
+열쇠는 서버에만 두고 폰에는 절대 내려보내지 않는다.
 
 ## 24시간 구동
 
@@ -42,6 +51,7 @@ curl localhost:3000/api/health
 - `GET  /api/state`  현재 공통 자료 전체
 - `GET  /api/stream` SSE. 변경될 때마다 전체 상태를 밀어준다
 - `POST /api/op`     `{user, ops:[...]}` 형태로 조작 전달
+- `POST /api/ocr`    `{data:"data:image/jpeg;base64,..."}` → `{ok,text,words,width}`
 - `GET  /api/health` 상태 점검
 
 조작(op) 종류: `lots`(낙찰 줄 추가·갱신) `got`(박스 수) `car`(상차 체크)
