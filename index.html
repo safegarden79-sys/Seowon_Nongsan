@@ -138,7 +138,7 @@ section{margin-bottom:20px}
 .lhead,.lrow{display:grid;align-items:center;
   /* 숫자 칸은 들어갈 만큼만 주고 남는 자리를 품목·생산자에 몰아준다.
      좁은 안드로이드 화면(360px)에서도 글자가 잘리지 않게 하기 위함이다. */
-  grid-template-columns:16px minmax(0,1.5fr) 40px minmax(0,1.05fr) 26px 16px 24px minmax(50px,auto) 18px;
+  grid-template-columns:16px minmax(0,1.25fr) 38px minmax(0,1.3fr) 24px 22px 28px minmax(50px,auto) 18px;
   gap:3px}
 .lhead{font-size:9px;color:var(--dim);padding:0 6px 3px;letter-spacing:-.02em}
 .lhead span{text-align:center;overflow:hidden}
@@ -154,7 +154,7 @@ section{margin-bottom:20px}
 /* 아주 좁은 화면(320px 같은 옛 기기)에서는 숫자 칸을 한 번 더 줄여
    품목·생산자가 한 줄에 들어가게 한다. */
 @media (max-width:360px){
-  .lhead,.lrow{grid-template-columns:15px minmax(0,1.5fr) 36px minmax(0,1.05fr) 22px 14px 22px minmax(44px,auto) 16px;
+  .lhead,.lrow{grid-template-columns:15px minmax(0,1.25fr) 32px minmax(0,1.3fr) 24px 20px 26px minmax(44px,auto) 16px;
     gap:2px}
   .lrow{padding:9px 3px;font-size:11.5px}
   .lhead{padding:0 3px 3px}
@@ -167,10 +167,13 @@ section{margin-bottom:20px}
 .c-item{text-align:left!important;font-weight:800;color:var(--text)}
 .c-noitem{color:var(--warn)}                 /* 품목을 못 읽은 줄 — 직접 채워야 한다 */
 .c-no{font-size:10px;color:#8FC7E8;letter-spacing:-.03em}
-.c-who{text-align:left!important;color:var(--text);opacity:.9}
+.c-who{text-align:left!important;color:var(--text)}
 .c-unit,.c-grade{color:var(--muted)}
 .c-grade{font-weight:700;color:#F0BE72}
 .c-qty{text-align:right!important;font-weight:800;color:var(--text)}
+/* 생산자와 수량은 물건을 챙기며 제일 자주 보는 값이라 두 포인트 크게, 굵게 한다.
+   머리글 라벨은 그대로 두고 값에만 준다. */
+.lrow>.c-who,.lrow>.c-qty{font-size:14px;font-weight:800}
 .c-amt{text-align:right!important;color:var(--muted);font-size:10px;letter-spacing:-.03em}
 .c-add{background:none;border:0;color:var(--warn);font-size:16px;font-weight:700;padding:0;line-height:1}
 .card.lotrow.done .c-item,.card.lotrow.done .c-qty{color:var(--dim)}
