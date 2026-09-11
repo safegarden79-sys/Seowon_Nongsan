@@ -169,6 +169,15 @@ function applyOp(user, op) {
       bump(by, "사진 삭제");
       return;
     }
+    case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다
+      const lot = state.lots[op.id];
+      if (!lot) return;
+      delete state.lots[op.id];
+      delete state.got[op.id];
+      delete state.lotnotes[op.id];
+      bump(by, `${[lot.item, lot.who].filter(Boolean).join(" · ") || "낙찰"} 줄 삭제`);
+      return;
+    }
     case "clearlots": {                              // 낙찰 내역만 전부 삭제 (상차 체크는 유지)
       state.lots = {}; state.got = {}; state.lotnotes = {};
       bump(by, "낙찰 내역 전체 삭제");

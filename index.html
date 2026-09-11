@@ -596,7 +596,7 @@ function lotCard(l){
       (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</div>`:""}
     ${openLotNote===l.id?`<div class="editor">
       <textarea id="lta-${l.id}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
-      <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
+      <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn r" data-act="lotdel">이 줄 삭제</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
     </div>`:""}
   </div>`;
 }
@@ -797,6 +797,15 @@ document.querySelector("main").addEventListener("click",e=>{
       const v=document.getElementById("lta-"+id).value.trim();
       openLotNote=null; pushOp({t:"lotnote",id,text:v});
     }
+    else if(act==="lotdel"){
+      /* 잘못 읽힌 줄을 하나만 지운다. 세 사람 모두에게서 사라지므로 한 번 더 묻는다. */
+      const l=(state.lots||[]).find(x=>x.id===id);
+      const 이름=l?[l.item,l.who].filter(Boolean).join(" · "):"이 줄";
+      if(!confirm(`'${이름}' 줄을 지웁니다.
+세 사람 모두의 화면에서 사라지고, 세어둔 박스 수도 함께 지워집니다.`)) return;
+      openLotNote=null; pushOp({t:"dellot",id});
+      stat(`'${이름}' 줄을 지웠습니다.`);
+    }
     return;
   }
   const img=e.target.closest("[data-img]");
@@ -881,7 +890,7 @@ panel("addbtn","addpanel",`
 document.getElementById("f_add").onclick=()=>{
   const v=id=>document.getElementById(id).value.trim();
   if(!v("f_item")||!v("f_qty")){ alert("품목과 수량을 입력하세요."); return; }
-  const row={mkt:v("f_mkt"),date:v("f_date")||new Date().toISOString().slice(0,10),
+  const row={mkt:v("f_mkt"),date:v("f_date")||state.workday||오늘KST(),
     no:v("f_no"),item:v("f_item"),who:v("f_who"),unit:v("f_unit"),grade:v("f_grade"),
     qty:Number(v("f_qty")),price:Number(v("f_price")||0)};
   row.id=lotKey(row);
@@ -1193,20 +1202,22 @@ function parseAuction(rawWords,W,names,mkt){
     const hangul=band.filter(w=>HAN.test(w.t)&&!GRADE.test(w.t)&&!/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t));
     let item="",who="";
     if(seoul){
-      /* 왼쪽 칸은 위가 생산자, 아래가 품목이다. 생산자가 '7' 처럼 숫자로 찍히는 줄이
-         실제로 있어서 한글만 받으면 그 줄의 생산자를 놓치고 품목이 밀려 올라간다.
-         그래서 글자 종류가 아니라 자리로 가른다. 같은 줄에 늘 붙어 있는
-         '단위:'와 '등급:' 을 높이 기준으로 삼는다. */
+      /* 왼쪽 칸은 위가 생산자, 아래가 품목이다. 글자 종류로 고르면 안 된다 —
+         생산자가 '7' 처럼 숫자로 찍히는 줄이 실제로 있어서, 한글만 받으면 그 줄의
+         생산자를 놓치고 품목이 생산자 자리로 밀려 올라간다. 그래서 자리로만 가른다. */
       const 왼쪽=band.filter(w=>w.x1<W*0.35 && !isNo6(w.t) && !/^원$/.test(w.t)
         && !/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t))
         .sort((a,b)=>a.y-b.y);
-      const 가까이=y=>왼쪽.length?왼쪽.reduce((a,b)=>Math.abs(b.y-y)<Math.abs(a.y-y)?b:a):null;
-      const 단위칸=band.find(w=>/단위/.test(w.t)), 등급칸=band.find(w=>/등급/.test(w.t));
-      let 생산자칸 = 단위칸 ? 가까이(단위칸.y) : null;
-      let 품목칸   = 등급칸 ? 가까이(등급칸.y) : null;
-      if(품목칸 && 품목칸===생산자칸) 품목칸=null;      // 한 칸밖에 못 읽었다
-      if(!생산자칸) 생산자칸 = 왼쪽[0] || null;
-      if(!품목칸)   품목칸   = 왼쪽.find(x=>x!==생산자칸 && (!생산자칸 || x.y>=생산자칸.y)) || null;
+      let 생산자칸=null, 품목칸=null;
+      if(왼쪽.length>=2){ 생산자칸=왼쪽[0]; 품목칸=왼쪽[1]; }
+      else if(왼쪽.length===1){
+        /* 한 칸밖에 못 읽었다. 이 화면에서 생산자는 '등급:' 과 같은 줄에,
+           품목은 물품번호와 같은 줄에 있다. 어느 쪽에 가까운지로 가른다.
+           넘겨짚어 품목을 생산자 자리에 넣는 것보다 비워 두는 편이 낫다. */
+        const t=왼쪽[0], 등급칸=band.find(w=>/등급/.test(w.t));
+        const d생=등급칸?Math.abs(t.y-등급칸.y):Infinity;
+        if(d생<=Math.abs(t.y-an.y)) 생산자칸=t; else 품목칸=t;
+      }
       who = 생산자칸 ? 생산자칸.t : "";
       item = 품목칸 ? 품목칸.t : "";
     }else{
@@ -1220,7 +1231,10 @@ function parseAuction(rawWords,W,names,mkt){
         .map(w=>dedup(w.t.replace(/[^가-힣]/g,"")))
         .filter(t=>t.length>=2&&t.length<=6&&!/^(특|상|중|하)$/.test(t))
         .sort((a,b)=>b.length-a.length);
-      who=cand[0]||(mid.find(w=>!/고추|파프리카|피망|버섯|오이/.test(w.t))||{t:""}).t;
+      /* 생산자가 숫자로 찍히는 줄이 있다. 한글 이름을 못 찾았을 때만 쓴다.
+         (숫자에 dedup 을 걸면 '11' 이 '1' 이 되므로 따로 모은다) */
+      const 숫자이름=band.filter(w=>w.x0>W*0.35&&w.x1<W*0.50&&/^\d{1,5}$/.test(w.t)).map(w=>w.t);
+      who=cand[0]||숫자이름[0]||(mid.find(w=>!/고추|파프리카|피망|버섯|오이/.test(w.t))||{t:""}).t;
       if(names&&names.length){                      // 생산자 열을 다시 읽은 결과가 있으면 그것을 쓴다
         const hit=names.find(n=>n.y>top&&n.y<bot);
         if(hit) who=hit.t;
@@ -1247,10 +1261,15 @@ function parseAuction(rawWords,W,names,mkt){
   return {rows,mkt:seoul?MKT_SEOUL:MKT_DONGWHA};
 }
 
+/* 날짜는 반드시 한국 시간으로 센다. toISOString() 은 세계표준시라
+   한국 새벽(0~9시)에는 하루 전 날짜가 나온다. 경매는 새벽에 하므로,
+   이걸 그냥 쓰면 같은 낙찰이 날짜만 다른 두 줄로 쌓인다. */
+const 오늘KST=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+
 function detectDate(text){
   let m=text.match(/(20\d{2})\s*[년\-.]\s*(\d{1,2})\s*[월\-.]\s*(\d{1,2})/);
   if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-  return new Date().toISOString().slice(0,10);
+  return 오늘KST();
 }
 
 let openLotNote=null;
@@ -1322,7 +1341,7 @@ document.getElementById("ocrinput").onchange=async e=>{
   ocrBar(null);
   if(!all.length){
     stat("표를 찾지 못했습니다. 아래 원문을 확인하시고, 필요하면 직접 추가로 넣어주세요.");
-    openReview([],mkt,date||new Date().toISOString().slice(0,10),raw);
+    openReview([],mkt,date||state.workday||오늘KST(),raw);
     document.getElementById("rev_rawtext").classList.remove("hidden");
     return;
   }
@@ -1330,7 +1349,9 @@ document.getElementById("ocrinput").onchange=async e=>{
   /* 검수 없이 바로 목록에 넣는다.
      다시 올렸을 때는 시장별로 이미 있는 줄과 견주어 새 줄만 더한다.
      이미 있는 줄은 손대지 않는다 — 챙긴 박스 수·주석이 그대로 남아야 한다. */
-  const 날짜 = date || new Date().toISOString().slice(0,10);
+  /* 사진마다 날짜가 갈리면 같은 낙찰이 다른 줄로 쌓인다(실측: 34줄 중 14줄이 하루 전
+     날짜로 들어가 중복이 생겼다). 서버가 정한 작업일 하나를 모든 줄에 쓴다. */
+  const 날짜 = state.workday || date || 오늘KST();
   const 있는것 = new Set((state.lots||[]).map(l=>l.id));
   const 넣을것 = [], 시장별 = {};
   let 이미있음 = 0, 품목없음 = 0;
@@ -1422,7 +1443,7 @@ document.getElementById("rev_raw").onclick=()=>document.getElementById("rev_rawt
 document.getElementById("rev_close").onclick=()=>document.getElementById("review").classList.add("hidden");
 document.getElementById("rev_add").onclick=()=>{
   const mkt=document.getElementById("rev_mkt").value;
-  const date=document.getElementById("rev_date").value.trim()||new Date().toISOString().slice(0,10);
+  const date=document.getElementById("rev_date").value.trim()||state.workday||오늘KST();
   const rows=[];
   revRows.forEach(r=>{
     if(!r.item&&!r.who&&!r.price)return;
@@ -1473,6 +1494,7 @@ function applyServer(sv){
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   save(); render();
+  state.workday=sv.workday||state.workday;
   serverVision=!!sv.vision;
   checkBuild(sv.build);
 }
@@ -1528,6 +1550,10 @@ function localEcho(op){
       else state.lots.push(Object.assign({addedBy:me||"나",addedAt:Date.now()},r));
       if(state.got[r.id]>r.qty) state.got[r.id]=r.qty;
     });
+  }
+  if(op.t==="dellot"){
+    state.lots=(state.lots||[]).filter(l=>l.id!==op.id);
+    delete state.got[op.id]; if(state.lotnotes) delete state.lotnotes[op.id];
   }
   if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; }
   if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; }
