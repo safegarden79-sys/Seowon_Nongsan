@@ -271,8 +271,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   </div>
 
   <div class="tabs">
-    <button class="tab" data-tab="lot">📦 낙찰 내역</button>
-    <button class="tab on" data-tab="car">🚚 상차 체크</button>
+    <button class="tab on" data-tab="lot">📦 낙찰 내역</button>
   </div>
 
   <div class="searchwrap">
@@ -497,7 +496,7 @@ function withKeys(arr){
 /* ==================== 상태 ==================== */
 const KEY="seowon-check-v2";
 let state={done:{},notes:{},lots:null,got:{},images:[],savedAt:null};
-let tab="car", filter="all", groupMode="doc", query="", lotMkt="all";
+let tab="lot", filter="all", groupMode="doc", query="", lotMkt="all";
 let collapsed={}, openNote=null, confirmReset=false;
 
 try{const raw=localStorage.getItem(KEY); if(raw) state=Object.assign(state,JSON.parse(raw));}catch(e){}
