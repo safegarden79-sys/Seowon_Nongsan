@@ -197,13 +197,6 @@ section{margin-bottom:20px}
 .money{font-size:12px;color:var(--muted);margin:4px 0 0}
 .money b{color:#F0BE72;font-weight:700}
 
-.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
-.gal img{width:100%;aspect-ratio:3/5;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
-.galwrap{position:relative}
-.galby{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.65);color:#fff;border-radius:6px;font-size:10px;padding:2px 6px}
-.galdel{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);border:0;color:#fff;border-radius:8px;font-size:12px;padding:3px 7px}
-.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;display:flex;align-items:center;justify-content:center;padding:12px}
-.lightbox img{max-width:100%;max-height:100%;object-fit:contain}
 
 .formrow{display:flex;gap:8px;margin-bottom:8px}
 .formrow>*{flex:1;min-width:0}
@@ -249,16 +242,25 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   padding:16px 16px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .sheethead b{font-size:17px}
-.revrow{padding:9px 0;border-bottom:1px solid var(--line)}
-.rev1{display:flex;gap:6px;align-items:center}
-.rev1 input{flex:1;min-width:0;width:100%;padding:9px 8px;border-radius:9px;font-size:14px}
-.rev1 .f-who{flex:0 0 34%}
-.rev2{display:flex;gap:6px;margin-top:6px}
-.rev2 label{flex:1;min-width:0;font-size:10px;color:var(--dim);display:flex;flex-direction:column;gap:3px}
-.rev2 input{width:100%;min-width:0;padding:7px 4px;border-radius:8px;font-size:13px;text-align:center}
-.revrow .del{background:none;border:0;color:var(--hot);font-size:16px;padding:6px 2px;flex:0 0 auto}
-.rawtext{background:#22221F;border:1px solid var(--line);border-radius:10px;padding:10px;
-  font-size:11px;color:var(--muted);white-space:pre-wrap;max-height:240px;overflow:auto}
+/* 캘린더 탭 */
+.calnav{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
+.calnav button{background:var(--surface2);border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:7px 12px;font-size:14px;font-weight:700}
+.calnav .calmonth{font-size:15px;font-weight:800;color:var(--text)}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px}
+.calwd{text-align:center;font-size:11px;color:var(--dim);padding:4px 0 6px;font-weight:700}
+.calcell{aspect-ratio:1/1;border-radius:10px;background:var(--surface);border:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-size:13px;color:var(--text);position:relative}
+.calcell.pad{background:none;border-color:transparent}
+.calcell.has{border-color:rgba(232,163,61,.55);background:rgba(232,163,61,.1)}
+.calcell.today{box-shadow:inset 0 0 0 2px var(--ok)}
+.calcell.sel{background:var(--warn);color:#2A2116;border-color:var(--warn)}
+.calcell .calcnt{font-size:9px;color:var(--dim)}
+.calcell.sel .calcnt{color:#2A2116;opacity:.8}
+.caldetail{padding-bottom:20px}
+.caldhead{font-size:14px;font-weight:800;color:var(--text);margin:4px 0 10px}
+.caldempty{color:var(--muted);font-size:13px;text-align:center;padding:30px 0}
 </style>
 </head>
 <body>
@@ -272,6 +274,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
 
   <div class="tabs">
     <button class="tab on" data-tab="lot">📦 낙찰 내역</button>
+    <button class="tab" data-tab="cal">📅 캘린더</button>
   </div>
 
   <div class="searchwrap">
@@ -293,21 +296,19 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   </div>
 
   <div id="lotview" class="hidden">
-    <button class="bigbtn accent" id="ocrbtn">📷 경매 화면 사진에서 읽어오기</button>
-    <input type="file" id="ocrinput" accept="image/*" multiple class="hidden">
-    <p class="hint" id="ocrstat">사진을 고르면 글자를 인식해 목록 초안을 만듭니다. 인식 뒤 확인 화면에서 고칠 수 있습니다.</p>
-    <div class="bar hidden" id="ocrbar" style="margin-bottom:10px"><i style="width:0%"></i></div>
-    <button class="bigbtn" id="engbtn">🔌 인식 엔진 준비 확인 (와이파이에서 1회)</button>
-    <button class="bigbtn" id="upbtn">🖼 사진만 보관하기</button>
-    <input type="file" id="upinput" accept="image/*" multiple class="hidden">
-    <div id="galwrap"></div>
-
+    <p class="hint" id="lotstat"></p>
+    <div id="feedwrap"></div>
     <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
     <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="addpanel"></div>
 
-
     <div id="lotlist"></div>
+  </div>
+
+  <div id="calview" class="hidden">
+    <div id="calnav"></div>
+    <div id="calgrid"></div>
+    <div id="caldetail"></div>
   </div>
 </main>
 
@@ -315,8 +316,6 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   <span class="saved" id="saved">체크하면 자동 저장됩니다</span>
   <span id="footbtns"></span>
 </footer>
-
-<div id="lightbox" class="lightbox hidden"><img id="lbimg" alt=""></div>
 
 <div id="updbar" class="updbar hidden">새 판이 올라왔습니다 · 눌러서 지금 적용</div>
 
@@ -332,28 +331,6 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   </div>
 </div>
 
-<div id="review" class="modal hidden">
-  <div class="sheet">
-    <div class="sheethead">
-      <b>인식 결과 확인</b>
-      <span>
-        <button class="ebtn r" id="rev_clear">전부 지우기</button>
-        <button class="ebtn g" id="rev_close">닫기</button>
-      </span>
-    </div>
-    <p class="hint" id="rev_msg"></p>
-    <div class="formrow">
-      <div><label class="fl">시장</label><select id="rev_mkt"><option>서울청과</option><option>동화청과</option></select></div>
-      <div><label class="fl">날짜</label><input type="text" id="rev_date" placeholder="2026-08-26"></div>
-    </div>
-    <div id="rev_rows"></div>
-    <button class="bigbtn accent" id="rev_add">확인했습니다 · 목록에 넣기</button>
-    <button class="bigbtn" id="rev_raw">인식된 원문 보기</button>
-    <pre id="rev_rawtext" class="rawtext hidden"></pre>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 /* ==================== 차량 기준 자료 ==================== */
 const HEAD={accounts:[
@@ -470,7 +447,7 @@ const WORK_NOTES=[
  {t:"벌크",d:"아삭이(오이맛) 상 10키로"}];
 
 /* ==================== 낙찰 내역 기본값 (업로드한 경매 화면) ==================== */
-/* 낙찰 내역은 기본으로 비어 있다. 사진 인식 또는 직접 추가로 채운다. */
+/* 낙찰 내역은 기본으로 비어 있다. 실시간 수집기(poller) 또는 직접 추가로 채운다. */
 const SEED_LOTS=[];
 
 /* ==================== 낙찰 항목 식별 ====================
@@ -495,13 +472,12 @@ function withKeys(arr){
 
 /* ==================== 상태 ==================== */
 const KEY="seowon-check-v2";
-let state={done:{},notes:{},lots:null,got:{},images:[],savedAt:null};
+let state={done:{},notes:{},lots:null,got:{},savedAt:null};
 let tab="lot", filter="all", groupMode="doc", query="", lotMkt="all";
 let collapsed={}, openNote=null, confirmReset=false;
 
 try{const raw=localStorage.getItem(KEY); if(raw) state=Object.assign(state,JSON.parse(raw));}catch(e){}
 if(!state.lots) state.lots=SEED_LOTS.slice();
-if(!state.images) state.images=[];
 if(!state.got) state.got={};
 
 /* 이전 버전에 들어있던 예시 낙찰 데이터를 한 번 정리한다 */
@@ -510,7 +486,7 @@ if(state.ver!==4){ state.lots=[]; state.got={}; state.ver=4; }
 function save(){
   state.savedAt=new Date().toISOString();
   try{ localStorage.setItem(KEY,JSON.stringify(state)); }
-  catch(e){ document.getElementById("saved").textContent="⚠ 저장공간 부족 — 사진을 일부 지워주세요"; return false; }
+  catch(e){ document.getElementById("saved").textContent="⚠ 저장공간 부족"; return false; }
   renderFooter(); return true;
 }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -643,10 +619,17 @@ function lotGroups(vis){
 function render(){
   document.getElementById("carview").classList.toggle("hidden",tab!=="car");
   document.getElementById("lotview").classList.toggle("hidden",tab!=="lot");
+  document.getElementById("calview").classList.toggle("hidden",tab!=="cal");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  document.querySelector(".searchwrap").classList.toggle("hidden",tab==="cal");
   document.getElementById("q").placeholder = tab==="car"?"차량번호 · 상호 · 위치 검색":"품목 · 생산자 · 번호 검색";
 
   const chips=document.getElementById("chips");
+  if(tab==="cal"){
+    chips.innerHTML="";
+    renderCalendar();
+    return;
+  }
   if(tab==="car"){
     const total=STOPS.length;
     const fixAll=STOPS.filter(s=>s.fix);
@@ -677,7 +660,7 @@ function render(){
       <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
       <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
       <button class="chip mode ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과</button>`;
-    renderGallery();
+    renderFeed();
     const groups=lotGroups(visibleLots()), list=document.getElementById("lotlist");
     if(!groups.length){ list.innerHTML=emptyHTML(); bindEmpty(); return; }
     const cnt=(got,qty)=>`<span class="scount tnum ${got>=qty&&qty?"full":""}">${got}/${qty}</span>`;
@@ -713,27 +696,110 @@ function bindEmpty(){const b=document.getElementById("resetview"); if(b)b.onclic
   query="";filter="all";lotMkt="all";document.getElementById("q").value="";
   document.getElementById("qclear").classList.add("hidden");render();};}
 
-function renderGallery(){
-  const w=document.getElementById("galwrap");
-  const shared=state.shared||[];
-  const feed=liveLog.length?`<div class="feed">${liveLog.slice(0,6).map(l=>
+function renderFeed(){
+  const w=document.getElementById("feedwrap"); if(!w) return;
+  w.innerHTML=liveLog.length?`<div class="feed">${liveLog.slice(0,6).map(l=>
       `<div><b>${esc(l.by)}</b> ${esc(l.text)} · ${ago(l.at)}</div>`).join("")}</div>`:"";
-  if(shared.length){
-    w.innerHTML=feed+`<div class="gal">`+shared.map(im=>
-      `<div class="galwrap"><img src="${im.url}" data-img="${im.id}" alt="경매 화면">
-       <button class="galdel" data-del="${im.id}">✕</button>
-       <span class="galby">${esc(im.by)}</span></div>`).join("")+`</div>`;
-    return;
-  }
-  if(!state.images.length){
-    w.innerHTML=feed+`<p class="hint">경매 결과 화면을 올리면 세 사람 모두의 화면에 함께 보입니다.</p>`;
-    return;
-  }
-  if(false){ w.innerHTML=`<p class="hint">경매 결과 화면을 캡처해 올려두면, 목록을 대조할 때 앱 안에서 바로 크게 볼 수 있습니다.</p>`; return; }
-  w.innerHTML=`<div class="gal">`+state.images.map(im=>
-    `<div class="galwrap"><img src="${im.data}" data-img="${im.id}" alt="경매 화면">
-     <button class="galdel" data-del="${im.id}">✕</button></div>`).join("")+`</div>`;
 }
+
+/* ==================== 캘린더 탭 ====================
+   최근 낙찰 내역을 날짜별로 서버(/api/history)에서 불러와 보여준다.
+   서버는 들어오는 낙찰 줄을 날짜별로 따로 쌓아두므로(최근 한 달 정도),
+   오늘 목록을 비워도(새 작업 시작) 지난 날짜 기록은 그대로 남는다. */
+let calYear=null, calMon=null, calSummary=null, calSelDate=null, calDayCache={};
+function calToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
+function calInit(){ const t=calToday(); calYear=+t.slice(0,4); calMon=+t.slice(5,7); calSelDate=t; }
+async function loadCalSummary(){
+  if(!serverUrl){ calSummary={}; return; }
+  try{ const r=await fetch(serverUrl+"/api/history"); const j=await r.json(); calSummary=(j&&j.days)||{}; }
+  catch(e){ calSummary=calSummary||{}; }
+}
+async function loadCalDay(date){
+  if(calDayCache[date]) return calDayCache[date];
+  if(!serverUrl) return [];
+  try{
+    const r=await fetch(serverUrl+"/api/history/"+encodeURIComponent(date));
+    const j=await r.json();
+    return calDayCache[date]=Object.values((j&&j.lots)||{});
+  }catch(e){ return []; }
+}
+function renderCalendar(){
+  if(calYear==null) calInit();
+  document.getElementById("calnav").innerHTML=
+    `<button data-cal="prev">‹</button><span class="calmonth">${calYear}년 ${calMon}월</span><button data-cal="next">›</button>`;
+  const first=new Date(Date.UTC(calYear,calMon-1,1));
+  const startWd=first.getUTCDay();
+  const days=new Date(Date.UTC(calYear,calMon,0)).getUTCDate();
+  const todayStr=calToday();
+  const wd=["일","월","화","수","목","금","토"];
+  let cells=wd.map(w=>`<div class="calwd">${w}</div>`).join("");
+  for(let i=0;i<startWd;i++) cells+=`<div class="calcell pad"></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${calYear}-${String(calMon).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const info=(calSummary||{})[ds];
+    const cls=["calcell"];
+    if(info) cls.push("has");
+    if(ds===todayStr) cls.push("today");
+    if(ds===calSelDate) cls.push("sel");
+    cells+=`<div class="${cls.join(" ")}" data-date="${ds}">${d}${info?`<span class="calcnt">${info.count}</span>`:""}</div>`;
+  }
+  document.getElementById("calgrid").innerHTML=cells;
+  renderCalDetail();
+}
+async function renderCalDetail(){
+  const box=document.getElementById("caldetail"), date=calSelDate;
+  box.innerHTML=`<div class="caldhead">${date}</div><div class="caldempty">불러오는 중…</div>`;
+  const rows=await loadCalDay(date);
+  if(date!==calSelDate) return;             // 그 사이 다른 날짜를 골랐으면 이 결과는 버린다
+  if(!rows.length){ box.innerHTML=`<div class="caldhead">${date}</div><div class="caldempty">이 날은 기록이 없습니다.</div>`; return; }
+  const groups=lotGroups(rows);
+  box.innerHTML=`<div class="caldhead">${date} · 총 ${rows.length}줄</div>`+groups.map(g=>`
+    <section>
+      <div class="shead"><span class="tick" style="background:${TONE[g.tone].bar}"></span>
+        <span class="stitle">${esc(g.title)}</span><span class="scount tnum">${g.qty}</span><span class="sline"></span></div>
+      ${g.cats.map(c=>`
+        <div class="cathead"><span class="catname">${esc(c.title)}</span><span class="scount tnum">${c.qty}</span></div>
+        ${c.kinds.map(k=>`
+          <div class="kindwrap">
+            <div class="kindhead"><span class="kindname">${esc(k.title)}</span>
+              <span class="kindsum tnum">수량 ${k.qty} · ${won(k.amt)}원</span></div>
+            <div class="lhead">
+              <span class="lbox"></span><span class="c-item">품종</span><span class="c-no">번호</span>
+              <span class="c-who">생산자</span><span class="c-unit">단위</span><span class="c-grade">등급</span>
+              <span class="c-qty">수량</span><span class="c-amt">가격</span><span class="c-add"></span>
+            </div>
+            ${k.rows.map(calLotRow).join("")}
+          </div>`).join("")}`).join("")}
+    </section>`).join("");
+}
+function calLotRow(l){
+  return `<div class="card lotrow">
+    <div class="lrow">
+      <span class="lbox"></span>
+      <span class="c-item${l.item?"":" c-noitem"}">${esc(l.item||"품목?")}</span>
+      <span class="c-no mono">${esc(l.no||"")}</span>
+      <span class="c-who">${esc(l.who||"-")}</span>
+      <span class="c-unit tnum">${esc(String(l.unit||"").replace(/[Kk][Gg]/,""))}</span>
+      <span class="c-grade">${esc(l.grade||"")}</span>
+      <span class="c-qty tnum">${l.qty}</span>
+      <span class="c-amt tnum">${won(l.price*l.qty)}</span>
+      <span class="c-add"></span>
+    </div>
+  </div>`;
+}
+document.getElementById("calnav").addEventListener("click",e=>{
+  const b=e.target.closest("[data-cal]"); if(!b)return;
+  if(calYear==null) calInit();
+  if(b.dataset.cal==="prev"){ calMon--; if(calMon<1){calMon=12;calYear--;} }
+  else{ calMon++; if(calMon>12){calMon=1;calYear++;} }
+  renderCalendar();
+});
+document.getElementById("calgrid").addEventListener("click",e=>{
+  const c=e.target.closest("[data-date]"); if(!c)return;
+  calSelDate=c.dataset.date;
+  document.querySelectorAll("#calgrid .calcell").forEach(x=>x.classList.toggle("sel",x.dataset.date===calSelDate));
+  renderCalDetail();
+});
 
 function renderFooter(){
   document.getElementById("saved").textContent=state.savedAt
@@ -754,7 +820,9 @@ function renderFooter(){
 /* ==================== 이벤트 ==================== */
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest(".tab"); if(!b)return;
-  tab=b.dataset.tab; filter="all"; render();});
+  tab=b.dataset.tab; filter="all";
+  if(tab==="cal"&&calSummary===null){ loadCalSummary().then(()=>{ if(tab==="cal") render(); }); }
+  render();});
 
 document.getElementById("chips").addEventListener("click",e=>{
   const b=e.target.closest(".chip"); if(!b)return;
@@ -807,58 +875,11 @@ document.querySelector("main").addEventListener("click",e=>{
     }
     return;
   }
-  const img=e.target.closest("[data-img]");
-  if(img){ const im=(state.shared||[]).find(x=>x.id===img.dataset.img)||state.images.find(x=>x.id===img.dataset.img);
-    if(im){ document.getElementById("lbimg").src=im.url||im.data;
-      document.getElementById("lightbox").classList.remove("hidden"); } return; }
-  if(false){ const im=null;
-    document.getElementById("lbimg").src=im.data;
-    document.getElementById("lightbox").classList.remove("hidden"); return; }
-  const del=e.target.closest("[data-del]");
-  if(del){
-    if((state.shared||[]).some(x=>x.id===del.dataset.del)) return pushOp({t:"delphoto",id:del.dataset.del});
-    state.images=state.images.filter(x=>x.id!==del.dataset.del); save(); renderGallery(); }
 });
-
-document.getElementById("lightbox").onclick=()=>document.getElementById("lightbox").classList.add("hidden");
 
 const qin=document.getElementById("q"),qclear=document.getElementById("qclear");
 qin.addEventListener("input",()=>{query=qin.value;qclear.classList.toggle("hidden",!query);render();});
 qclear.onclick=()=>{qin.value="";query="";qclear.classList.add("hidden");render();qin.blur();};
-
-/* 사진 업로드 */
-document.getElementById("upbtn").onclick=()=>document.getElementById("upinput").click();
-document.getElementById("upinput").onchange=async e=>{
-  const files=[...e.target.files]; e.target.value="";
-  for(const f of files){
-    let data;
-    try{ data=await shrink(f); }
-    catch(err){ alert("사진을 불러오지 못했습니다."); continue; }
-    if(serverUrl){ pushOp({t:"photo",data}); continue; }
-    state.images.push({id:"img"+Date.now()+Math.random().toString(36).slice(2,6),data,at:new Date().toISOString()});
-    if(!save()){                       // 저장공간 초과 → 방금 사진만 되돌리고 체크 기록은 지킨다
-      state.images.pop(); save();
-      alert("저장공간이 가득 찼습니다. 오래된 사진을 지운 뒤 다시 올려주세요.\n(체크해 둔 내용은 그대로 있습니다)");
-      break;
-    }
-  }
-  renderGallery();
-};
-function shrink(file){
-  return new Promise((res,rej)=>{
-    const url=URL.createObjectURL(file), img=new Image();
-    img.onload=()=>{
-      const max=1100, r=Math.min(1,max/Math.max(img.width,img.height));
-      const c=document.createElement("canvas");
-      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
-      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-      URL.revokeObjectURL(url);
-      res(c.toDataURL("image/jpeg",0.62));
-    };
-    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("load"));};
-    img.src=url;
-  });
-}
 
 /* 접이식 패널 */
 function panel(btnId,panelId,html){
@@ -898,378 +919,13 @@ document.getElementById("f_add").onclick=()=>{
   ["f_item","f_who","f_no","f_qty","f_price"].forEach(i=>document.getElementById(i).value="");
   save(); render();
 };
-/* ==================== 사진에서 낙찰내역 읽기 ==================== */
-let ocrWorker=null, revRows=[], revRaw="";
-const stat=t=>{const el=document.getElementById("ocrstat"); if(el)el.textContent=t;};
-function ocrBar(p){
-  const b=document.getElementById("ocrbar");
-  if(p==null){ b.classList.add("hidden"); return; }
-  b.classList.remove("hidden"); b.firstElementChild.style.width=Math.round(p*100)+"%";
-}
-
-async function getWorker(){
-  if(ocrWorker) return ocrWorker;
-  if(typeof Tesseract==="undefined")
-    throw new Error("인식 엔진을 내려받지 못했습니다. 와이파이에 연결한 뒤 다시 시도해 주세요.");
-  stat("인식 엔진을 준비하는 중입니다… 처음 한 번만 시간이 걸립니다.");
-  ocrWorker=await Tesseract.createWorker("kor+eng",1,{
-    logger:m=>{ if(m.status==="loading language traineddata"||m.status==="initializing tesseract") ocrBar(m.progress); }
-  });
-  await ocrWorker.setParameters({user_defined_dpi:"300"});
-  ocrBar(null);
-  return ocrWorker;
-}
-
-/* 확대 + 흑백 변환만 한다. 대비를 과하게 올리면 오히려 글자가 뭉개진다.
-   (검은 배경 화면도 인식기가 알아서 처리한다) */
-/* 서버(구글)로 보낼 사진. 너무 크면 줄이기만 하고 손대지 않는다.
-   Tesseract 용 전처리(확대·흑백)는 구글에는 오히려 해가 된다. */
-function forServer(file){
-  return new Promise((res,rej)=>{
-    const url=URL.createObjectURL(file), img=new Image();
-    img.onload=()=>{
-      const r=Math.min(1,2600/Math.max(img.width,img.height));
-      const c=document.createElement("canvas");
-      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
-      const g=c.getContext("2d");
-      g.imageSmoothingQuality="high";
-      g.drawImage(img,0,0,c.width,c.height);
-      URL.revokeObjectURL(url);
-      res({data:c.toDataURL("image/jpeg",0.9), W:c.width});
-    };
-    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("사진을 열지 못했습니다."));};
-    img.src=url;
-  });
-}
-
-async function readByServer(file){
-  const {data,W}=await forServer(file);
-  const r=await fetch(serverUrl+"/api/ocr",{method:"POST",
-    headers:{"Content-Type":"application/json"},body:JSON.stringify({data})});
-  const j=await r.json().catch(()=>({ok:false,error:"서버가 알 수 없는 답을 보냈습니다"}));
-  if(!j.ok) throw new Error(j.error||"서버가 사진을 읽지 못했습니다");
-  return {words:j.words||[], text:j.text||"", W:j.width||W};
-}
-
-function prep(file){
-  return new Promise((res,rej)=>{
-    const url=URL.createObjectURL(file), img=new Image();
-    img.onload=()=>{
-      const r=Math.min(2.4,Math.max(1,2200/img.width));
-      const c=document.createElement("canvas");
-      c.width=Math.round(img.width*r); c.height=Math.round(img.height*r);
-      const g=c.getContext("2d");
-      g.imageSmoothingQuality="high";
-      g.drawImage(img,0,0,c.width,c.height);
-      URL.revokeObjectURL(url);
-      const d=g.getImageData(0,0,c.width,c.height), a=d.data;
-      for(let i=0;i<a.length;i+=4) a[i]=a[i+1]=a[i+2]=(a[i]*.3+a[i+1]*.59+a[i+2]*.11)|0;
-      g.putImageData(d,0,0);
-      res(c);
-    };
-    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("사진을 열지 못했습니다."));};
-    img.src=url;
-  });
-}
-
-/* 동화청과 화면은 생산자 글씨가 작아 한 번에 잘 안 읽힌다.
-   생산자 열만 잘라 크게 키워 다시 읽고, 세로 위치로 각 줄에 붙인다. */
-async function producerPass(worker, canvas){
-  const W=canvas.width, L=Math.round(W*0.33), R=Math.round(W*0.53), w=R-L;
-  const s=Math.min(2.4, 900/w);
-  const c=document.createElement("canvas");
-  c.width=Math.round(w*s); c.height=Math.round(canvas.height*s);
-  c.getContext("2d").drawImage(canvas, L,0,w,canvas.height, 0,0,c.width,c.height);
-  await worker.setParameters({tessedit_pageseg_mode:"6"});
-  let names=[];
-  try{
-    const {data}=await worker.recognize(c,{},{text:true,blocks:true});
-    (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>{
-      const t=(l.text||"").replace(/[^가-힣]/g,"");
-      if(t.length>=2&&t.length<=6&&!/소계|합계|생산자/.test(t))
-        names.push({t, y:((l.bbox.y0+l.bbox.y1)/2)/s});
-    })));
-  }catch(e){}
-  await worker.setParameters({tessedit_pageseg_mode:"3"});
-  return names;
-}
-
-function flatWords(data){
-  const out=[];
-  (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>{
-    const t=(w.text||"").trim();
-    if(t) out.push({t,x0:w.bbox.x0,x1:w.bbox.x1,y:(w.bbox.y0+w.bbox.y1)/2,h:w.bbox.y1-w.bbox.y0});
-  }))));
-  return out.sort((a,b)=>a.y-b.y||a.x0-b.x0);
-}
-const num=t=>Number(String(t).replace(/[^\d]/g,""))||0;
-const isMoney=t=>/\d{1,3}(?:,\d{3})+/.test(t);        // '9,000 원' 처럼 붙어 있어도 인식
-const moneyVal=t=>{const m=String(t).match(/\d{1,3}(?:,\d{3})+/);return m?num(m[0]):0;};
-const isNo6=t=>/^\d{6}$/.test(t);
-const HAN=/^[가-힣]{2,6}[)\]]?$/;
-const GRADE=/^(특|상|중|하|[LMSXlmsx]{1,2})$/;
-
-function fixQty(monies,ocrQty){
-  if(monies.length>=2){
-    const p=monies[0],amt=monies[1];
-    if(p>0&&amt>=p){const q=amt/p,r=Math.round(q);
-      if(r>0&&r<10000&&Math.abs(q-r)<0.02) return {qty:r,price:p,sure:true};}
-  }
-  return {qty:ocrQty||0,price:monies[0]||0,sure:false};
-}
-
-/* 인식기가 한글을 낱자로 쪼개는 경우가 많다.
-   같은 줄에서 바짝 붙은 조각을 하나의 낱말로 되붙인다. */
-function mergeWords(words){
-  const lines=[];
-  words.slice().sort((a,b)=>a.y-b.y||a.x0-b.x0).forEach(w=>{
-    const L=lines.find(L=>Math.abs(L.y-w.y)<Math.max(8,w.h*0.55));
-    if(L){L.items.push(w);L.y=(L.y*L.n+w.y)/(L.n+1);L.n++;}
-    else lines.push({y:w.y,n:1,items:[w]});
-  });
-  const out=[];
-  lines.forEach(L=>{
-    L.items.sort((a,b)=>a.x0-b.x0);
-    let cur=null;
-    L.items.forEach(w=>{
-      if(cur&&w.x0-cur.x1<Math.max(6,cur.h*0.55)){cur.t+=w.t;cur.x1=w.x1;}
-      else{if(cur)out.push(cur);cur={t:w.t,x0:w.x0,x1:w.x1,y:L.y,h:w.h};}
-    });
-    if(cur)out.push(cur);
-  });
-  return out.sort((a,b)=>a.y-b.y||a.x0-b.x0);
-}
-
-/* 품목명 교정 — 낱글자 오인식이 많아 편집거리보다 핵심어 판별이 정확하다 */
-function cleanTxt(s){ return String(s||"").replace(/[\s_·.,:;'"`~^]/g,""); }
-
-function fixItem(raw, seoul){
-  const t=cleanTxt(raw);
-  if(!t) return "";
-  const P=x=>seoul?x[0]:x[1];
-  if(/파프리카|파프리|프리카|파프|프리/.test(t)){
-    if(/홍|빨|red/i.test(t)) return "홍파프리카";
-    if(/노랑|노란|황|yellow/i.test(t)) return "노랑파프리카";
-    if(/주황|오렌지/.test(t)) return "주황파프리카";
-    return "파프리카";
-  }
-  if(/피망|미망|피밍/.test(t)){
-    if(/홍|빨/.test(t)) return "홍피망";
-    if(/청|정/.test(t)) return "청피망";
-    return "피망";
-  }
-  if(/꽈리|까리|과리|꼬리|파리고추/.test(t))   return P(["꽈리고추","고추(꽈리)"]);
-  if(/아삭/.test(t))                          return P(["아삭이고추","고추(아삭이)"]);
-  if(/오이맛|오이/.test(t))                   return P(["오이맛고추","고추(오이맛)"]);
-  if(/녹광|녹괌|녹랑|록광/.test(t))            return P(["녹광고추","고추(녹광)"]);
-  if(/홍청양|청양홍/.test(t))                 return "홍청양";
-  if(/청양|정양|청앙/.test(t))                return P(["청양고추","고추(청양)"]);
-  if(/홍/.test(t)&&/고추|고주/.test(t))        return P(["홍고추","고추(홍)"]);
-  if(/버섯/.test(t)) return "버섯";
-  return t;
-}
-
-/* 생산자 이름 — 이미 등록된 이름과 한 글자 차이면 그 이름으로 맞춘다 */
-function dist(a,b){
-  const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
-  for(let j=0;j<=n;j++)d[0][j]=j;
-  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
-    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
-  return d[m][n];
-}
-function fixWho(raw, known){
-  const t=cleanTxt(raw);
-  if(t.length<2||!known||!known.length) return t;
-  if(known.includes(t)) return t;
-  let best=null,bd=99,tie=0;
-  known.forEach(k=>{ if(Math.abs(k.length-t.length)>1) return;
-    const d=dist(t,k); if(d<bd){bd=d;best=k;tie=1;} else if(d===bd) tie++; });
-  return (bd<=1&&tie===1&&best)?best:t;
-}
-
-
-/* 품목을 못 읽은 줄 메우기
-   ① 같은 물품번호를 가진 줄에서 가져온다
-   ② 화면의 [○○ 소계] 구분선을 읽어 그 위 줄들에 적용한다
-   ③ 그래도 비면, 단위가 같은 바로 위·아래 줄에서 가져온다 (경매 화면은 품종끼리 붙어 있다) */
-function fillItems(rows, subtotals, seoul){
-  const N=r=>parseInt(String(r.no||"").replace(/\D/g,""),10);
-  rows.forEach(r=>{                                   // ① 같은 물품번호
-    if(r.item) return;
-    const same=rows.find(x=>x.item&&x.no&&r.no&&x.no===r.no);
-    if(same) r.item=same.item;
-  });
-  rows.forEach(r=>{                                   // ② 번호가 가장 가까운 같은 단위 줄
-    if(r.item) return;
-    const n=N(r); if(isNaN(n)) return;
-    let best=null,bd=Infinity;
-    rows.forEach(x=>{ if(!x.item||x.unit!==r.unit) return;
-      const d=Math.abs(N(x)-n); if(!isNaN(d)&&d<bd){bd=d;best=x;} });
-    if(best&&bd<20000) r.item=best.item;              // 같은 품종은 번호대가 붙어 있다
-  });
-  if(seoul&&subtotals.length){                        // ③ [○○ 소계] 구분선
-    /* 소계 줄을 하나라도 못 읽으면 그 위 품종까지 아래 소계에 딸려 들어간다.
-       (실측: 꽈리고추 소계를 못 읽어 꽈리 4줄이 전부 청양고추로 들어갔다)
-       한 품종 안에서는 단위가 같으므로, 소계 바로 위 줄의 단위와 다른 줄에는
-       이름을 붙이지 않고 비워 둔다. 잘못 채우는 것보다 비어 있는 편이 낫다. */
-    subtotals.forEach(blk=>{
-      if(!blk.name) return;
-      const mine=rows.filter(r=>r.y!=null&&r.y<blk.y&&!subtotals.some(s=>s.y<blk.y&&s.y>r.y));
-      if(!mine.length) return;
-      const near=mine.reduce((a,b)=>(a&&a.y>b.y?a:b),null);   // 소계 바로 위 줄
-      const unit=near?near.unit:"";
-      mine.forEach(r=>{
-        if(r.item) return;
-        if(unit&&r.unit&&r.unit!==unit) return;               // 단위가 어긋난다 — 다른 품종이다
-        r.item=blk.name;
-      });
-    });
-  }
-  rows.forEach((r,i)=>{                               // ④ 바로 위·아래의 같은 단위 줄
-    if(r.item) return;
-    for(let d=1;d<rows.length;d++){
-      const up=rows[i-d], dn=rows[i+d];
-      if(up&&up.item&&up.unit===r.unit){ r.item=up.item; return; }
-      if(dn&&dn.item&&dn.unit===r.unit){ r.item=dn.item; return; }
-    }
-  });
-  return rows;
-}
-
-/* 어느 시장 화면인지 가려낸다.
-   동화청과 화면에는 '동화청과'가 그대로 찍히지만, 서울청과 화면에는 시장 이름이 아예 없다
-   (머리글이 '오늘의 경매결과 > 품목별' 뿐이다). 그래서 이름을 찾지 않고,
-   그 화면에만 나오는 말머리로 가린다.
-     서울청과 — 오늘의 경매결과 · 품목별 · 품종별 소계 · 단위:/등급:/수량: 라벨
-     동화청과 — 동화청과 · 원표 · 경락단가 · 낙찰내역 (단위는 라벨 없이 4.0KG 형태)
-   글씨로 못 가리면 마지막에 물품번호 열의 좌우 위치로 판단한다. */
-const MKT_SEOUL="서울청과", MKT_DONGWHA="동화청과";
-
-function sixColX(words,W){
-  const six=mergeWords(words).filter(w=>isNo6(w.t));
-  if(six.length<2) return null;
-  const xs=six.map(w=>w.x0).sort((a,b)=>a-b);
-  return xs[Math.floor(xs.length/2)];
-}
-
-function marketOf(text,words,W){
-  const t=String(text||"").replace(/\s+/g,"");
-  const hits=re=>(t.match(re)||[]).length;
-  let d=0,s=0;
-  if(/동화청과|동화/.test(t))            d+=4;
-  if(/원표|경락단가|낙찰내역/.test(t))    d+=2;
-  if(/오늘의경매결과|경매결과/.test(t))   s+=4;
-  if(/품종별소계|품목별/.test(t))         s+=2;
-  s+=Math.min(3,hits(/단위[:;.,]?\d/g));
-  s+=Math.min(3,hits(/등급[:;.,]?[가-힣A-Za-z]/g));
-  s+=Math.min(3,hits(/수량[:;.,]?\d/g));
-  if(s>d+1) return MKT_SEOUL;
-  if(d>s+1) return MKT_DONGWHA;
-  const x=sixColX(words,W);
-  return (x!=null&&x<=W*0.35)?MKT_DONGWHA:MKT_SEOUL;
-}
-
-function parseAuction(rawWords,W,names,mkt){
-  const words=mergeWords(rawWords);
-  let six=words.filter(w=>isNo6(w.t));
-  if(six.length<2) return {rows:[],mkt:null};
-  const xs=six.map(w=>w.x0).slice().sort((a,b)=>a-b);
-  const medX=xs[Math.floor(xs.length/2)];
-  six=six.filter(w=>Math.abs(w.x0-medX)<W*0.07).sort((a,b)=>a.y-b.y);
-  const gs=six.slice(1).map((s,i)=>s.y-six[i].y).filter(g=>g>4).sort((a,b)=>a-b);
-  const gap=gs.length?gs[Math.floor(gs.length/2)]:60;
-  const seoul=mkt?(mkt===MKT_SEOUL):(medX>W*0.35);   // 시장이 정해져 왔으면 그대로 따른다
-  const rows=[];
-  six.forEach(an=>{
-    const top=seoul?an.y-gap*0.85:an.y-gap*0.45;
-    const bot=seoul?an.y+gap*0.20:an.y+gap*0.45;
-    const band=words.filter(w=>w.y>top&&w.y<bot);
-    const txt=band.map(w=>w.t).join(" ");
-    if(/소계|합계/.test(txt))return;
-
-    const monies=band.filter(w=>isMoney(w.t)&&w.x0>W*0.55).sort((a,b)=>a.y-b.y).map(w=>moneyVal(w.t));
-    let unit=(txt.match(/단위\s*[:;.,]?\s*(\d+(?:\.\d+)?)/)||[])[1]
-          || (txt.match(/(\d+(?:\.\d+)?)\s*[KkGg][GgKk]/)||[])[1] || "";
-    if(!unit&&!seoul){const u=band.find(w=>/[Kk][Gg]/.test(w.t)); if(u) unit=(u.t.match(/[\d.]+/)||[""])[0];}
-    let grade=(txt.match(/등급\s*[:;.,]?\s*([가-힣A-Za-z]{1,2})/)||[])[1]||"";
-    if(!grade){const g=band.find(w=>GRADE.test(w.t)); if(g) grade=g.t;}
-    const qtyTxt=(txt.match(/수량\s*[:;.,]?\s*(\d+)/)||[])[1];
-    let qtyTok=0;
-    if(qtyTxt) qtyTok=Number(qtyTxt);
-    else{const c=band.filter(w=>/^\d{1,3}$/.test(w.t)&&w.x0>W*0.55&&w.x1<W*0.8);if(c.length)qtyTok=num(c[0].t);}
-
-    const hangul=band.filter(w=>HAN.test(w.t)&&!GRADE.test(w.t)&&!/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t));
-    let item="",who="";
-    if(seoul){
-      /* 왼쪽 칸은 위가 생산자, 아래가 품목이다. 글자 종류로 고르면 안 된다 —
-         생산자가 '7' 처럼 숫자로 찍히는 줄이 실제로 있어서, 한글만 받으면 그 줄의
-         생산자를 놓치고 품목이 생산자 자리로 밀려 올라간다. 그래서 자리로만 가른다. */
-      const 왼쪽=band.filter(w=>w.x1<W*0.35 && !isNo6(w.t) && !/^원$/.test(w.t)
-        && !/단위|등급|수량|소계|합계|생산자|품목|원표|경락|거래|단량/.test(w.t))
-        .sort((a,b)=>a.y-b.y);
-      let 생산자칸=null, 품목칸=null;
-      if(왼쪽.length>=2){ 생산자칸=왼쪽[0]; 품목칸=왼쪽[1]; }
-      else if(왼쪽.length===1){
-        /* 한 칸밖에 못 읽었다. 이 화면에서 생산자는 '등급:' 과 같은 줄에,
-           품목은 물품번호와 같은 줄에 있다. 어느 쪽에 가까운지로 가른다.
-           넘겨짚어 품목을 생산자 자리에 넣는 것보다 비워 두는 편이 낫다. */
-        const t=왼쪽[0], 등급칸=band.find(w=>/등급/.test(w.t));
-        const d생=등급칸?Math.abs(t.y-등급칸.y):Infinity;
-        if(d생<=Math.abs(t.y-an.y)) 생산자칸=t; else 품목칸=t;
-      }
-      who = 생산자칸 ? 생산자칸.t : "";
-      item = 품목칸 ? 품목칸.t : "";
-    }else{
-      const mid=hangul.filter(w=>w.x0>W*0.12&&w.x1<W*0.62).sort((a,b)=>a.x0-b.x0);
-      const col=band.filter(w=>w.x0>W*0.13&&w.x1<W*0.40).sort((a,b)=>a.x0-b.x0);
-      const joined=col.map(x=>x.t).join("").replace(/\s/g,"");
-      item=/고추|파프리카|피망|버섯|오이/.test(joined)?joined:(mid[0]?mid[0].t:"");
-      const dedup=t=>{const h=t.length/2;
-        return (t.length%2===0&&t.slice(0,h)===t.slice(h))?t.slice(0,h):t;};
-      const cand=band.filter(w=>w.x0>W*0.35&&w.x1<W*0.50)
-        .map(w=>dedup(w.t.replace(/[^가-힣]/g,"")))
-        .filter(t=>t.length>=2&&t.length<=6&&!/^(특|상|중|하)$/.test(t))
-        .sort((a,b)=>b.length-a.length);
-      /* 생산자가 숫자로 찍히는 줄이 있다. 한글 이름을 못 찾았을 때만 쓴다.
-         (숫자에 dedup 을 걸면 '11' 이 '1' 이 되므로 따로 모은다) */
-      const 숫자이름=band.filter(w=>w.x0>W*0.35&&w.x1<W*0.50&&/^\d{1,5}$/.test(w.t)).map(w=>w.t);
-      who=cand[0]||숫자이름[0]||(mid.find(w=>!/고추|파프리카|피망|버섯|오이/.test(w.t))||{t:""}).t;
-      if(names&&names.length){                      // 생산자 열을 다시 읽은 결과가 있으면 그것을 쓴다
-        const hit=names.find(n=>n.y>top&&n.y<bot);
-        if(hit) who=hit.t;
-      }
-    }
-    const q=fixQty(monies,qtyTok);
-    if(!q.price&&!q.qty&&!item&&!who)return;
-    const known=(state.lots||[]).map(l=>l.who).filter(Boolean);
-    rows.push({no:an.t,item:fixItem(item,seoul),who:fixWho(who,known),
-      unit,grade,qty:q.qty,price:q.price,sure:q.sure,y:an.y,
-      mkt:seoul?MKT_SEOUL:MKT_DONGWHA});          // 사진마다 시장이 다르므로 줄마다 달아둔다
-  });
-  /* [○○ 소계] 구분선 읽기 */
-  const subs=[];
-  words.filter(w=>/소계/.test(w.t)).forEach(w=>{
-    const line=words.filter(x=>Math.abs(x.y-w.y)<Math.max(10,w.h*0.7)).sort((a,b)=>a.x0-b.x0)
-      .map(x=>x.t).join("");
-    const nm=(line.match(/([가-힣]{2,10})\s*소계/)||[])[1];
-    if(nm) subs.push({y:w.y,name:fixItem(nm,seoul)});
-  });
-  subs.sort((a,b)=>a.y-b.y);
-  fillItems(rows,subs,seoul);
-  rows.forEach(r=>{ delete r.y; });
-  return {rows,mkt:seoul?MKT_SEOUL:MKT_DONGWHA};
-}
-
 /* 날짜는 반드시 한국 시간으로 센다. toISOString() 은 세계표준시라
    한국 새벽(0~9시)에는 하루 전 날짜가 나온다. 경매는 새벽에 하므로,
    이걸 그냥 쓰면 같은 낙찰이 날짜만 다른 두 줄로 쌓인다. */
 const 오늘KST=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
 
-function detectDate(text){
-  let m=text.match(/(20\d{2})\s*[년\-.]\s*(\d{1,2})\s*[월\-.]\s*(\d{1,2})/);
-  if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-  return 오늘KST();
-}
+/* 낙찰 탭 하단의 짧은 안내문 (지움·추가 결과 등을 보여준다) */
+const stat=t=>{const el=document.getElementById("lotstat"); if(el)el.textContent=t||"";};
 
 let openLotNote=null;
 let clearArm=false;
@@ -1286,184 +942,11 @@ document.getElementById("clearlots").onclick=function(){
   stat("낙찰 내역을 모두 지웠습니다. 상차 체크는 그대로입니다.");
 };
 
-let ocrRunning=false;                    // 사진 인식이 도는 동안에는 화면을 새로 고치지 않는다
-document.getElementById("ocrbtn").onclick=()=>document.getElementById("ocrinput").click();
-document.getElementById("engbtn").onclick=async()=>{
-  try{ await getWorker(); stat("✅ 인식 엔진 준비 완료. 이제 오프라인에서도 사진을 읽을 수 있습니다."); }
-  catch(e){ stat("⚠ "+e.message); }
-};
-
-document.getElementById("ocrinput").onchange=async e=>{
-  const files=[...e.target.files]; e.target.value="";
-  if(!files.length)return;
-  let all=[], raw="", mkt="서울청과", date="";
-  ocrRunning=true;
-  let w=null;                                // 폰에서 읽어야 할 때만 인식 엔진을 내려받는다
-  let 폰으로읽음=0, 서버포기=null;
-  try{
-    for(let i=0;i<files.length;i++){
-      ocrBar((i+0.2)/files.length);
-      let words=null, text="", W=0, names=null, shot=null;
-
-      /* 서버(구글)가 읽어주면 훨씬 정확하고 빠르다.
-         한 번 실패하면 남은 사진은 곧바로 폰에서 읽는다. 열쇠나 결제 문제라면
-         장마다 헛걸음할 뿐이고, 그만큼 늦어지기 때문이다. */
-      if(serverVision&&serverUrl&&!서버포기){
-        stat(`사진 ${i+1}/${files.length} 인식 중… 몇 초 걸립니다.`);
-        try{ ({words,text,W}=await readByServer(files[i])); }
-        catch(err){ words=null; 서버포기=err.message;
-          stat(`서버 인식이 안 됩니다(${err.message}). 이 폰에서 읽습니다.`); }
-      }
-
-      /* 서버를 못 쓰면 예전처럼 이 폰에서 읽는다 (신호가 없을 때도 이쪽으로 온다) */
-      if(!words){
-        폰으로읽음++;
-        stat(`사진 ${i+1}/${files.length} 인식 중… 20초쯤 걸립니다.`);
-        if(!w) w=await getWorker();
-        const canvas=await prep(files[i]);
-        const {data}=await w.recognize(canvas,{},{text:true,blocks:true});
-        words=flatWords(data); text=data.text||""; W=canvas.width;
-        shot=marketOf(text,words,W);
-        if(shot===MKT_DONGWHA){ stat(`사진 ${i+1}/${files.length} · 생산자 이름 확인 중…`); names=await producerPass(w,canvas); }
-      }
-
-      raw+=text+"\n";
-      if(!shot) shot=marketOf(text,words,W);
-      const r=parseAuction(words,W,names,shot);
-      mkt=r.mkt||shot;                       // 선택칸의 처음 값으로만 쓴다 (줄마다 제 시장을 갖는다)
-      all=all.concat(r.rows);
-      if(!date) date=detectDate(text);
-      ocrBar((i+1)/files.length);
-    }
-  }catch(err){ ocrRunning=false; ocrBar(null); stat("⚠ "+err.message); return; }
-  ocrRunning=false;
-  ocrBar(null);
-  if(!all.length){
-    stat("표를 찾지 못했습니다. 아래 원문을 확인하시고, 필요하면 직접 추가로 넣어주세요.");
-    openReview([],mkt,date||state.workday||오늘KST(),raw);
-    document.getElementById("rev_rawtext").classList.remove("hidden");
-    return;
-  }
-
-  /* 검수 없이 바로 목록에 넣는다.
-     다시 올렸을 때는 시장별로 이미 있는 줄과 견주어 새 줄만 더한다.
-     이미 있는 줄은 손대지 않는다 — 챙긴 박스 수·주석이 그대로 남아야 한다. */
-  /* 사진마다 날짜가 갈리면 같은 낙찰이 다른 줄로 쌓인다(실측: 34줄 중 14줄이 하루 전
-     날짜로 들어가 중복이 생겼다). 서버가 정한 작업일 하나를 모든 줄에 쓴다. */
-  const 날짜 = state.workday || date || 오늘KST();
-  const 있는것 = new Set((state.lots||[]).map(l=>l.id));
-  const 넣을것 = [], 시장별 = {};
-  let 이미있음 = 0, 품목없음 = 0;
-  all.forEach(r=>{
-    if(!r.item && !r.who && !r.price) return;              // 아무것도 못 읽은 줄은 버린다
-    const row = Object.assign({date:날짜}, r, {mkt:r.mkt||mkt});
-    delete row.sure; delete row.y;
-    row.id = lotKey(row);
-    if(있는것.has(row.id)){ 이미있음++; return; }           // 같은 줄 — 그대로 둔다
-    있는것.add(row.id);                                    // 한 번에 올린 사진끼리 겹치는 것도 막는다
-    시장별[row.mkt] = (시장별[row.mkt]||0) + 1;
-    if(!row.item) 품목없음++;
-    넣을것.push(row);
-  });
-
-  if(!넣을것.length){
-    stat(`새로 넣을 줄이 없습니다. 읽은 ${all.length}줄은 모두 이미 목록에 있습니다.`);
-    return;
-  }
-  pushOp({t:"lots",rows:넣을것});
-  const 내역 = Object.keys(시장별).map(m=>`${m} ${시장별[m]}줄`).join(" · ");
-  stat(`${내역} 넣었습니다.`
-    + (이미있음 ? ` 이미 있던 ${이미있음}줄은 그대로 두었습니다.` : "")
-    + (품목없음 ? ` 품목을 못 읽은 ${품목없음}줄은 목록에 노란 '품목?' 로 표시됩니다.` : "")
-    + (폰으로읽음 ? ` (${폰으로읽음}장은 이 폰에서 읽어 정확도가 낮을 수 있습니다${서버포기?` — ${서버포기}`:""}.)` : ""));
-};
-
-/* ---------- 확인 화면 ---------- */
-let revMktForced=false;                    // 선택칸을 직접 바꾸면 그때만 전체에 적용한다
-function openReview(rows,mkt,date,raw){
-  revRows=rows; revRaw=raw;
-  revMktForced=false;
-  document.getElementById("rev_mkt").value=mkt;
-  document.getElementById("rev_date").value=date;
-  document.getElementById("rev_rawtext").textContent=raw;
-  document.getElementById("rev_rawtext").classList.add("hidden");
-  drawReview();
-  document.getElementById("review").classList.remove("hidden");
-}
-function drawReview(){
-  const box=document.getElementById("rev_rows");
-  box.innerHTML=revRows.map((r,i)=>`<div class="revrow ${r.sure?"":"unsure"}" data-i="${i}">
-      <div class="rev1">
-        <span class="revmkt">${esc((revMktForced?document.getElementById("rev_mkt").value:(r.mkt||"")).replace("청과",""))}</span>
-        <input class="f-item" value="${esc(r.item)}" data-k="item" placeholder="품목">
-        <input class="f-who" value="${esc(r.who)}" data-k="who" placeholder="생산자">
-        <button class="del" data-del-row="${i}">✕</button>
-      </div>
-      <div class="rev2">
-        <label>단량<input value="${esc(r.unit)}" data-k="unit"></label>
-        <label>등급<input value="${esc(r.grade)}" data-k="grade"></label>
-        <label>수량<input value="${r.qty}" data-k="qty" inputmode="numeric"></label>
-        <label>단가<input value="${r.price}" data-k="price" inputmode="numeric"></label>
-      </div>
-    </div>`).join("");
-  const bad=revRows.filter(r=>!r.sure).length;
-  const noItem=revRows.filter(r=>!r.item).length;
-  const mkts=[...new Set(revRows.map(r=>r.mkt).filter(Boolean))];
-  const mix=(!revMktForced&&mkts.length>1) ? ` 사진마다 시장이 달라 줄별로 ${mkts.join("·")} 로 나눠 넣습니다.` : "";
-  const miss=noItem ? ` 품목을 못 읽은 ${noItem}줄은 비워 두었습니다 — 채워 주세요.` : "";
-  document.getElementById("rev_msg").textContent = (!revRows.length ? "읽어낸 줄이 없습니다."
-    : bad ? `${revRows.length}줄 중 ${bad}줄은 단가·금액 검산이 맞지 않습니다(붉은 줄). 수량과 단가를 원본과 대조해 주세요.`
-          : `${revRows.length}줄 모두 단가 × 수량 = 금액 검산을 통과했습니다. 품목·생산자만 확인해 주세요.`) + mix + miss;
-}
-document.getElementById("rev_rows").addEventListener("input",e=>{
-  const inp=e.target.closest("input[data-k]"); if(!inp)return;
-  const i=+inp.closest(".revrow").dataset.i, k=inp.dataset.k;
-  revRows[i][k]=(k==="qty"||k==="price")?num(inp.value):inp.value;
-});
-document.getElementById("rev_rows").addEventListener("click",e=>{
-  const b=e.target.closest("[data-del-row]"); if(!b)return;
-  revRows.splice(+b.dataset.delRow,1); drawReview();
-});
-let revClearArm=false;
-document.getElementById("rev_clear").onclick=function(){
-  if(!revRows.length){ document.getElementById("review").classList.add("hidden"); return; }
-  if(!revClearArm){
-    revClearArm=true; this.textContent="한 번 더";
-    setTimeout(()=>{ revClearArm=false; this.textContent="전부 지우기"; },4000);
-    return;
-  }
-  revClearArm=false; this.textContent="전부 지우기";
-  revRows=[]; drawReview();
-  document.getElementById("rev_msg").textContent="읽어온 내용을 모두 지웠습니다. 닫고 사진을 다시 읽어오시면 됩니다.";
-};
-
-document.getElementById("rev_mkt").onchange=()=>{ revMktForced=true; drawReview(); };
-document.getElementById("rev_raw").onclick=()=>document.getElementById("rev_rawtext").classList.toggle("hidden");
-document.getElementById("rev_close").onclick=()=>document.getElementById("review").classList.add("hidden");
-document.getElementById("rev_add").onclick=()=>{
-  const mkt=document.getElementById("rev_mkt").value;
-  const date=document.getElementById("rev_date").value.trim()||state.workday||오늘KST();
-  const rows=[];
-  revRows.forEach(r=>{
-    if(!r.item&&!r.who&&!r.price)return;
-    const row=Object.assign({date},r,{mkt:revMktForced?mkt:(r.mkt||mkt)});
-    row.id=lotKey(row); delete row.sure;
-    rows.push(row);
-  });
-  if(!rows.length){ document.getElementById("review").classList.add("hidden");
-    stat("넣을 줄이 없어 그냥 닫았습니다."); return; }
-  pushOp({t:"lots",rows});
-  document.getElementById("review").classList.add("hidden");
-  stat(serverUrl ? `${rows.length}줄을 넣었습니다. 다른 사람 화면에도 곧 나타납니다.`
-                 : `${rows.length}줄을 목록에 넣었습니다.`);
-};
-
 /* ==================== 공유 서버 연결 ==================== */
 const UKEY="seowon-user", SKEY="seowon-server";
 let me=localStorage.getItem(UKEY)||"";
 let serverUrl=localStorage.getItem(SKEY)|| (location.protocol.startsWith("http")?location.origin:"");
 let online=false, pending=[], liveLog=[], es=null;
-let serverVision=false;                  // 서버가 구글 글자 인식을 대신해 준다
 try{ pending=JSON.parse(localStorage.getItem("seowon-pending")||"[]"); }catch(e){ pending=[]; }
 
 const savePending=()=>{ try{ localStorage.setItem("seowon-pending",JSON.stringify(pending)); }catch(e){} };
@@ -1489,12 +972,10 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.shared=(sv.photos||[]).map(p=>Object.assign({},p,{url:serverUrl+"/photos/"+p.id+".jpg"}));
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   save(); render();
   state.workday=sv.workday||state.workday;
-  serverVision=!!sv.vision;
   checkBuild(sv.build);
 }
 
@@ -1507,9 +988,8 @@ let myBuild=null, waitingBuild=null, buildTimer=null;
 
 function busyNow(){
   if(pending.length) return true;                       // 아직 못 보낸 조작이 있다
-  if(ocrRunning) return true;                           // 사진 인식 중 — 20초 넘게 걸린다
   const open=id=>{const el=document.getElementById(id); return !!el&&!el.classList.contains("hidden");};
-  if(open("review")||open("pick")||open("lightbox")) return true;
+  if(open("pick")) return true;
   const a=document.activeElement;
   return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }

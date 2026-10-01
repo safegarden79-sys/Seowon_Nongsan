@@ -13,16 +13,13 @@ const ROOT   = __dirname;
    주지 않으면 지금까지처럼 프로그램 폴더에 둔다. */
 const DIR    = path.resolve(process.env.DATA_DIR || ROOT);   // 상대 경로로 들어와도 절대 경로로 바꾼다
 const DATA   = path.join(DIR, "data.json");
-const PHOTOS = path.join(DIR, "photos");
 const BACKUP = path.join(DIR, "backup");
 const PORT   = process.env.PORT || 3000;
-/* 구글 글자 인식(Cloud Vision) 열쇠. 없으면 이 기능만 꺼지고 나머지는 그대로 돈다.
-   폰이 열쇠를 알 필요가 없도록 서버가 대신 물어본다. */
-const VISION_KEY = process.env.GOOGLE_VISION_KEY || "";
-const MAX_PHOTOS = 60;
+/* 날짜별 낙찰 기록(history)을 며칠까지 보관할지. 캘린더에서 "최근 한 달"을 보여주려는
+   용도라 여유 있게 40일로 둔다. */
+const HISTORY_DAYS = 40;
 
 if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
-if (!fs.existsSync(PHOTOS)) fs.mkdirSync(PHOTOS, { recursive: true });
 
 /* 자료를 정말 붙여둔 디스크에 쓰고 있는지 한눈에 보이게 한다.
    디스크를 붙이고도 DATA_DIR 를 안 주면 프로그램 폴더에 쓰게 되는데,
@@ -52,7 +49,7 @@ const BUILD = (() => {
 })();
 
 /* ---------- 상태 ---------- */
-let state = { version: 0, lots: {}, got: {}, cars: {}, notes: {}, lotnotes: {}, photos: [], log: [], workday: today() };
+let state = { version: 0, lots: {}, got: {}, cars: {}, notes: {}, lotnotes: {}, history: {}, log: [], workday: today() };
 
 function today() {
   const d = new Date(Date.now() + 9 * 3600e3);      // 한국 시간 기준
@@ -61,6 +58,27 @@ function today() {
 try {
   if (fs.existsSync(DATA)) state = Object.assign(state, JSON.parse(fs.readFileSync(DATA, "utf8")));
 } catch (e) { console.error("기존 자료를 읽지 못했습니다. 새로 시작합니다.", e.message); }
+if (!state.history) state.history = {};
+
+/* 캘린더용 날짜별 기록을 너무 오래된 것부터 지운다 (매일 들어오는 낙찰 줄마다 부른다) */
+function pruneHistory() {
+  const cutoff = Date.now() - HISTORY_DAYS * 86400e3;
+  for (const d of Object.keys(state.history)) {
+    const t = new Date(d + "T00:00:00+09:00").getTime();
+    if (isNaN(t) || t < cutoff) delete state.history[d];
+  }
+}
+pruneHistory();
+
+/* 낙찰 줄을 날짜별 영구 기록에도 함께 쌓는다. 이 기록은 '낙찰 내역 전체 삭제'나
+   '새 작업 시작'을 눌러도 지워지지 않는다 — 캘린더에서 지난 날짜를 다시 볼 수 있어야 하기 때문이다. */
+function addToHistory(rows) {
+  (rows || []).forEach(r => {
+    if (!r || !r.id || !r.date) return;
+    state.history[r.date] = state.history[r.date] || {};
+    state.history[r.date][r.id] = Object.assign({}, state.history[r.date][r.id] || {}, r);
+  });
+}
 
 /* 매 변경마다 즉시 저장한다. 임시 파일에 쓴 뒤 바꿔치기해서
    저장 도중 서버가 꺼져도 자료가 깨지지 않는다. */
@@ -74,7 +92,12 @@ function persist() {
 
 /* ---------- 접속자에게 밀어주기 (SSE) ---------- */
 const clients = new Set();
-const payload = () => Object.assign({ build: BUILD, vision: !!VISION_KEY }, state);   // 판 번호와 인식기 유무를 얹어 보낸다
+/* history(날짜별 기록)는 꽤 커질 수 있어서 실시간으로 계속 내려보내는 자료에는 안 싣는다.
+   캘린더는 /api/history, /api/history/:날짜 로 필요할 때만 따로 받아간다. */
+const payload = () => {
+  const { history, ...rest } = state;
+  return Object.assign({ build: BUILD }, rest);     // 판 번호를 얹어 보낸다
+};
 function broadcast() {
   const msg = "data: " + JSON.stringify(payload()) + "\n\n";
   for (const res of clients) { try { res.write(msg); } catch (e) { clients.delete(res); } }
@@ -95,7 +118,7 @@ function applyOp(user, op) {
   const by = String(user || "?").slice(0, 12);
 
   switch (op.t) {
-    case "lots": {                                   // 사진에서 읽은 낙찰 줄 반영
+    case "lots": {                                   // 실시간 수집기(또는 직접 추가)가 넣은 낙찰 줄 반영
       let added = 0, updated = 0;
       (op.rows || []).forEach(r => {
         if (!r.id) return;
@@ -108,12 +131,22 @@ function applyOp(user, op) {
         old ? updated++ : added++;
         if (state.got[r.id] && state.got[r.id].n > r.qty) state.got[r.id].n = r.qty;
       });
-      /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 사진을 여러 장 한꺼번에
-         읽었을 때 시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
+      addToHistory(op.rows);                          // 캘린더용 날짜별 기록에도 함께 남긴다
+      pruneHistory();
+      /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 한 번에 여러 줄이 들어왔을 때
+         시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
       const 시장 = {};
       (op.rows || []).forEach(r => { if (r && r.mkt) 시장[r.mkt] = (시장[r.mkt] || 0) + 1; });
       const 내역 = Object.keys(시장).map(m => `${m} ${시장[m]}`).join(" · ");
       bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${내역 ? ` (${내역})` : ""}`);
+      return;
+    }
+    case "histlots": {                                // 지난 낙찰 내역 백필 — 오늘 작업 목록(state.lots)에는 넣지 않는다
+      let n = 0;
+      (op.rows || []).forEach(r => { if (r && r.id && r.date) n++; });
+      addToHistory(op.rows);
+      pruneHistory();
+      bump(by, `지난 낙찰 내역 ${n}줄 가져옴`);
       return;
     }
     case "got": {                                    // 박스 몇 개 챙겼는지
@@ -146,68 +179,28 @@ function applyOp(user, op) {
       bump(by, `${lot ? lot.item : "품목"} 주석`);
       return;
     }
-    case "photo": {                                  // 경매 화면 사진 공유
-      const m = /^data:image\/(jpeg|png);base64,(.+)$/.exec(op.data || "");
-      if (!m) return;
-      const buf = Buffer.from(m[2], "base64");
-      if (buf.length > 900 * 1024) return;
-      const id = "p" + now + Math.random().toString(36).slice(2, 6);
-      fs.writeFileSync(path.join(PHOTOS, id + ".jpg"), buf);
-      state.photos.unshift({ id, by, at: now, mkt: op.mkt || "" });
-      while (state.photos.length > MAX_PHOTOS) {
-        const old = state.photos.pop();
-        try { fs.unlinkSync(path.join(PHOTOS, old.id + ".jpg")); } catch (e) {}
-      }
-      bump(by, "경매 화면 사진 올림");
-      return;
-    }
-    case "delphoto": {
-      const i = state.photos.findIndex(p => p.id === op.id);
-      if (i < 0) return;
-      try { fs.unlinkSync(path.join(PHOTOS, op.id + ".jpg")); } catch (e) {}
-      state.photos.splice(i, 1);
-      bump(by, "사진 삭제");
-      return;
-    }
-    case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다
+    case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다 (오늘 목록 + 그 날짜 기록 모두에서)
       const lot = state.lots[op.id];
       if (!lot) return;
       delete state.lots[op.id];
       delete state.got[op.id];
       delete state.lotnotes[op.id];
+      if (lot.date && state.history[lot.date]) delete state.history[lot.date][op.id];
       bump(by, `${[lot.item, lot.who].filter(Boolean).join(" · ") || "낙찰"} 줄 삭제`);
       return;
     }
-    case "clearlots": {                              // 낙찰 내역만 전부 삭제 (상차 체크는 유지)
+    case "clearlots": {                              // 낙찰 내역만 전부 삭제 (상차 체크는 유지, 캘린더 기록은 남는다)
       state.lots = {}; state.got = {}; state.lotnotes = {};
       bump(by, "낙찰 내역 전체 삭제");
       return;
     }
-    case "newday": {                                 // 새 작업 시작 — 모두에게 적용된다
+    case "newday": {                                 // 새 작업 시작 — 모두에게 적용된다 (캘린더 기록은 남는다)
       state.lots = {}; state.got = {}; state.cars = {}; state.notes = {}; state.lotnotes = {};
-      state.photos.forEach(p => { try { fs.unlinkSync(path.join(PHOTOS, p.id + ".jpg")); } catch (e) {} });
-      state.photos = []; state.log = []; state.workday = today();
+      state.log = []; state.workday = today();
       bump(by, "새 작업 시작 (전체 초기화)");
       return;
     }
   }
-}
-
-/* 구글이 준 낱말을 화면 쪽이 쓰는 상자 형식으로 바꾼다.
-   {글자, 왼쪽, 오른쪽, 가운데높이, 글자높이} — Tesseract 가 주던 것과 같은 모양이다. */
-function 글자상자(ann) {
-  const out = [];
-  ((ann.pages) || []).forEach(p => (p.blocks || []).forEach(b => (b.paragraphs || []).forEach(pa =>
-    (pa.words || []).forEach(w => {
-      const t = (w.symbols || []).map(s => s.text || "").join("").trim();
-      const v = (w.boundingBox || {}).vertices || [];
-      if (!t || v.length < 4) return;
-      const xs = v.map(q => q.x || 0), ys = v.map(q => q.y || 0);
-      const y0 = Math.min(...ys), y1 = Math.max(...ys);
-      out.push({ t, x0: Math.min(...xs), x1: Math.max(...xs), y: (y0 + y1) / 2, h: y1 - y0 });
-    })
-  )));
-  return out.sort((a, b) => a.y - b.y || a.x0 - b.x0);
 }
 
 /* ---------- 요청 처리 ---------- */
@@ -228,13 +221,34 @@ const server = http.createServer((req, res) => {
 
   if (u.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
-    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 글자인식: VISION_KEY ? "구글" : "폰에서", 자료위치, 접속자: clients.size,
-      낙찰: Object.keys(state.lots).length, 작업일: state.workday, 가동초: Math.round(process.uptime()) }));
+    return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 자료위치, 접속자: clients.size,
+      낙찰: Object.keys(state.lots).length, 작업일: state.workday, 기록일수: Object.keys(state.history).length,
+      가동초: Math.round(process.uptime()) }));
   }
 
   if (u.pathname === "/api/state") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify(payload()));
+  }
+
+  /* 캘린더 — 날짜별 요약(그 날 몇 줄, 어느 시장 몇 줄). 최근 HISTORY_DAYS 일만 남아있다. */
+  if (u.pathname === "/api/history") {
+    const days = {};
+    Object.keys(state.history).sort().forEach(d => {
+      const rows = Object.values(state.history[d]);
+      const mkt = {};
+      rows.forEach(r => { if (r && r.mkt) mkt[r.mkt] = (mkt[r.mkt] || 0) + 1; });
+      days[d] = { count: rows.length, mkt };
+    });
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ ok: true, days }));
+  }
+
+  /* 캘린더 — 하루치 낙찰 줄 전체 (예: /api/history/2026-09-15) */
+  if (u.pathname.startsWith("/api/history/")) {
+    const date = decodeURIComponent(u.pathname.slice("/api/history/".length));
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ ok: true, date, lots: state.history[date] || {} }));
   }
 
   if (u.pathname === "/api/stream") {
@@ -249,45 +263,6 @@ const server = http.createServer((req, res) => {
     clients.add(res);
     const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
     req.on("close", () => { clearInterval(ping); clients.delete(res); });
-    return;
-  }
-
-  /* 사진을 받아 구글에 글자 인식을 맡기고, 글자마다 위치 상자를 돌려준다.
-     화면 쪽 표 해석(parseAuction)이 쓰는 형식 그대로 맞춰 보낸다. */
-  if (u.pathname === "/api/ocr" && req.method === "POST") {
-    if (!VISION_KEY) {
-      res.writeHead(503, { "Content-Type": TYPES[".json"] });
-      return res.end(JSON.stringify({ ok: false, error: "서버에 글자 인식 열쇠가 없습니다" }));
-    }
-    let body = "";
-    req.on("data", c => { body += c; if (body.length > 2.4e7) req.destroy(); });
-    req.on("end", async () => {
-      try {
-        const m = /^data:image\/(jpeg|png);base64,(.+)$/.exec(JSON.parse(body).data || "");
-        if (!m) throw new Error("사진을 읽지 못했습니다");
-        const r = await fetch("https://vision.googleapis.com/v1/images:annotate?key=" + encodeURIComponent(VISION_KEY), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requests: [{
-            image: { content: m[2] },
-            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-            imageContext: { languageHints: ["ko", "en"] }
-          }] })
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error((j.error && j.error.message) || ("구글이 거절했습니다 (" + r.status + ")"));
-        const one = (j.responses || [])[0] || {};
-        if (one.error) throw new Error(one.error.message || "구글이 사진을 읽지 못했습니다");
-        const ann = one.fullTextAnnotation || {};
-        res.writeHead(200, { "Content-Type": TYPES[".json"] });
-        res.end(JSON.stringify({ ok: true, text: ann.text || "", words: 글자상자(ann),
-          width: ((ann.pages || [])[0] || {}).width || 0 }));
-      } catch (e) {
-        console.error("글자 인식 실패:", e.message);
-        res.writeHead(502, { "Content-Type": TYPES[".json"] });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
-      }
-    });
     return;
   }
 
@@ -306,15 +281,6 @@ const server = http.createServer((req, res) => {
       }
     });
     return;
-  }
-
-  if (u.pathname.startsWith("/photos/")) {
-    const f = path.join(PHOTOS, path.basename(u.pathname));
-    if (fs.existsSync(f)) {                        // 사진 이름은 한 번 정해지면 안 바뀐다 — 오래 담아둬도 된다
-      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=31536000, immutable" });
-      return fs.createReadStream(f).pipe(res);
-    }
-    res.writeHead(404); return res.end();
   }
 
   // 정적 파일
@@ -355,6 +321,6 @@ process.on("unhandledRejection", e => console.error("오류:", e));
 
 server.listen(PORT, () => {
   console.log(`서원농산 공유 서버 실행 중 — 포트 ${PORT} · 화면 판 ${BUILD}`);
-  console.log(`자료 ${자료위치} · 글자 인식 ${VISION_KEY ? "구글" : "폰에서"}`);
-  console.log(`작업일 ${state.workday} · 낙찰 ${Object.keys(state.lots).length}줄 · 접속자에게 실시간 전달`);
+  console.log(`자료 ${자료위치}`);
+  console.log(`작업일 ${state.workday} · 낙찰 ${Object.keys(state.lots).length}줄 · 기록 ${Object.keys(state.history).length}일치 · 접속자에게 실시간 전달`);
 });
