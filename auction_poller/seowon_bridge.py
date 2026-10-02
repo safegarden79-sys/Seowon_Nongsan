@@ -20,7 +20,20 @@
 - 보내기는 별도 스레드에서 하므로 서버가 느리거나 잠깐 끊겨도 수집 반복문은 멈추지 않는다.
   못 보낸 낙찰 줄은 다음에 다시 보낸다(최신 신호만 남기고, 낙찰 줄은 잃지 않는다).
 - 3초 안에 받으려면 확인 간격을 2초 정도로 둔다 (사이트에서 줄이 생긴 뒤 최악 = 간격 + 읽는 시간 + 전송).
+
+조회 날짜 (사이트마다 다르다) — 경매는 밤 22:30 에 시작해 다음날 낮 12:30 쯤 끝난다.
+    for d in query_dates("동화청과"):   # 사이트 낙찰내역조회에 넣을 날짜(들)
+        rows = 사이트에서_읽기(d)
+        for r in rows: r["date"] = auction_date("동화청과", d)
+- 동화청과: 10월 2일 밤 경매 결과가 '10월 3일' 로 조회된다. → 저녁(15시 이후)에는 내일 날짜,
+  자정 넘어서는 오늘 날짜로 조회한다. 결국 한 번의 경매 내내 같은 날짜(다음날)로 조회한다.
+- 서울청과: 그날 달력 날짜로 조회한다. 10월 2일 밤에는 '10월 2일', 자정이 지나면 '10월 3일'.
+  자정 직전에 받은 줄을 놓치지 않도록 자정 뒤 10분 동안은 어제 날짜도 함께 조회한다.
+- 서원농산 앱에 올릴 때(줄의 date)는 두 시장 모두 동화청과처럼 '경매가 끝나는 날' 하나로 맞춘다.
+  그래야 하룻밤 경매가 앱에서 한 날짜에 모이고, 서울청과에서 자정 전후로 조회 날짜가 바뀌어도
+  같은 낙찰이 날짜만 다른 두 줄(다른 id)로 쪼개지지 않는다.
 """
+import datetime
 import json
 import queue
 import threading
@@ -28,6 +41,43 @@ import time
 import urllib.request
 
 MARKETS = ("서울청과", "동화청과")
+EVENING_FROM = 15        # 이 시(한국 시간) 이후는 '오늘 밤 경매'로 본다 (경매는 22:30 시작, 12:30 끝)
+
+
+def _kst(now=None):
+    """한국 시간. PC 시계의 시간대 설정과 상관없이 계산한다."""
+    t = now if now is not None else datetime.datetime.now(datetime.timezone.utc)
+    if t.tzinfo is None:                 # 시간대 없는 값은 한국 시간으로 본다 (시험용)
+        return t
+    return t.astimezone(datetime.timezone(datetime.timedelta(hours=9))).replace(tzinfo=None)
+
+
+def query_dates(mkt, now=None):
+    """지금 그 시장 사이트 낙찰내역조회에 넣어야 할 날짜(YYYY-MM-DD) 목록. 첫 번째가 주 날짜."""
+    k = _kst(now)
+    today = k.date()
+    if mkt == "동화청과":
+        d = today + datetime.timedelta(days=1) if k.hour >= EVENING_FROM else today
+        return [d.isoformat()]
+    if mkt == "서울청과":
+        out = [today.isoformat()]
+        if k.hour == 0 and k.minute < 10:         # 자정 직전 낙찰을 놓치지 않게
+            out.append((today - datetime.timedelta(days=1)).isoformat())
+        return out
+    raise ValueError("시장 이름은 서울청과 또는 동화청과")
+
+
+def auction_date(mkt, query_date, now=None):
+    """사이트에서 query_date 로 읽은 줄을 앱에 올릴 때 붙일 경매일(경매가 끝나는 날).
+    동화청과는 조회 날짜가 곧 그 날짜다. 서울청과는 저녁(자정 전)에 그날 날짜로 읽은 줄이면
+    다음날로 옮긴다. 자정 뒤 '어제 날짜'로 다시 읽은 줄도 같은 경매이므로 다음날이 된다."""
+    q = datetime.date.fromisoformat(query_date)
+    if mkt == "동화청과":
+        return q.isoformat()
+    k = _kst(now)
+    if q < k.date() or k.hour >= EVENING_FROM:
+        return (q + datetime.timedelta(days=1)).isoformat()
+    return q.isoformat()
 
 
 class Bridge:
