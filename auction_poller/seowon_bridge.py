@@ -160,3 +160,19 @@ def looks_logged_out(final_url="", html=""):
     u = (final_url or "").lower()
     h = html or ""
     return ("login" in u) or ('type="password"' in h) or ("type='password'" in h) or ("로그인" in h and "낙찰" not in h)
+
+
+if __name__ == "__main__":
+    # 연결 시험:  python seowon_bridge.py https://서버주소
+    # 두 시장 모두 '로그인 정상' 신호를 한 번 보낸다 → 앱 툴바가 녹색이 되면 서버 연결은 정상.
+    # (진짜 로그인 상태가 아니라 시험 신호다. 30초 뒤 다시 회색이 된다.)
+    import sys
+    if len(sys.argv) < 2:
+        print("사용법: python seowon_bridge.py https://서버주소")
+        sys.exit(1)
+    br = Bridge(sys.argv[1], user="연결시험")
+    for m in MARKETS:
+        br.heartbeat(m, "ok", msg="연결 시험 신호", interval=10)
+        print(m, "오늘 조회 날짜:", query_dates(m), "→ 앱 경매일:", [auction_date(m, d) for d in query_dates(m)])
+    time.sleep(3)
+    print("전송 실패: " + br.last_error if br.last_error else "전송 완료 — 앱 오른쪽 위 서울·동화가 녹색인지 보세요 (30초 동안)")
