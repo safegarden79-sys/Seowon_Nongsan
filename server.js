@@ -170,6 +170,8 @@ function applyOp(user, op) {
       addToHistory(op.rows);                          // 캘린더용 날짜별 기록에도 함께 남긴다
       pruneHistory();
       addToInv(op.rows, now);                         // 품목 관리(재고) 목록에도 올린다
+      /* 수집기(poller)가 마지막으로 낙찰을 올린 때. 화면과 /api/health 에서 poller 가 살아 있는지 본다. */
+      state.lastLots = { at: now, by, n: (op.rows || []).length };
       /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 한 번에 여러 줄이 들어왔을 때
          시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
       const 시장 = {};
@@ -296,6 +298,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 자료위치, 접속자: clients.size,
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 기록일수: Object.keys(state.history).length,
+      마지막낙찰수신: state.lastLots ? new Date(state.lastLots.at + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 16) + " (" + state.lastLots.by + ")" : null,
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
   }

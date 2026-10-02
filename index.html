@@ -242,6 +242,44 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
   padding:16px 16px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .sheethead b{font-size:17px}
+/* 낙찰 내역 — 날짜 고르기 (동화청과 낙찰내역조회 화면과 같은 방식) */
+.datebar{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.dtitle{font-size:18px;font-weight:800;color:var(--text);white-space:nowrap}
+.datebtn{flex:1;min-width:0;padding:11px 12px;border-radius:12px;border:2px solid var(--ok);background:var(--surface);
+  color:var(--text);font-size:16px;font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dmodal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px}
+.dsheet{background:#FFFFFF;color:#222;border-radius:22px;width:100%;max-width:380px;padding:20px 18px 18px}
+.dcols{display:flex;gap:8px}
+.dcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dlab{font-size:18px;color:#333;margin-bottom:4px}
+.dcol button{background:none;border:0;font-size:24px;color:#333;padding:4px 18px;line-height:1}
+.dval{width:100%;text-align:center;font-size:24px;padding:16px 0;border:1px solid #DDD;border-radius:6px;
+  background:linear-gradient(#FFF,#EEE);color:#222;font-variant-numeric:tabular-nums}
+.dsum{text-align:center;font-size:17px;color:#333;margin:18px 0 2px}
+.dcnt{text-align:center;font-size:12px;color:#777;margin:0 0 16px;min-height:16px}
+.dbtns{display:flex;gap:10px}
+.dbtns button{flex:1;padding:14px 0;border-radius:99px;border:0;font-size:16px;font-weight:700}
+.dclose{background:#DDD;color:#0B8A3E}
+.dok{background:#0B8A3E;color:#FFF}
+/* 낙찰 내역 표 — 품목 관리와 같은 엑셀식 표, 맨 아래 소계·합계 */
+table.xl td.ck{width:30px;padding:0}
+.ckb{width:30px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
+.ckb i{width:18px;height:18px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;align-items:center;justify-content:center;
+  font-style:normal;font-size:12px;font-weight:900;color:transparent}
+tr.got .ckb i{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+table.xl tr.got td{background:rgba(107,203,139,.09)}
+table.xl tr.got td.qn{color:var(--dim)}
+table.xl td.qn{font-weight:800;font-size:14px}
+table.xl td.no{font-size:10.5px;color:#8FC7E8}
+table.xl td.nb{width:26px;padding:0}
+.nbtn{width:26px;height:38px;background:none;border:0;color:var(--warn);font-size:17px;font-weight:700;padding:0}
+table.xl tr.noterow td{background:#22221F;color:#F0BE72;font-size:11.5px;white-space:normal}
+table.xl tr.noterow .lby{color:var(--dim);float:right}
+table.xl tr.edrow td{background:#22221F;white-space:normal}
+table.xl tr.edrow textarea{padding:9px 12px;border-radius:10px;background:#1C1C1A;font-size:13px;min-height:56px;resize:vertical}
+.grand{display:flex;justify-content:space-between;align-items:center;margin:4px 0 14px;padding:12px 14px;border-radius:10px;
+  background:#0B6B35;color:#FFF;font-weight:800;font-size:14px}
+.grand span{font-variant-numeric:tabular-nums}
 /* 캘린더 탭 */
 .calnav{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
 .calnav button{background:var(--surface2);border:1px solid var(--line);color:var(--text);
@@ -315,7 +353,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
   <div class="tabs">
     <button class="tab on" data-tab="lot">📦 낙찰 내역</button>
     <button class="tab" data-tab="inv">📋 품목 관리</button>
-    <button class="tab" data-tab="cal">📅 캘린더</button>
   </div>
 
   <div class="searchwrap">
@@ -337,13 +374,18 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
   </div>
 
   <div id="lotview" class="hidden">
+    <div class="datebar">
+      <span class="dtitle">낙찰내역조회</span>
+      <button class="datebtn" id="datebtn">📅 <span id="datetxt">날짜</span></button>
+    </div>
+    <p class="hint" id="pollstat"></p>
     <p class="hint" id="lotstat"></p>
+    <div id="lotlist"></div>
+
     <div id="feedwrap"></div>
-    <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
     <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="addpanel"></div>
-
-    <div id="lotlist"></div>
+    <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
   </div>
 
   <div id="invview" class="hidden">
@@ -351,11 +393,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
     <div id="invbody"></div>
   </div>
 
-  <div id="calview" class="hidden">
-    <div id="calnav"></div>
-    <div id="calgrid"></div>
-    <div id="caldetail"></div>
-  </div>
 </main>
 
 <footer>
@@ -364,6 +401,19 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
 </footer>
 
 <div id="updbar" class="updbar hidden">새 판이 올라왔습니다 · 눌러서 지금 적용</div>
+
+<div id="dpick" class="dmodal hidden">
+  <div class="dsheet">
+    <div class="dcols">
+      <div class="dcol" data-k="y"><span class="dlab">년</span><button data-d="+">+</button><div class="dval" id="dv_y"></div><button data-d="-">−</button></div>
+      <div class="dcol" data-k="m"><span class="dlab">월</span><button data-d="+">+</button><div class="dval" id="dv_m"></div><button data-d="-">−</button></div>
+      <div class="dcol" data-k="d"><span class="dlab">일</span><button data-d="+">+</button><div class="dval" id="dv_d"></div><button data-d="-">−</button></div>
+    </div>
+    <p class="dsum" id="dsum"></p>
+    <p class="dcnt" id="dcnt"></p>
+    <div class="dbtns"><button class="dclose" id="dclose">닫기</button><button class="dok" id="dok">날짜 선택 완료</button></div>
+  </div>
+</div>
 
 <div id="pick" class="modal hidden">
   <div class="sheet">
@@ -597,29 +647,26 @@ function visibleLots(){
     return [l.item,l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
   });
 }
-function lotCard(l){
-  const g=state.got[l.id]||0, d=g>=l.qty&&l.qty>0;
-  const note=(state.lotnotes||{})[l.id];
-  const stamp=(state.stampGot&&state.stampGot[l.id])?state.stampGot[l.id]:null;
-  return `<div class="card lotrow ${d?"done":""}" data-id="${l.id}">
-    <div class="lrow" data-act="lottoggle">
-      <span class="lbox">${d?"✓":""}</span>
-      <span class="c-item${l.item?"":" c-noitem"}">${esc(l.item||"품목?")}</span>
-      <span class="c-no mono">${esc(l.no||"")}</span>
-      <span class="c-who">${esc(l.who||"-")}</span>
-      <span class="c-unit tnum">${esc(String(l.unit||"").replace(/[Kk][Gg]/,""))}</span>
-      <span class="c-grade">${esc(l.grade||"")}</span>
-      <span class="c-qty tnum">${l.qty}</span>
-      <span class="c-amt tnum">${won(l.price*l.qty)}</span>
-      <button class="c-add" data-act="lotnote" aria-label="주석">+</button>
-    </div>
-    ${(note||stamp&&d)?`<div class="lnote">${note?`✎ ${esc(note.text||note)}`:""}${
-      (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</div>`:""}
-    ${openLotNote===l.id?`<div class="editor">
-      <textarea id="lta-${l.id}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
+/* 낙찰 표의 한 줄. 서버의 오늘 작업 목록(state.lots)에 있는 줄만 챙김 체크·주석이 된다.
+   지난 날짜 기록(history)에서만 온 줄은 보기 전용이다. */
+function lotRow(l){
+  const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
+  const note=live?(state.lotnotes||{})[l.id]:null;
+  const stamp=(live&&state.stampGot&&state.stampGot[l.id])?state.stampGot[l.id]:null;
+  return `<tr data-id="${esc(l.id)}" class="${d?"got":""}">
+      <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
+      <td class="c no mono">${esc(l.no||"")}</td>
+      <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
+      <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
+      <td class="r qn">${l.qty}</td>
+      <td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
+      <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td></tr>
+    ${(note||stamp&&d)?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="6">${note?`✎ ${esc(note.text||note)}`:""}${
+      (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</td></tr>`:""}
+    ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="7">
+      <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
       <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn r" data-act="lotdel">이 줄 삭제</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
-    </div>`:""}
-  </div>`;
+    </td></tr>`:""}`;
 }
 
 /* 중분류 판정 — 품목명을 큰 갈래로 나눈다 */
@@ -665,18 +712,11 @@ function lotGroups(vis){
 function render(){
   document.getElementById("carview").classList.toggle("hidden",tab!=="car");
   document.getElementById("lotview").classList.toggle("hidden",tab!=="lot");
-  document.getElementById("calview").classList.toggle("hidden",tab!=="cal");
   document.getElementById("invview").classList.toggle("hidden",tab!=="inv");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
-  document.querySelector(".searchwrap").classList.toggle("hidden",tab==="cal");
   document.getElementById("q").placeholder = tab==="car"?"차량번호 · 상호 · 위치 검색":"품목 · 생산자 · 번호 검색";
 
   const chips=document.getElementById("chips");
-  if(tab==="cal"){
-    chips.innerHTML="";
-    renderCalendar();
-    return;
-  }
   if(tab==="inv"){ renderInv(); return; }
   if(tab==="car"){
     const total=STOPS.length;
@@ -698,46 +738,7 @@ function render(){
         <span class="stitle">${esc(g.title)}</span><span class="scount tnum">${gd}/${g.items.length}</span>
         <span class="sline"></span><span class="sarrow">${open?"▾":"▸"}</span></button>
         ${open?g.items.map(carCard).join(""):""}</section>`;}).join("");
-  } else {
-    const rows=state.lots.length, doneRows=state.lots.filter(l=>(state.got[l.id]||0)>=l.qty).length;
-    chips.innerHTML=`
-      <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${rows}</button>
-      <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${rows-doneRows}</button>
-      <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
-      <span class="div"></span>
-      <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
-      <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
-      <button class="chip mode ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과</button>`;
-    renderFeed();
-    const groups=lotGroups(visibleLots()), list=document.getElementById("lotlist");
-    if(!groups.length){ list.innerHTML=emptyHTML(); bindEmpty(); return; }
-    const cnt=(got,qty)=>`<span class="scount tnum ${got>=qty&&qty?"full":""}">${got}/${qty}</span>`;
-    list.innerHTML=groups.map(g=>{
-      const open=!collapsed[g.key];
-      return `<section data-g="${g.key}">
-        <button class="shead" data-act="fold" data-k="${g.key}">
-          <span class="tick" style="background:${TONE[g.tone].bar}"></span>
-          <span class="stitle">${esc(g.title)}</span>${cnt(g.got,g.qty)}
-          <span class="sline"></span><span class="sarrow">${open?"▾":"▸"}</span></button>
-        ${open?g.cats.map(c=>{
-          const copen=!collapsed[c.key];
-          return `<button class="cathead" data-act="fold" data-k="${c.key}">
-            <span class="catname">${esc(c.title)}</span>${cnt(c.got,c.qty)}
-            <span class="sline"></span><span class="sarrow">${copen?"▾":"▸"}</span></button>
-            ${copen?c.kinds.map(k=>`
-              <div class="kindwrap">
-                <div class="kindhead"><span class="kindname">${esc(k.title)}</span>
-                  <span class="kindsum tnum">수량 ${k.qty} · ${won(k.amt)}원</span>${cnt(k.got,k.qty)}</div>
-                <div class="lhead">
-                  <span class="lbox"></span><span class="c-item">품종</span><span class="c-no">번호</span>
-                  <span class="c-who">생산자</span><span class="c-unit">단위</span><span class="c-grade">등급</span>
-                  <span class="c-qty">수량</span><span class="c-amt">가격</span><span class="c-add"></span>
-                </div>
-                ${k.rows.map(lotCard).join("")}
-              </div>`).join(""):""}`;
-        }).join(""):""}
-        </section>`;}).join("");
-  }
+  } else renderLots(chips);
 }
 function emptyHTML(){return `<div class="empty">조건에 맞는 항목이 없습니다.<br><button id="resetview">전체 보기</button></div>`;}
 function bindEmpty(){const b=document.getElementById("resetview"); if(b)b.onclick=()=>{
@@ -750,104 +751,143 @@ function renderFeed(){
       `<div><b>${esc(l.by)}</b> ${esc(l.text)} · ${ago(l.at)}</div>`).join("")}</div>`:"";
 }
 
-/* ==================== 캘린더 탭 ====================
-   최근 낙찰 내역을 날짜별로 서버(/api/history)에서 불러와 보여준다.
-   서버는 들어오는 낙찰 줄을 날짜별로 따로 쌓아두므로(최근 한 달 정도),
-   오늘 목록을 비워도(새 작업 시작) 지난 날짜 기록은 그대로 남는다. */
-let calYear=null, calMon=null, calSummary=null, calSelDate=null, calDayCache={};
-function calToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
-function calInit(){ const t=calToday(); calYear=+t.slice(0,4); calMon=+t.slice(5,7); calSelDate=t; }
+/* ==================== 낙찰 내역 — 날짜별 조회 ====================
+   예전 캘린더 탭을 낙찰 내역 안으로 합쳤다. 위쪽 날짜를 누르면 동화청과 낙찰내역조회처럼
+   년·월·일을 +/− 로 고르는 창이 뜨고, '날짜 선택 완료'를 누르면 그 날짜의 낙찰이 표로 나온다.
+   한 날짜의 줄 = 서버 날짜별 기록(/api/history/날짜) + 오늘 작업 목록(state.lots)에서 그 날짜인 줄.
+   오늘 작업 목록에 있는 줄은 챙김 체크·주석을 할 수 있고, 기록에만 남은 지난 줄은 보기 전용이다. */
+let lotDate=null, lotDatePicked=false, calSummary=null, calDayCache={}, dayLoading=null;
 async function loadCalSummary(){
   if(!serverUrl){ calSummary={}; return; }
   try{ const r=await fetch(serverUrl+"/api/history"); const j=await r.json(); calSummary=(j&&j.days)||{}; }
   catch(e){ calSummary=calSummary||{}; }
 }
+/* 하루치 기록을 받아온다. 받는 동안에는 이전에 받아둔 것을 그대로 보여준다. */
 async function loadCalDay(date){
-  if(calDayCache[date]) return calDayCache[date];
-  if(!serverUrl) return [];
+  if(!serverUrl){ calDayCache[date]=[]; return; }
+  if(dayLoading===date) return;
+  dayLoading=date;
   try{
     const r=await fetch(serverUrl+"/api/history/"+encodeURIComponent(date));
     const j=await r.json();
-    return calDayCache[date]=Object.values((j&&j.lots)||{});
-  }catch(e){ return []; }
+    calDayCache[date]=Object.values((j&&j.lots)||{});
+  }catch(e){ calDayCache[date]=calDayCache[date]||[]; }
+  if(dayLoading===date) dayLoading=null;
+  if(tab==="lot"&&date===lotDate) render();
 }
-function renderCalendar(){
-  if(calYear==null) calInit();
-  document.getElementById("calnav").innerHTML=
-    `<button data-cal="prev">‹</button><span class="calmonth">${calYear}년 ${calMon}월</span><button data-cal="next">›</button>`;
-  const first=new Date(Date.UTC(calYear,calMon-1,1));
-  const startWd=first.getUTCDay();
-  const days=new Date(Date.UTC(calYear,calMon,0)).getUTCDate();
-  const todayStr=calToday();
-  const wd=["일","월","화","수","목","금","토"];
-  let cells=wd.map(w=>`<div class="calwd">${w}</div>`).join("");
-  for(let i=0;i<startWd;i++) cells+=`<div class="calcell pad"></div>`;
-  for(let d=1;d<=days;d++){
-    const ds=`${calYear}-${String(calMon).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const info=(calSummary||{})[ds];
-    const cls=["calcell"];
-    if(info) cls.push("has");
-    if(ds===todayStr) cls.push("today");
-    if(ds===calSelDate) cls.push("sel");
-    cells+=`<div class="${cls.join(" ")}" data-date="${ds}">${d}${info?`<span class="calcnt">${info.count}</span>`:""}</div>`;
+/* 날짜를 고르지 않았으면 오늘 작업 목록에서 가장 최근 경매일을 보여준다 */
+function defaultLotDate(){
+  const ds=(state.lots||[]).map(l=>l.date).filter(Boolean).sort();
+  return ds.length?ds[ds.length-1]:오늘KST();
+}
+function dayRows(date){
+  const by={};
+  (calDayCache[date]||[]).forEach(l=>{ by[l.id]=Object.assign({},l); });
+  (state.lots||[]).filter(l=>l.date===date).forEach(l=>{ by[l.id]=Object.assign({},l,{_live:true}); });
+  return Object.values(by);
+}
+const dateKo=d=>`${d.slice(0,4)}년 ${d.slice(5,7)}월 ${d.slice(8,10)}일`;
+
+function renderLots(chips){
+  if(!lotDatePicked) lotDate=defaultLotDate();
+  document.getElementById("datetxt").textContent=dateKo(lotDate);
+  renderPoll();
+  if(!(lotDate in calDayCache)) loadCalDay(lotDate);
+  const all=dayRows(lotDate);
+  const isDone=l=>l._live&&(state.got[l.id]||0)>=l.qty;
+  const doneRows=all.filter(isDone).length;
+  chips.innerHTML=`
+    <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${all.length}</button>
+    <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${all.length-doneRows}</button>
+    <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
+    <span class="div"></span>
+    <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
+    <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
+    <button class="chip mode ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과</button>`;
+  renderFeed();
+  const kw=query.trim().toLowerCase();
+  const rows=all.filter(l=>{
+    if(lotMkt!=="all" && !String(l.mkt||"").startsWith(lotMkt)) return false;
+    if(filter==="todo"&&isDone(l)) return false;
+    if(filter==="done"&&!isDone(l)) return false;
+    if(!kw) return true;
+    return [l.item,normItem(l.item),l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
+  });
+  const list=document.getElementById("lotlist");
+  if(!rows.length){
+    list.innerHTML=(!(lotDate in calDayCache)&&!all.length)
+      ? `<div class="caldempty">불러오는 중…</div>`
+      : all.length?emptyHTML():`<div class="empty">${dateKo(lotDate)}에는 낙찰 기록이 없습니다.<br>위의 날짜를 눌러 다른 날짜를 골라 보세요.</div>`;
+    bindEmpty(); return;
   }
-  document.getElementById("calgrid").innerHTML=cells;
-  renderCalDetail();
+  const groups=invGroups(rows);
+  const tq=rows.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=rows.reduce((a,l)=>a+lotAmt(l),0);
+  list.innerHTML=groups.map(g=>{
+    const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
+    return `<div class="invgrp">
+    <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원${
+      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.qty}`:""}</span></div>
+    <div class="xwrap"><table class="xl"><thead><tr>
+      <th></th><th>번호</th><th class="xw">생산자</th><th>단량<br>등급</th><th>수량</th><th>경락단가 ▲<br>거래금액</th><th></th>
+    </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
+    <tfoot><tr><td></td><td class="c">소계</td><td></td><td></td><td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td></td></tr></tfoot>
+    </table></div></div>`;}).join("")
+    +`<div class="grand"><span>합계 ${rows.length}줄</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
-async function renderCalDetail(){
-  const box=document.getElementById("caldetail"), date=calSelDate;
-  box.innerHTML=`<div class="caldhead">${date}</div><div class="caldempty">불러오는 중…</div>`;
-  const rows=await loadCalDay(date);
-  if(date!==calSelDate) return;             // 그 사이 다른 날짜를 골랐으면 이 결과는 버린다
-  if(!rows.length){ box.innerHTML=`<div class="caldhead">${date}</div><div class="caldempty">이 날은 기록이 없습니다.</div>`; return; }
-  const groups=lotGroups(rows);
-  box.innerHTML=`<div class="caldhead">${date} · 총 ${rows.length}줄</div>`+groups.map(g=>`
-    <section>
-      <div class="shead"><span class="tick" style="background:${TONE[g.tone].bar}"></span>
-        <span class="stitle">${esc(g.title)}</span><span class="scount tnum">${g.qty}</span><span class="sline"></span></div>
-      ${g.cats.map(c=>`
-        <div class="cathead"><span class="catname">${esc(c.title)}</span><span class="scount tnum">${c.qty}</span></div>
-        ${c.kinds.map(k=>`
-          <div class="kindwrap">
-            <div class="kindhead"><span class="kindname">${esc(k.title)}</span>
-              <span class="kindsum tnum">수량 ${k.qty} · ${won(k.amt)}원</span></div>
-            <div class="lhead">
-              <span class="lbox"></span><span class="c-item">품종</span><span class="c-no">번호</span>
-              <span class="c-who">생산자</span><span class="c-unit">단위</span><span class="c-grade">등급</span>
-              <span class="c-qty">수량</span><span class="c-amt">가격</span><span class="c-add"></span>
-            </div>
-            ${k.rows.map(calLotRow).join("")}
-          </div>`).join("")}`).join("")}
-    </section>`).join("");
+
+/* 실시간 수집기(poller)가 마지막으로 낙찰을 올린 때. 사무실 PC 의 poller 가 살아 있는지
+   폰에서 바로 짐작할 수 있게 한다. poller 는 바뀐 게 있을 때만 올리므로, 경매가 없는
+   시간에는 오래 비어 있어도 정상이다. */
+function renderPoll(){
+  const el=document.getElementById("pollstat"); if(!el) return;
+  const p=state.lastLots;
+  el.textContent=p&&p.at?`🛰 마지막 낙찰 수신: ${new Date(p.at).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} (${ago(p.at)}) · ${p.by||""}`
+    :"🛰 아직 수집기에서 받은 낙찰이 없습니다";
 }
-function calLotRow(l){
-  return `<div class="card lotrow">
-    <div class="lrow">
-      <span class="lbox"></span>
-      <span class="c-item${l.item?"":" c-noitem"}">${esc(l.item||"품목?")}</span>
-      <span class="c-no mono">${esc(l.no||"")}</span>
-      <span class="c-who">${esc(l.who||"-")}</span>
-      <span class="c-unit tnum">${esc(String(l.unit||"").replace(/[Kk][Gg]/,""))}</span>
-      <span class="c-grade">${esc(l.grade||"")}</span>
-      <span class="c-qty tnum">${l.qty}</span>
-      <span class="c-amt tnum">${won(l.price*l.qty)}</span>
-      <span class="c-add"></span>
-    </div>
-  </div>`;
+
+/* ---- 날짜 고르기 창 ---- */
+let dp={y:0,m:0,d:0};
+const dimOf=(y,m)=>new Date(Date.UTC(y,m,0)).getUTCDate();
+function dpStr(){ return `${dp.y}-${String(dp.m).padStart(2,"0")}-${String(dp.d).padStart(2,"0")}`; }
+function dpShow(){
+  document.getElementById("dv_y").textContent=dp.y;
+  document.getElementById("dv_m").textContent=String(dp.m).padStart(2,"0");
+  document.getElementById("dv_d").textContent=String(dp.d).padStart(2,"0");
+  const ds=dpStr();
+  document.getElementById("dsum").textContent=dateKo(ds);
+  const info=(calSummary||{})[ds];
+  document.getElementById("dcnt").textContent=calSummary===null?"":
+    info?`이 날 낙찰 ${info.count}줄`+(Object.keys(info.mkt||{}).length?` (${Object.keys(info.mkt).map(m=>`${m} ${info.mkt[m]}`).join(" · ")})`:""):"이 날은 기록이 없습니다";
 }
-document.getElementById("calnav").addEventListener("click",e=>{
-  const b=e.target.closest("[data-cal]"); if(!b)return;
-  if(calYear==null) calInit();
-  if(b.dataset.cal==="prev"){ calMon--; if(calMon<1){calMon=12;calYear--;} }
-  else{ calMon++; if(calMon>12){calMon=1;calYear++;} }
-  renderCalendar();
+function openDatePick(){
+  const ds=lotDate||오늘KST();
+  dp={y:+ds.slice(0,4),m:+ds.slice(5,7),d:+ds.slice(8,10)};
+  dpShow();
+  document.getElementById("dpick").classList.remove("hidden");
+  loadCalSummary().then(()=>{ if(!document.getElementById("dpick").classList.contains("hidden")) dpShow(); });
+}
+document.getElementById("datebtn").onclick=openDatePick;
+document.querySelector("#dpick .dcols").addEventListener("click",e=>{
+  const b=e.target.closest("[data-d]"); if(!b) return;
+  const k=b.closest(".dcol").dataset.k, step=b.dataset.d==="+"?1:-1;
+  /* 달력처럼 넘어간다: 1일에서 − 를 누르면 전달 말일, 12월에서 + 를 누르면 다음 해 1월 */
+  if(k==="y") dp.y+=step;
+  if(k==="m"){ dp.m+=step; if(dp.m>12){dp.m=1;dp.y++;} if(dp.m<1){dp.m=12;dp.y--;} }
+  if(k==="m"||k==="y") dp.d=Math.min(dp.d,dimOf(dp.y,dp.m));
+  if(k==="d"){
+    const t=new Date(Date.UTC(dp.y,dp.m-1,dp.d+step));
+    dp={y:t.getUTCFullYear(),m:t.getUTCMonth()+1,d:t.getUTCDate()};
+  }
+  dpShow();
 });
-document.getElementById("calgrid").addEventListener("click",e=>{
-  const c=e.target.closest("[data-date]"); if(!c)return;
-  calSelDate=c.dataset.date;
-  document.querySelectorAll("#calgrid .calcell").forEach(x=>x.classList.toggle("sel",x.dataset.date===calSelDate));
-  renderCalDetail();
-});
+document.getElementById("dclose").onclick=()=>document.getElementById("dpick").classList.add("hidden");
+document.getElementById("dpick").addEventListener("click",e=>{ if(e.target.id==="dpick") e.target.classList.add("hidden"); });
+document.getElementById("dok").onclick=()=>{
+  lotDate=dpStr(); lotDatePicked=true; filter="all";
+  document.getElementById("dpick").classList.add("hidden");
+  loadCalDay(lotDate);                    // 고를 때마다 새로 받아 최신으로 보여준다
+  render();
+};
 
 /* ==================== 품목 관리 탭 ====================
    서울청과·동화청과 구분 없이 품목별로 묶고, 그 안에서 낙찰 단가가 싼 것부터 늘어놓는다
@@ -1062,7 +1102,6 @@ function renderFooter(){
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest(".tab"); if(!b)return;
   tab=b.dataset.tab; filter="all";
-  if(tab==="cal"&&calSummary===null){ loadCalSummary().then(()=>{ if(tab==="cal") render(); }); }
   if(tab==="inv") loadShipped().then(()=>{ if(tab==="inv") render(); });
   render();});
 
@@ -1080,7 +1119,7 @@ document.querySelector("main").addEventListener("click",e=>{
   if(btn){
     const act=btn.dataset.act;
     if(act==="fold"){const k=btn.dataset.k||btn.closest("section").dataset.g;collapsed[k]=!collapsed[k];return render();}
-    const card=btn.closest(".card"); if(!card)return;
+    const card=btn.closest(".card,tr[data-id]"); if(!card)return;
     const id=card.dataset.id;
     if(act==="toggle"){
       const done=!state.done[id];
@@ -1096,11 +1135,12 @@ document.querySelector("main").addEventListener("click",e=>{
     else if(act==="lottoggle"){
       const l=state.lots.find(x=>x.id===id); if(!l)return;
       const g=(state.got[id]||0)>=l.qty ? 0 : l.qty;
+      openLotNote=null;
       pushOp({t:"got",id,n:g});
     }
     else if(act==="lotnote"){
       openLotNote=openLotNote===id?null:id; render();
-      const ta=document.getElementById("lta-"+id);
+      const ta=document.getElementById("lta-"+id);   // id 에 | 가 들어가도 getElementById 는 괜찮다
       if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
     }
     else if(act==="lncancel"){ openLotNote=null; render(); }
@@ -1113,7 +1153,7 @@ document.querySelector("main").addEventListener("click",e=>{
       const l=(state.lots||[]).find(x=>x.id===id);
       const 이름=l?[l.item,l.who].filter(Boolean).join(" · "):"이 줄";
       if(!confirm(`'${이름}' 줄을 지웁니다.
-세 사람 모두의 화면에서 사라지고, 세어둔 박스 수도 함께 지워집니다.`)) return;
+모두의 화면에서 사라지고, 세어둔 박스 수도 함께 지워집니다.`)) return;
       openLotNote=null; pushOp({t:"dellot",id});
       stat(`'${이름}' 줄을 지웠습니다.`);
     }
@@ -1217,6 +1257,10 @@ function applyServer(sv){
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
   state.inv=sv.inv||{};
+  state.lastLots=sv.lastLots||null;
+  /* 누가 줄을 지웠거나 지난 날짜가 채워졌을 수 있으니, 보고 있는 날짜의 기록은 다시 받는다 */
+  if(tab==="lot"&&lotDate&&sv.version!==lastSvVersion) loadCalDay(lotDate);
+  lastSvVersion=sv.version;
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   /* 다른 사람이 전량 출고·되돌리기를 했을 수 있으니 출고 기록을 보고 있으면 다시 받는다 */
@@ -1231,12 +1275,12 @@ function applyServer(sv){
    내가 켤 때 받은 번호와 달라지면 새로 올라온 것이니 스스로 받아 적용한다.
    다만 손대는 중에 화면이 튀면 안 되므로, 무언가 열려 있거나 아직 서버에
    못 보낸 조작이 남아 있으면 끝날 때까지 기다렸다가 적용한다. */
-let myBuild=null, waitingBuild=null, buildTimer=null;
+let myBuild=null, waitingBuild=null, buildTimer=null, lastSvVersion=null;
 
 function busyNow(){
   if(pending.length) return true;                       // 아직 못 보낸 조작이 있다
   const open=id=>{const el=document.getElementById(id); return !!el&&!el.classList.contains("hidden");};
-  if(open("pick")) return true;
+  if(open("pick")||open("dpick")) return true;
   const a=document.activeElement;
   return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }
@@ -1317,11 +1361,13 @@ function pushOp(op){
 setInterval(()=>{ if(pending.length) flush(); },4000);
 window.addEventListener("online",()=>{ flush(); connect(); });
 
-/* ---------- 이름 고르기 ---------- */
+/* ---------- 이름 고르기 ----------
+   사무실에서 쓰는 다섯 사람. 예전 A·B·C 로 골라 둔 폰은 켤 때 다시 고르게 한다. */
+const USERS=["호열","상혁","상용","부장님","사장님"];
 function openPick(){
   const box=document.getElementById("pickbtns");
-  box.innerHTML=["A","B","C"].map(n=>`<button class="pickbtn ${me===n?"on":""}" data-n="${n}">${n}</button>`).join("");
-  document.getElementById("pickcustom").value=(["A","B","C"].includes(me)?"":me);
+  box.innerHTML=USERS.map(n=>`<button class="pickbtn ${me===n?"on":""}" data-n="${esc(n)}">${esc(n)}</button>`).join("");
+  document.getElementById("pickcustom").value=(USERS.includes(me)||["A","B","C"].includes(me)?"":me);
   document.getElementById("pickserver").value=localStorage.getItem(SKEY)||"";
   document.getElementById("pick").classList.remove("hidden");
 }
@@ -1344,6 +1390,7 @@ document.getElementById("pickok").onclick=()=>{
 document.getElementById("mename").onclick=openPick;
 document.getElementById("connstat").onclick=openPick;
 
+if(["A","B","C"].includes(me)){ me=""; localStorage.removeItem(UKEY); }
 document.getElementById("mename").textContent=me||"이름";
 if(!me) openPick(); else connect();
 
