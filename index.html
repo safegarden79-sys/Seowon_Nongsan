@@ -1149,7 +1149,7 @@ document.querySelector("main").addEventListener("click",e=>{
       openLotNote=null; pushOp({t:"lotnote",id,text:v});
     }
     else if(act==="lotdel"){
-      /* 잘못 읽힌 줄을 하나만 지운다. 세 사람 모두에게서 사라지므로 한 번 더 묻는다. */
+      /* 잘못 읽힌 줄을 하나만 지운다. 모두에게서 사라지므로 한 번 더 묻는다. */
       const l=(state.lots||[]).find(x=>x.id===id);
       const 이름=l?[l.item,l.who].filter(Boolean).join(" · "):"이 줄";
       if(!confirm(`'${이름}' 줄을 지웁니다.
