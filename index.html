@@ -802,7 +802,7 @@ async function loadCalDay(date){
 /* 날짜를 고르지 않았으면 오늘 작업 목록에서 가장 최근 경매일을 보여준다 */
 function defaultLotDate(){
   const ds=(state.lots||[]).map(l=>l.date).filter(Boolean).sort();
-  return ds.length?ds[ds.length-1]:오늘KST();
+  return ds.length?ds[ds.length-1]:경매일KST();
 }
 function dayRows(date){
   const by={};
@@ -884,7 +884,7 @@ function dpShow(){
     info?`이 날 낙찰 ${info.count}줄`+(Object.keys(info.mkt||{}).length?` (${Object.keys(info.mkt).map(m=>`${m} ${info.mkt[m]}`).join(" · ")})`:""):"이 날은 기록이 없습니다";
 }
 function openDatePick(){
-  const ds=lotDate||오늘KST();
+  const ds=lotDate||경매일KST();
   dp={y:+ds.slice(0,4),m:+ds.slice(5,7),d:+ds.slice(8,10)};
   dpShow();
   document.getElementById("dpick").classList.remove("hidden");
@@ -1024,7 +1024,7 @@ function renderInv(){
     ${invImportOpen?`<p class="hint">캘린더에 쌓인 낙찰 기록 중 고른 기간의 줄을 품목 관리 목록에 올립니다.
       이미 목록에 있거나 전량 출고한 줄은 다시 올리지 않습니다.</p>
       <div class="importbox"><div><label class="fl">부터</label><input type="text" id="imp_from" value="${d5}"></div>
-        <div><label class="fl">까지</label><input type="text" id="imp_to" value="${오늘KST()}"></div>
+        <div><label class="fl">까지</label><input type="text" id="imp_to" value="${경매일KST()}"></div>
         <button data-iact="import">불러오기</button></div>`:""}
     ${groups.length?groups.map(g=>`<div class="invgrp">
       <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 잔여 ${g.left}/${g.qty} · 소요 ${won(g.amt)}원</span></div>
@@ -1218,7 +1218,7 @@ panel("addbtn","addpanel",`
 document.getElementById("f_add").onclick=()=>{
   const v=id=>document.getElementById(id).value.trim();
   if(!v("f_item")||!v("f_qty")){ alert("품목과 수량을 입력하세요."); return; }
-  const row={mkt:v("f_mkt"),date:v("f_date")||state.workday||오늘KST(),
+  const row={mkt:v("f_mkt"),date:v("f_date")||경매일KST(),
     no:v("f_no"),item:v("f_item"),who:v("f_who"),unit:v("f_unit"),grade:v("f_grade"),
     qty:Number(v("f_qty")),price:Number(v("f_price")||0)};
   row.id=lotKey(row);
@@ -1231,6 +1231,11 @@ document.getElementById("f_add").onclick=()=>{
    한국 새벽(0~9시)에는 하루 전 날짜가 나온다. 경매는 새벽에 하므로,
    이걸 그냥 쓰면 같은 낙찰이 날짜만 다른 두 줄로 쌓인다. */
 const 오늘KST=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+/* 경매일 = 경매가 끝나는 날. 경매는 밤 22:30 에 시작해 다음날 낮에 끝나므로, 15시 이후는 내일 날짜다.
+   수집기(seowon_bridge.auction_date)가 두 시장 낙찰에 붙이는 날짜와 같은 규칙이다. */
+const 경매일KST=()=>{ const k=new Date(Date.now()+9*3600e3);
+  if(k.getUTCHours()>=15) k.setUTCDate(k.getUTCDate()+1);
+  return k.toISOString().slice(0,10); };
 
 /* 낙찰 탭 하단의 짧은 안내문 (지움·추가 결과 등을 보여준다) */
 const stat=t=>{const el=document.getElementById("lotstat"); if(el)el.textContent=t||"";};
