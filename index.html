@@ -1410,11 +1410,26 @@ function connect(){
   if(es) try{ es.close(); }catch(e){}
   setConn(false,"연결 중");
   es=new EventSource(serverUrl+"/api/stream");
-  es.onopen=()=>{ setConn(true); flush(); };
+  es.onopen=()=>{ setConn(true); retryMs=3000; flush(); };
   es.onmessage=e=>{ try{ applyServer(JSON.parse(e.data)); setConn(true); }catch(err){} };
   es.addEventListener("poll",e=>{ try{ const j=JSON.parse(e.data); pollers=j.pollers||{}; if(j.now) clockSkew=j.now-Date.now(); renderSess(); setConn(true); }catch(err){} });
-  es.onerror=()=>{ setConn(false); };
+  /* 브라우저는 끊긴 뒤 한 번 다시 붙어 보다가 서버가 아직 안 떠 있으면(재배포·재시작 중)
+     연결을 아예 닫아 버리고 다시 시도하지 않는다. 그러면 새로고침 전까지 '오프라인'으로 멈추므로,
+     닫혔으면 우리가 3초→6초→…최대 30초 간격으로 다시 붙는다. */
+  es.onerror=()=>{ setConn(false); if(es.readyState===2) scheduleReconnect(); };
 }
+let retryMs=3000, retryTimer=null;
+function scheduleReconnect(){
+  if(retryTimer) return;
+  retryTimer=setTimeout(()=>{ retryTimer=null; connect(); },retryMs);
+  retryMs=Math.min(30000,retryMs*2);
+}
+/* 폰 화면을 다시 켰을 때 연결이 끊겨 있으면 기다리지 않고 바로 다시 붙는다 */
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && serverUrl && (!es||es.readyState===2)){
+    clearTimeout(retryTimer); retryTimer=null; retryMs=3000; connect();
+  }
+});
 
 async function flush(){
   if(!serverUrl||!pending.length) return;

@@ -10,7 +10,7 @@
 import re, time
 import requests
 from bs4 import BeautifulSoup
-from common import lot_key, mark_and_filter_new, log, wait_for_active
+from common import lot_key, mark_and_filter_new, log, Pacer, wait_for_active
 from seowon_bridge import query_dates, auction_date
 
 MKT = "서울청과"
@@ -83,9 +83,11 @@ def run(cfg, bridge):
     session.headers.update({"User-Agent": "Mozilla/5.0"})
     logged_in = False
     interval = cfg.get("poll_interval_sec", 2)
+    pace = Pacer(interval)
     while True:
         if wait_for_active(L):
             logged_in = False   # 쉬었다가 다시 시작하니 새로 로그인한다
+        pace.start()
         try:
             if not logged_in:
                 login(session, cfg["sfvc_id"], cfg["sfvc_pw"])
@@ -94,8 +96,8 @@ def run(cfg, bridge):
             rows = fetch_rows(session)
             if rows is None:
                 bridge.heartbeat(MKT, "expired", msg="로그인 화면으로 돌아감", interval=interval)
-                L("로그인이 풀린 것으로 보입니다 — 다시 로그인합니다")
                 logged_in = False
+                L(f"로그인이 풀린 것으로 보입니다 — {pace.fail():.0f}초 뒤 다시 로그인합니다")
                 continue
             bridge.heartbeat(MKT, "ok", rows=len(rows), interval=interval)
             new_rows = mark_and_filter_new(rows)
@@ -105,9 +107,10 @@ def run(cfg, bridge):
             bridge.send_lots(new_rows)
         except Exception as e:
             bridge.heartbeat(MKT, "error", msg=str(e), interval=interval)
-            L(f"오류: {e} — {interval}초 뒤 재시도")
             logged_in = False
-        time.sleep(interval)
+            L(f"오류: {e} — {pace.fail():.0f}초 뒤 재시도")
+            continue
+        pace.ok()
 
 
 if __name__ == "__main__":

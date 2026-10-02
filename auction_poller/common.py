@@ -23,7 +23,33 @@ EXCLUDED_START_WEEKDAY = 5  # datetime.weekday(): 월=0 ... 토=5, 일=6
 
 
 def today_str():
-    return datetime.now().strftime("%Y-%m-%d")
+    """이미 보낸 줄 기록(seen_lots.json)을 새로 시작하는 기준 날짜 = 경매일(경매가 끝나는 날).
+    달력 날짜로 하면 밤 경매 도중 자정에 기록이 비워져 그날 밤 낙찰을 전부 다시 보낸다."""
+    from seowon_bridge import query_dates, auction_date
+    return auction_date("동화청과", query_dates("동화청과")[0])
+
+
+class Pacer:
+    """확인 주기를 일정하게 지킨다. 사이트 읽는 데 1.5초 걸렸으면 0.5초만 더 쉬고 다음을 읽는다
+    (읽은 뒤 매번 간격만큼 통째로 쉬면 실제 주기가 '읽는 시간 + 간격'으로 늘어나 3초를 넘긴다).
+    로그인 만료·오류가 연달아 나면 사이트에 계속 두드리지 않도록 점점 길게 쉰다(최대 60초)."""
+    def __init__(self, interval):
+        self.interval = interval
+        self.t0 = time.time()
+        self.fails = 0
+
+    def start(self):
+        self.t0 = time.time()
+
+    def ok(self):
+        self.fails = 0
+        time.sleep(max(0.2, self.interval - (time.time() - self.t0)))
+
+    def fail(self):
+        self.fails += 1
+        wait = self.interval if self.fails < 3 else min(60, self.interval * 2 ** (self.fails - 2))
+        time.sleep(wait)
+        return wait
 
 
 def in_active_window(now=None):
