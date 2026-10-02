@@ -53,7 +53,7 @@ const BUILD = (() => {
 
 /* ---------- 상태 ---------- */
 let state = { version: 0, lots: {}, got: {}, cars: {}, notes: {}, lotnotes: {}, history: {},
-  inv: {}, shipped: {}, log: [], workday: today() };
+  inv: {}, shipped: {}, pollers: {}, log: [], workday: today() };
 
 function today() {
   const d = new Date(Date.now() + 9 * 3600e3);      // 한국 시간 기준
@@ -65,6 +65,7 @@ try {
 if (!state.history) state.history = {};
 if (!state.inv)     state.inv = {};
 if (!state.shipped) state.shipped = {};
+if (!state.pollers) state.pollers = {};
 
 /* 캘린더용 날짜별 기록을 너무 오래된 것부터 지운다 (매일 들어오는 낙찰 줄마다 부른다) */
 function pruneHistory() {
@@ -132,11 +133,24 @@ const clients = new Set();
    필요할 때만 따로 받아간다. */
 const payload = () => {
   const { history, shipped, ...rest } = state;
-  return Object.assign({ build: BUILD }, rest);     // 판 번호를 얹어 보낸다
+  return Object.assign({ build: BUILD, now: Date.now() }, rest);   // 판 번호·서버 시각을 얹어 보낸다
 };
 function broadcast() {
   const msg = "data: " + JSON.stringify(payload()) + "\n\n";
   for (const res of clients) { try { res.write(msg); } catch (e) { clients.delete(res); } }
+}
+/* 수집기(poller) 신호만 가볍게 밀어준다. 몇 초마다 오므로 전체 상태·기록·저장은 건드리지 않는다. */
+function broadcastPollers() {
+  const msg = "event: poll\ndata: " + JSON.stringify({ pollers: state.pollers, now: Date.now() }) + "\n\n";
+  for (const res of clients) { try { res.write(msg); } catch (e) { clients.delete(res); } }
+}
+/* 수집기가 사이트에서 줄을 처음 본 때(seenAt) → 서버가 받은 때까지 걸린 시간. 최근 50개만 둔다. */
+const lagLog = [];
+function lagStats() {
+  if (!lagLog.length) return null;
+  const a = lagLog.map(x => x.lag).sort((x, y) => x - y);
+  return { n: a.length, 최근: lagLog[lagLog.length - 1].lag, 중간: a[Math.floor(a.length / 2)], 최대: a[a.length - 1],
+    초과3초: a.filter(x => x > 3000).length };
 }
 function bump(by, text) {
   state.version++;
@@ -147,6 +161,8 @@ function bump(by, text) {
   persist();
   broadcast();
 }
+
+const 시장0 = rows => { const m = {}; (rows || []).forEach(r => { if (r && r.mkt) m[r.mkt] = 1; }); return m; };
 
 /* ---------- 작업 처리 ---------- */
 function applyOp(user, op) {
@@ -171,13 +187,34 @@ function applyOp(user, op) {
       pruneHistory();
       addToInv(op.rows, now);                         // 품목 관리(재고) 목록에도 올린다
       /* 수집기(poller)가 마지막으로 낙찰을 올린 때. 화면과 /api/health 에서 poller 가 살아 있는지 본다. */
-      state.lastLots = { at: now, by, n: (op.rows || []).length };
+      const seen = (op.rows || []).map(r => Number(r && r.seenAt)).filter(x => x > 0);
+      const lag = seen.length ? Math.max(0, now - Math.min(...seen)) : null;
+      if (lag != null) { lagLog.push({ at: now, lag, mkt: Object.keys(시장0(op.rows)).join("·") }); if (lagLog.length > 50) lagLog.shift(); }
+      state.lastLots = { at: now, by, n: (op.rows || []).length, lag };
       /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 한 번에 여러 줄이 들어왔을 때
          시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
       const 시장 = {};
       (op.rows || []).forEach(r => { if (r && r.mkt) 시장[r.mkt] = (시장[r.mkt] || 0) + 1; });
       const 내역 = Object.keys(시장).map(m => `${m} ${시장[m]}`).join(" · ");
       bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${내역 ? ` (${내역})` : ""}`);
+      return;
+    }
+    case "poll": {                                   // 수집기 신호 — 시장별 로그인 세션 상태 (몇 초마다 온다)
+      const mkt = String(op.mkt || "");
+      if (!["서울청과", "동화청과"].includes(mkt)) return;
+      const session = ["ok", "expired", "error"].includes(op.session) ? op.session : "error";
+      const old = state.pollers[mkt] || {};
+      state.pollers[mkt] = {
+        session, msg: String(op.msg || "").slice(0, 120), at: now, by,
+        okAt: session === "ok" ? now : (old.okAt || null),
+        since: old.session === session ? old.since : now,
+        interval: Math.max(0, Math.min(600, Number(op.interval) || 0)) || null,   // 수집기가 몇 초마다 확인하는지
+        rows: Number.isFinite(Number(op.rows)) ? Number(op.rows) : (old.rows ?? null) // 그 시장 화면의 낙찰 줄 수
+      };
+      if (old.session !== session) {                 // 상태가 바뀔 때만 기록·저장한다
+        const 말 = { ok: "로그인 정상", expired: "로그인 만료!", error: "확인 오류" }[session];
+        bump(by, `${mkt} ${말}${op.msg ? ` (${String(op.msg).slice(0, 40)})` : ""}`);
+      } else broadcastPollers();
       return;
     }
     case "histlots": {                                // 지난 낙찰 내역 백필 — 오늘 작업 목록(state.lots)에는 넣지 않는다
@@ -299,6 +336,9 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 자료위치, 접속자: clients.size,
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 기록일수: Object.keys(state.history).length,
       마지막낙찰수신: state.lastLots ? new Date(state.lastLots.at + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 16) + " (" + state.lastLots.by + ")" : null,
+      수집기: Object.fromEntries(Object.entries(state.pollers).map(([m, p]) => [m,
+        { 세션: p.session, 신호초전: Math.round((Date.now() - p.at) / 1000), 간격초: p.interval, 메시지: p.msg || undefined }])),
+      수신지연ms: lagStats(),
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
   }
