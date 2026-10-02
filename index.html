@@ -1335,7 +1335,7 @@ function renderSessSheet(){
       확인 간격: ${p.interval?p.interval+"초":"-"} · 화면 낙찰 줄: ${p.rows??"-"}<br>
       마지막 로그인 정상: ${hhmm(p.okAt)}${p.msg?`<br>메시지: ${esc(p.msg)}`:""}</div>`;}).join("")
     +`<p class="hint">회색은 수집기 신호가 끊긴 상태입니다 (PC·프로그램이 꺼졌거나, 스케줄 시간
-      일~금 22:30~익일 12:30 밖). 빨강이면 그 시장 사이트에 다시 로그인해야 합니다.<br>
+      일~금 22:30~익일 새벽1:00 밖). 빨강이면 그 시장 사이트에 다시 로그인해야 합니다.<br>
       마지막 낙찰 수신: ${ll&&ll.at?hhmm(ll.at):"-"}${ll&&ll.lag!=null?` · 사이트에서 본 뒤 서버 도착까지 ${(ll.lag/1000).toFixed(1)}초`:""}</p>`;
 }
 document.getElementById("sessbar").onclick=()=>{ renderSessSheet(); document.getElementById("sesssheet").classList.remove("hidden"); };
