@@ -11,7 +11,7 @@ import re
 import time
 from datetime import datetime
 from playwright.sync_api import sync_playwright
-from common import lot_key, mark_and_filter_new, log, in_active_window, wait_for_active
+from common import lot_key, mark_and_filter_new, log, Pacer, in_active_window, wait_for_active
 from seowon_bridge import query_dates, auction_date
 # looks_logged_out() 은 seowon_bridge 가 제공하는 범용 판단 함수지만, 동화청과는 이미
 # #ctlUserId 가 있는지로 정확히 판정하는 is_login_page() 가 있어 그걸 그대로 쓴다
@@ -153,6 +153,7 @@ def fetch_rows(page, date_str=None):
 def run(cfg, bridge):
     L = log(MKT)
     interval = cfg.get("poll_interval_sec", 2)
+    pace = Pacer(interval)
     while True:
         wait_for_active(L)   # 비활성 시간대면 브라우저를 열지 않은 채 활성 시간대까지 기다린다
         with sync_playwright() as p:
@@ -160,6 +161,7 @@ def run(cfg, bridge):
             page = browser.new_page()
             logged_in = False
             while in_active_window():
+                pace.start()
                 try:
                     if not logged_in:
                         login(page, cfg["dh_id"], cfg["dh_pw"])
@@ -169,8 +171,8 @@ def run(cfg, bridge):
                     rows = fetch_rows(page, date_str=qd)
                     if rows is None:
                         bridge.heartbeat(MKT, "expired", msg="로그인 화면으로 돌아감", interval=interval)
-                        L("로그인이 풀린 것으로 보입니다 — 다시 로그인합니다")
                         logged_in = False
+                        L(f"로그인이 풀린 것으로 보입니다 — {pace.fail():.0f}초 뒤 다시 로그인합니다")
                         continue
                     ad = auction_date(MKT, qd)             # 앱에 올릴 경매일(경매가 끝나는 날)
                     for r in rows:
@@ -184,9 +186,10 @@ def run(cfg, bridge):
                     bridge.send_lots(new_rows)
                 except Exception as e:
                     bridge.heartbeat(MKT, "error", msg=str(e), interval=interval)
-                    L(f"오류: {e} — {interval}초 뒤 재시도")
                     logged_in = False
-                time.sleep(interval)
+                    L(f"오류: {e} — {pace.fail():.0f}초 뒤 재시도")
+                    continue
+                pace.ok()
             browser.close()
             L("비활성 시간대로 들어가 브라우저를 닫습니다 (활성 시간대가 되면 다시 엽니다)")
 
