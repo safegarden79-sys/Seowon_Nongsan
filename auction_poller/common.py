@@ -11,13 +11,14 @@ SEEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seen_lots.
 _lock = threading.Lock()
 _seen_cache = None
 
-# 활성 시간대: 일·월·화·수·목·금요일 당일 22:30 부터 다음날 12:30 까지.
-# (토요일은 "시작 요일"에서 뺀다 — 즉 토요일 22:30 ~ 일요일 12:30 은 활성 시간대가
-#  아니다.) 매일 낮 12:30~밤 22:30 은 어느 요일이든 항상 비활성 시간대이고,
-# 거기에 더해 토요일 22:30 부터 일요일 22:30 까지는 통째로 쉰다
-# (토요일 밤 ~ 일요일 하루 — 보통 경매가 없는 구간).
+# 활성 시간대: 일·월·화·수·목·금요일 당일 22:30 부터 다음날 새벽 1:00 까지
+# (실제 경매가 진행되는 시간대만). (토요일은 "시작 요일"에서 뺀다 — 즉 토요일
+# 22:30 ~ 일요일 새벽 1:00 은 활성 시간대가 아니다.) 매일 새벽 1:00~밤 22:30 은
+# 어느 요일이든 항상 비활성 시간대이고(대부분의 하루가 여기 해당), 거기에 더해
+# 토요일 22:30 부터 일요일 22:30 까지는 통째로 쉰다(토요일 밤 ~ 일요일 하루 —
+# 보통 경매가 없는 구간).
 ACTIVE_START = (22, 30)
-ACTIVE_END = (12, 30)
+ACTIVE_END = (1, 0)
 EXCLUDED_START_WEEKDAY = 5  # datetime.weekday(): 월=0 ... 토=5, 일=6
 
 
@@ -52,7 +53,7 @@ class Pacer:
 
 
 def in_active_window(now=None):
-    """지금이 '일월화수목금 22:30~익일12:30' 활성 시간대인지 돌려준다."""
+    """지금이 '일월화수목금 22:30~익일새벽1:00' 활성 시간대인지 돌려준다."""
     now = now or datetime.now()
     t = now.time()
     on = now.replace(hour=ACTIVE_START[0], minute=ACTIVE_START[1], second=0, microsecond=0).time()
@@ -73,7 +74,7 @@ def wait_for_active(log, check_sec=30):
     False 를 돌려준다."""
     if in_active_window():
         return False
-    log("비활성 시간대(낮 12:30~밤 22:30, 토요일 22:30~일요일 22:30 포함) — 다음 활성 시간까지 기다립니다")
+    log("비활성 시간대(새벽 1:00~밤 22:30, 토요일 22:30~일요일 22:30 포함) — 다음 활성 시간까지 기다립니다")
     while not in_active_window():
         time.sleep(check_sec)
     log("활성 시간대 시작 — 감시를 시작합니다")
