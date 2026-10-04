@@ -123,7 +123,9 @@ class Bridge:
 
     # ---- 보내는 스레드 ----
     def _post(self, ops):
-        body = json.dumps({"user": self.user, "ops": ops}).encode("utf-8")
+        # sentAt: 이 PC 시계로 보낸 시각. 서버가 (받은 시각 − sentAt) 으로 'PC 시계 차이 + 전송 시간'을 재서
+        # 낙찰 지연(seenAt 기준)이 진짜 늦은 건지 PC 시계가 틀린 건지 가려낸다.
+        body = json.dumps({"user": self.user, "ops": ops, "sentAt": int(time.time() * 1000)}).encode("utf-8")
         req = urllib.request.Request(self.url, body, {"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=self.timeout) as res:
             return res.status == 200
