@@ -53,7 +53,7 @@ const BUILD = (() => {
 
 /* ---------- 상태 ---------- */
 let state = { version: 0, lots: {}, got: {}, cars: {}, notes: {}, lotnotes: {}, history: {},
-  inv: {}, shipped: {}, pollers: {}, log: [], workday: today() };
+  inv: {}, shipped: {}, pollers: {}, pickup: {}, reauc: {}, log: [], workday: today() };
 
 function today() {
   const d = new Date(Date.now() + 9 * 3600e3);      // 한국 시간 기준
@@ -66,6 +66,8 @@ if (!state.history) state.history = {};
 if (!state.inv)     state.inv = {};
 if (!state.shipped) state.shipped = {};
 if (!state.pollers) state.pollers = {};
+if (!state.pickup)  state.pickup = {};    // 우선 픽업 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
+if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 
 /* 캘린더용 날짜별 기록을 너무 오래된 것부터 지운다 (매일 들어오는 낙찰 줄마다 부른다) */
 function pruneHistory() {
@@ -73,6 +75,11 @@ function pruneHistory() {
   for (const d of Object.keys(state.history)) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (isNaN(t) || t < cutoff) delete state.history[d];
+  }
+  /* 재경매 표시도 그 날짜 기록과 함께 정리한다 (id = K|시장|날짜|번호|수량|단가) */
+  for (const id of Object.keys(state.reauc || {})) {
+    const t = new Date(String(id).split("|")[2] + "T00:00:00+09:00").getTime();
+    if (t < cutoff) delete state.reauc[id];
   }
 }
 pruneHistory();
@@ -162,6 +169,11 @@ function bump(by, text) {
   broadcast();
 }
 
+/* 기록에 남길 줄 이름. 오늘 목록에 없으면 그 날짜 기록에서 찾는다. */
+function lotName(id) {
+  const l = state.lots[id] || (state.history[String(id).split("|")[2]] || {})[id];
+  return (l && [l.item, l.who].filter(Boolean).join(" · ")) || "낙찰 줄";
+}
 const 시장0 = rows => { const m = {}; (rows || []).forEach(r => { if (r && r.mkt) m[r.mkt] = 1; }); return m; };
 
 /* ---------- 작업 처리 ---------- */
@@ -263,6 +275,20 @@ function applyOp(user, op, meta = {}) {
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
       return;
     }
+    case "pickup": {                                 // 우선 픽업 표시 켜기/끄기
+      if (!op.id) return;
+      if (op.on) state.pickup[op.id] = { by, at: now };
+      else delete state.pickup[op.id];
+      bump(by, `${lotName(op.id)} 우선 픽업${op.on ? "" : " 해제"}`);
+      return;
+    }
+    case "reauc": {                                  // 재경매로 분류 / 일반 낙찰로 되돌리기 (줄을 세 번 연속 탭)
+      if (!op.id) return;
+      if (op.on) state.reauc[op.id] = { by, at: now };
+      else delete state.reauc[op.id];
+      bump(by, `${lotName(op.id)} ${op.on ? "재경매로 분류" : "일반 낙찰로 되돌림"}`);
+      return;
+    }
     case "got": {                                    // 박스 몇 개 챙겼는지
       const lot = state.lots[op.id];
       if (!lot) return;
@@ -300,17 +326,18 @@ function applyOp(user, op, meta = {}) {
       delete state.got[op.id];
       delete state.lotnotes[op.id];
       if (lot.date && state.history[lot.date]) delete state.history[lot.date][op.id];
+      delete state.pickup[op.id]; delete state.reauc[op.id];
       delete state.inv[op.id];                        // 잘못 들어간 줄이니 품목 관리 목록에서도 뺀다
       bump(by, `${[lot.item, lot.who].filter(Boolean).join(" · ") || "낙찰"} 줄 삭제`);
       return;
     }
     case "clearlots": {                              // 낙찰 내역만 전부 삭제 (상차 체크는 유지, 캘린더 기록은 남는다)
-      state.lots = {}; state.got = {}; state.lotnotes = {};
+      state.lots = {}; state.got = {}; state.lotnotes = {}; state.pickup = {};
       bump(by, "낙찰 내역 전체 삭제");
       return;
     }
     case "newday": {                                 // 새 작업 시작 — 모두에게 적용된다 (캘린더 기록은 남는다)
-      state.lots = {}; state.got = {}; state.cars = {}; state.notes = {}; state.lotnotes = {};
+      state.lots = {}; state.got = {}; state.cars = {}; state.notes = {}; state.lotnotes = {}; state.pickup = {};
       state.log = []; state.workday = today();
       bump(by, "새 작업 시작 (전체 초기화)");
       return;
