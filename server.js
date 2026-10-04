@@ -165,8 +165,10 @@ function bump(by, text) {
 const 시장0 = rows => { const m = {}; (rows || []).forEach(r => { if (r && r.mkt) m[r.mkt] = 1; }); return m; };
 
 /* ---------- 작업 처리 ---------- */
-function applyOp(user, op) {
+function applyOp(user, op, meta = {}) {
   const now = Date.now();
+  /* 수집기가 보낸 시각(그 PC 시계). 받은 시각과의 차 = PC 시계 차이 + 전송 시간 */
+  const net = Number(meta.sentAt) > 0 ? now - Number(meta.sentAt) : null;
   const by = String(user || "?").slice(0, 12);
 
   switch (op.t) {
@@ -190,7 +192,7 @@ function applyOp(user, op) {
       const seen = (op.rows || []).map(r => Number(r && r.seenAt)).filter(x => x > 0);
       const lag = seen.length ? Math.max(0, now - Math.min(...seen)) : null;
       if (lag != null) { lagLog.push({ at: now, lag, mkt: Object.keys(시장0(op.rows)).join("·") }); if (lagLog.length > 50) lagLog.shift(); }
-      state.lastLots = { at: now, by, n: (op.rows || []).length, lag };
+      state.lastLots = { at: now, by, n: (op.rows || []).length, lag, net };
       /* 어느 시장에서 몇 줄이 들어왔는지 함께 적는다. 한 번에 여러 줄이 들어왔을 때
          시장이 뒤섞이지 않았는지 기록만 보고 확인할 수 있다. */
       const 시장 = {};
@@ -209,6 +211,7 @@ function applyOp(user, op) {
         okAt: session === "ok" ? now : (old.okAt || null),
         since: old.session === session ? old.since : now,
         interval: Math.max(0, Math.min(600, Number(op.interval) || 0)) || null,   // 수집기가 몇 초마다 확인하는지
+        net,                                          // PC 시계 차이 + 전송 시간(ms). 낙찰 지연에서 이만큼은 시계 탓일 수 있다
         rows: Number.isFinite(Number(op.rows)) ? Number(op.rows) : (old.rows ?? null) // 그 시장 화면의 낙찰 줄 수
       };
       if (old.session !== session) {                 // 상태가 바뀔 때만 기록·저장한다
@@ -337,8 +340,10 @@ const server = http.createServer((req, res) => {
       낙찰: Object.keys(state.lots).length, 작업일: state.workday, 기록일수: Object.keys(state.history).length,
       마지막낙찰수신: state.lastLots ? new Date(state.lastLots.at + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 16) + " (" + state.lastLots.by + ")" : null,
       수집기: Object.fromEntries(Object.entries(state.pollers).map(([m, p]) => [m,
-        { 세션: p.session, 신호초전: Math.round((Date.now() - p.at) / 1000), 간격초: p.interval, 메시지: p.msg || undefined }])),
+        { 세션: p.session, 신호초전: Math.round((Date.now() - p.at) / 1000), 간격초: p.interval, 시계차와전송ms: p.net ?? undefined, 메시지: p.msg || undefined }])),
       수신지연ms: lagStats(),
+      /* 낙찰 지연(seenAt→서버)에서 'PC 시계 차이 + 전송'(net)을 빼면 수집기 안에서 기다린 시간이 남는다 */
+      마지막낙찰: state.lastLots ? { 지연ms: state.lastLots.lag, 시계차와전송ms: state.lastLots.net ?? null } : null,
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
   }
@@ -394,8 +399,8 @@ const server = http.createServer((req, res) => {
     req.on("data", c => { body += c; if (body.length > 4e6) req.destroy(); });
     req.on("end", () => {
       try {
-        const { user, ops } = JSON.parse(body);
-        (ops || []).forEach(op => applyOp(user, op));
+        const { user, ops, sentAt } = JSON.parse(body);
+        (ops || []).forEach(op => applyOp(user, op, { sentAt }));
         res.writeHead(200, { "Content-Type": TYPES[".json"] });
         res.end(JSON.stringify({ ok: true, version: state.version }));
       } catch (e) {
