@@ -3,8 +3,8 @@
   "short_name": "서원농산",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#262624",
-  "theme_color": "#262624",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "lang": "ko",
   "icons": [
     { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

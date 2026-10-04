@@ -3,24 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#262624">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>서원농산 작업 체크</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <style>
 :root{
-  --bg:#262624;        /* 클로드 다크모드 배경 */
-  --surface:#2F2F2C;
-  --surface2:#383834;
-  --line:#4A4A43;
-  --text:#F5F3EE;
-  --muted:#B4AFA3;
-  --dim:#8B867B;
-  --ok:#6BCB8B;
-  --warn:#E8A33D;
-  --hot:#E88B8B;
+  /* 하양 기본 테마. 글자는 밝은 배경에서 잘 읽히도록 진하게 둔다. */
+  --bg:#FFFFFF;
+  --surface:#F5F6F8;
+  --surface2:#E9ECF0;
+  --line:#D3D8DE;
+  --text:#1B1F24;
+  --muted:#4F5761;
+  --dim:#7D858F;
+  --ok:#1E9E53;
+  --warn:#F0A020;
+  --hot:#D64545;
+  --accent:#A35F00;     /* 강조 글자(단가·소계·품목명) — 하양 위에서 읽히는 진한 주황 */
+  --num:#1F64A8;        /* 원표 번호 */
+  --seoul:#DCEBFF;      /* 서울청과 줄 배경 (파랑) */
+  --seoul-edge:#3B7DD8;
+  --dong:#E3F6CF;       /* 동화청과 줄 배경 (연두) */
+  --dong-edge:#6BB52A;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -33,7 +40,7 @@ body{
 .tnum{font-variant-numeric:tabular-nums}
 button{font-family:inherit}
 
-header{position:sticky;top:0;z-index:20;background:rgba(38,38,36,.97);backdrop-filter:blur(8px);
+header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);padding:10px 16px 0}
 .brand{font-size:23px;font-weight:800;text-align:center;margin:0;color:var(--text);letter-spacing:.01em}
 .eyebrow{font-size:11px;letter-spacing:.16em;color:var(--dim);font-weight:600;margin:0}
@@ -42,7 +49,7 @@ h1{font-size:20px;margin:2px 0 0;color:var(--text)}
 .big{font-size:30px;font-weight:800;line-height:1;color:var(--text)}
 .biglab{font-size:13px;color:var(--muted);margin-left:3px}
 .sub{font-size:11px;color:var(--dim);margin:5px 0 0;text-align:right}
-.bar{height:6px;border-radius:99px;background:#403F3A;overflow:hidden;margin-top:12px}
+.bar{height:6px;border-radius:99px;background:#E4E7EB;overflow:hidden;margin-top:12px}
 .bar>i{display:block;height:100%;background:var(--ok);transition:width .3s}
 
 .tabs{display:flex;gap:4px;margin-top:8px}
@@ -65,8 +72,8 @@ input::placeholder,textarea::placeholder{color:var(--dim)}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:600;
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
-.chip.on{background:var(--ok);border-color:var(--ok);color:#1E2A20}
-.chip.mode.on{background:var(--surface2);border-color:#6A6A60;color:var(--text)}
+.chip.on{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
+.chip.mode.on{background:var(--surface2);border-color:#9AA1A9;color:var(--text)}
 .div{width:1px;height:20px;background:var(--line);flex:0 0 auto;margin:0 4px;align-self:center}
 
 main{padding:16px}
@@ -85,7 +92,7 @@ hr{border:0;border-top:1px solid var(--line);margin:12px 0}
 .warnt{color:var(--hot);font-weight:700;margin:8px 0 4px}
 .li{color:var(--muted);font-size:12px;margin:3px 0}
 .wn{margin-bottom:10px}
-.wn b{color:#C6D96B;font-size:12px;display:block}
+.wn b{color:#4E7A00;font-size:12px;display:block}
 .wn span{color:var(--text);font-size:13px;opacity:.9}
 
 section{margin-bottom:20px}
@@ -100,8 +107,8 @@ section{margin-bottom:20px}
 .card.done{background:rgba(107,203,139,.09);border-color:rgba(107,203,139,.35)}
 .row{display:flex;align-items:flex-start}
 .cbx{padding:14px 4px 14px 14px;background:none;border:0}
-.box{width:28px;height:28px;border-radius:9px;border:2px solid #6A6A60;display:flex;align-items:center;justify-content:center;color:transparent;font-size:16px;font-weight:900}
-.card.done .box{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+.box{width:28px;height:28px;border-radius:9px;border:2px solid #9AA1A9;display:flex;align-items:center;justify-content:center;color:transparent;font-size:16px;font-weight:900}
+.card.done .box{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
 .body{flex:1;min-width:0;padding:14px 8px 14px 0;background:none;border:0;text-align:left}
 .title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .name{font-size:15px;font-weight:800;color:var(--text)}
@@ -109,23 +116,23 @@ section{margin-bottom:20px}
 .plate{font-size:13px;font-weight:800;padding:2px 7px;border-radius:7px;border:1px solid}
 .card.done .plate{border-color:var(--line)!important;color:var(--dim)!important}
 .tag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px}
-.tag.time{background:rgba(232,163,61,.18);color:#F0BE72}
-.tag.flag{background:rgba(232,139,139,.18);color:#F0A8A8}
+.tag.time{background:rgba(232,163,61,.18);color:var(--accent)}
+.tag.flag{background:rgba(232,139,139,.18);color:#B83232}
 .tag.grade{background:var(--surface2);color:var(--muted)}
 .tag.rc{background:var(--surface2);color:var(--muted)}
-.tag.fix{background:rgba(232,163,61,.2);color:#F0BE72;border:1px solid rgba(232,163,61,.4)}
+.tag.fix{background:rgba(232,163,61,.2);color:var(--accent);border:1px solid rgba(232,163,61,.4)}
 .card.done .tag{background:none;color:var(--dim)}
 .loc{font-size:13px;color:var(--text);opacity:.85;margin:5px 0 0;line-height:1.4}
 .memo{font-size:12px;color:var(--muted);margin:4px 0 0;line-height:1.4}
 .card.done .loc,.card.done .memo{color:var(--dim);opacity:1}
-.mynote{font-size:12px;color:#F0BE72;margin:6px 0 0;line-height:1.4}
+.mynote{font-size:12px;color:var(--accent);margin:6px 0 0;line-height:1.4}
 .notebtn{padding:14px 13px;background:none;border:0;color:var(--dim);font-size:15px}
 .editor{padding:0 14px 14px}
-.editor textarea{padding:9px 12px;border-radius:10px;background:#22221F;font-size:13px;min-height:56px;resize:vertical}
+.editor textarea{padding:9px 12px;border-radius:10px;background:#FFFFFF;font-size:13px;min-height:56px;resize:vertical}
 .ebtns{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
 .ebtn{padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700;border:0}
 .ebtn.g{background:var(--surface2);color:var(--muted)}
-.ebtn.r{background:rgba(232,139,139,.2);color:#F0A8A8}
+.ebtn.r{background:rgba(232,139,139,.2);color:#B83232}
 .ebtn.y{background:var(--warn);color:#2A2116}
 
 /* 낙찰 카드 */
@@ -134,7 +141,7 @@ section{margin-bottom:20px}
 .kindwrap{margin:0 0 12px 12px}
 .kindhead{display:flex;align-items:baseline;gap:8px;margin:8px 0 4px}
 .kindname{font-size:13px;font-weight:800;color:var(--text)}
-.kindsum{font-size:11px;color:#E3C87A;flex:1}
+.kindsum{font-size:11px;color:var(--accent);flex:1}
 .lhead,.lrow{display:grid;align-items:center;
   /* 숫자 칸은 들어갈 만큼만 주고 남는 자리를 품목·생산자에 몰아준다.
      좁은 안드로이드 화면(360px)에서도 글자가 잘리지 않게 하기 위함이다. */
@@ -161,15 +168,15 @@ section{margin-bottom:20px}
   .c-no,.c-amt{font-size:9px}
   .lbox{width:15px;height:15px}
 }
-.lbox{width:16px;height:16px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;
+.lbox{width:16px;height:16px;border-radius:5px;border:1.5px solid #9AA1A9;display:flex;
   align-items:center;justify-content:center;font-size:11px;font-weight:900;color:transparent}
-.card.lotrow.done .lbox{background:var(--ok);border-color:var(--ok);color:#1E2A20}
+.card.lotrow.done .lbox{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
 .c-item{text-align:left!important;font-weight:800;color:var(--text)}
 .c-noitem{color:var(--warn)}                 /* 품목을 못 읽은 줄 — 직접 채워야 한다 */
-.c-no{font-size:10px;color:#8FC7E8;letter-spacing:-.03em}
+.c-no{font-size:10px;color:var(--num);letter-spacing:-.03em}
 .c-who{text-align:left!important;color:var(--text)}
 .c-unit,.c-grade{color:var(--muted)}
-.c-grade{font-weight:700;color:#F0BE72}
+.c-grade{font-weight:700;color:var(--accent)}
 .c-qty{text-align:right!important;font-weight:800;color:var(--text)}
 /* 생산자와 수량은 물건을 챙기며 제일 자주 보는 값이라 두 포인트 크게, 굵게 한다.
    머리글 라벨은 그대로 두고 값에만 준다. */
@@ -178,11 +185,11 @@ section{margin-bottom:20px}
 .c-add{background:none;border:0;color:var(--warn);font-size:16px;font-weight:700;padding:0;line-height:1}
 .card.lotrow.done .c-item,.card.lotrow.done .c-qty{color:var(--dim)}
 .card.lotrow.done .lrow{opacity:.72}
-.lnote{font-size:11px;color:#F0BE72;padding:0 8px 8px 28px;display:flex;gap:8px}
+.lnote{font-size:11px;color:var(--accent);padding:0 8px 8px 28px;display:flex;gap:8px}
 .lnote .lby{color:var(--dim);margin-left:auto;white-space:nowrap}
 .cathead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;
   margin:12px 0 6px 10px;font-family:inherit}
-.catname{font-size:13px;font-weight:800;color:#F0BE72}
+.catname{font-size:13px;font-weight:800;color:var(--accent)}
 .wholevel{padding-left:10px;border-left:1px solid var(--line);margin-left:12px}
 .subhead{display:flex;align-items:center;gap:8px;margin:9px 0 5px 2px}
 .subname{font-size:13px;font-weight:700;color:var(--text)}
@@ -195,7 +202,7 @@ section{margin-bottom:20px}
 .qnum{min-width:52px;text-align:center;font-size:13px;font-weight:800;color:var(--text)}
 .qnum small{color:var(--dim);font-weight:600}
 .money{font-size:12px;color:var(--muted);margin:4px 0 0}
-.money b{color:#F0BE72;font-weight:700}
+.money b{color:var(--accent);font-weight:700}
 
 
 .formrow{display:flex;gap:8px;margin-bottom:8px}
@@ -203,26 +210,26 @@ section{margin-bottom:20px}
 label.fl{font-size:11px;color:var(--dim);display:block;margin:0 0 4px}
 .bigbtn{width:100%;padding:13px;border-radius:12px;font-size:14px;font-weight:800;border:1px solid var(--line);
   background:var(--surface2);color:var(--text);margin-bottom:8px}
-.bigbtn.danger{background:var(--hot);border-color:var(--hot);color:#2A1616}
+.bigbtn.danger{background:var(--hot);border-color:var(--hot);color:#FFFFFF}
 .bigbtn.accent{background:var(--warn);border-color:var(--warn);color:#2A2116}
 .hint{font-size:12px;color:var(--dim);line-height:1.5;margin:2px 0 10px}
 
 .empty{text-align:center;padding:44px 0;color:var(--muted);font-size:14px;line-height:1.6}
 .empty button{margin-top:10px;background:none;border:0;color:var(--ok);font-size:14px;text-decoration:underline;text-underline-offset:4px}
 
-footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,36,.97);backdrop-filter:blur(8px);
+footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);
   border-top:1px solid var(--line);padding:11px 16px calc(11px + env(safe-area-inset-bottom));
   display:flex;align-items:center;gap:12px}
 .saved{flex:1;min-width:0;font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fbtn{padding:9px 12px;border-radius:9px;font-size:12px;font-weight:700;
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
-.fbtn.red{background:var(--hot);border-color:var(--hot);color:#2A1616}
+.fbtn.red{background:var(--hot);border-color:var(--hot);color:#FFFFFF}
 .hidden{display:none!important}
 .revmkt{flex:none;font-size:10px;font-weight:700;color:var(--dim);border:1px solid var(--line);
   border-radius:99px;padding:3px 7px;white-space:nowrap}
 .updbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:90;padding:12px 14px;
   border-radius:12px;background:var(--warn);color:#2A2116;font-size:13px;font-weight:700;
-  text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+  text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brand{flex:1}
 .who{font-size:12px;font-weight:700;color:#2A2116;background:var(--warn);border-radius:99px;padding:4px 10px;white-space:nowrap}
@@ -231,10 +238,10 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
 .rtool{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .sessbar{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 8px}
 .sess{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
-.sess i{width:10px;height:10px;border-radius:50%;background:#6A6A60;display:block}
+.sess i{width:10px;height:10px;border-radius:50%;background:#9AA1A9;display:block}
 .sess.ok i{background:#2ECC71;box-shadow:0 0 6px rgba(46,204,113,.8)}
 .sess.bad i{background:#FF4D4D;box-shadow:0 0 6px rgba(255,77,77,.8)}
-.sess.bad{color:#FF8A8A}
+.sess.bad{color:#C62828}
 .sesscard{border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:12px 14px;margin-bottom:8px;font-size:13px;line-height:1.6}
 .sesscard b{font-size:15px}
 .sesscard .st{float:right;font-weight:800}
@@ -242,14 +249,14 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
 .conn.on{color:var(--ok)}
 .conn.off{color:var(--hot)}
 .stampline{font-size:11px;color:var(--dim);margin:5px 0 0}
-.stampline b{color:#F0BE72;font-weight:700}
+.stampline b{color:var(--accent);font-weight:700}
 .pickbtn{display:inline-block;padding:12px 18px;margin:4px 6px 0 0;border-radius:12px;font-size:15px;font-weight:800;
   background:var(--surface2);border:1px solid var(--line);color:var(--text)}
 .pickbtn.on{background:var(--warn);border-color:var(--warn);color:#2A2116}
 .feed{border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:10px 12px;margin-bottom:8px}
 .feed div{font-size:12px;color:var(--muted);padding:3px 0}
 .feed b{color:var(--text)}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:60;display:flex;align-items:flex-end}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:60;display:flex;align-items:flex-end}
 .sheet{background:var(--bg);width:100%;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;
   padding:16px 16px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -276,22 +283,48 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(38,38,3
 /* 낙찰 내역 표 — 품목 관리와 같은 엑셀식 표, 맨 아래 소계·합계 */
 table.xl td.ck{width:30px;padding:0}
 .ckb{width:30px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
-.ckb i{width:18px;height:18px;border-radius:5px;border:1.5px solid #6A6A60;display:flex;align-items:center;justify-content:center;
+.ckb i{width:18px;height:18px;border-radius:5px;border:1.5px solid #9AA1A9;display:flex;align-items:center;justify-content:center;
   font-style:normal;font-size:12px;font-weight:900;color:transparent}
-tr.got .ckb i{background:var(--ok);border-color:var(--ok);color:#1E2A20}
-table.xl tr.got td{background:rgba(107,203,139,.09)}
+tr.got .ckb i{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
+table.xl tr.got td.qn{text-decoration:none}
 table.xl tr.got td.qn{color:var(--dim)}
 table.xl td.qn{font-weight:800;font-size:14px}
-table.xl td.no{font-size:10.5px;color:#8FC7E8}
+table.xl td.no{font-size:10.5px;color:var(--num)}
 table.xl td.nb{width:26px;padding:0}
 .nbtn{width:26px;height:38px;background:none;border:0;color:var(--warn);font-size:17px;font-weight:700;padding:0}
-table.xl tr.noterow td{background:#22221F;color:#F0BE72;font-size:11.5px;white-space:normal}
+table.xl tr.noterow td{background:#FFF8E6;color:var(--accent);font-size:11.5px;white-space:normal}
 table.xl tr.noterow .lby{color:var(--dim);float:right}
-table.xl tr.edrow td{background:#22221F;white-space:normal}
-table.xl tr.edrow textarea{padding:9px 12px;border-radius:10px;background:#1C1C1A;font-size:13px;min-height:56px;resize:vertical}
+table.xl tr.edrow td{background:#FFF8E6;white-space:normal}
+table.xl tr.edrow textarea{padding:9px 12px;border-radius:10px;background:#FFFFFF;font-size:13px;min-height:56px;resize:vertical}
+/* 시장별 줄 배경 — 서울청과 파랑, 동화청과 연두 (품목 관리 표도 같음) */
+table.xl tr.mk-seoul td{background:var(--seoul)}
+table.xl tr.mk-dong td{background:var(--dong)}
+table.xl tr.mk-seoul td:first-child{box-shadow:inset 4px 0 0 var(--seoul-edge)}
+table.xl tr.mk-dong td:first-child{box-shadow:inset 4px 0 0 var(--dong-edge)}
+/* 세 번 연속 탭을 해도 글자가 선택되거나 화면이 확대되지 않게 */
+table.xl tbody tr{-webkit-user-select:none;user-select:none;touch-action:manipulation}
+/* 재경매로 분류한 줄 — 취소선, 흐리게. 소계·합계에서 빠진다 */
+table.xl tr.reauc td{color:var(--dim)}
+table.xl tr.reauc td:not(.ck):not(.nb):not(.pk){text-decoration:line-through;text-decoration-thickness:2px}
+table.xl tr.reauc .price{color:var(--dim)}
+.retag{display:inline-block;margin-left:4px;font-size:10px;font-weight:800;color:#FFFFFF;background:#C0392B;
+  border-radius:5px;padding:1px 5px;text-decoration:none;vertical-align:middle}
+/* 우선 픽업 칸 (맨 오른쪽) */
+table.xl td.pk{width:34px;padding:0}
+.pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
+.pkb i{width:20px;height:20px;border-radius:50%;border:2px solid #E07B00;display:flex;align-items:center;justify-content:center;
+  font-style:normal;font-size:12px;font-weight:900;color:transparent;background:#FFFFFF}
+tr.pick .pkb i{background:#E07B00;color:#FFFFFF}
+table.xl th.pkh{font-size:9.5px;color:#C46A00;line-height:1.15}
+/* 날짜 줄은 틀 고정 — 아래로 내려도 위에 붙어 있다 (--hh = 머리 영역 높이) */
+#lotview .datebar{position:sticky;top:var(--hh,0px);z-index:15;background:var(--bg);
+  margin:0 -16px 10px;padding:8px 16px;border-bottom:1px solid var(--line)}
 .grand{display:flex;justify-content:space-between;align-items:center;margin:4px 0 14px;padding:12px 14px;border-radius:10px;
   background:#0B6B35;color:#FFF;font-weight:800;font-size:14px}
 .grand span{font-variant-numeric:tabular-nums}
+.grand{gap:10px;flex-wrap:wrap}
+.grand small{display:block;font-size:11px;font-weight:600;opacity:.85}
+.invgh b{white-space:nowrap}
 /* 캘린더 탭 */
 .calnav{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
 .calnav button{background:var(--surface2);border:1px solid var(--line);color:var(--text);
@@ -315,13 +348,13 @@ table.xl tr.edrow textarea{padding:9px 12px;border-radius:10px;background:#1C1C1
 .invsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 .invsum div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 9px}
 .invsum small{display:block;font-size:10px;color:var(--dim)}
-.invsum b{font-size:14px;color:#F0BE72}
+.invsum b{font-size:14px;color:var(--accent)}
 .invtools{display:flex;gap:6px;margin-bottom:10px}
 .invtools button{flex:1;padding:9px 6px;border-radius:9px;font-size:12px;font-weight:700;
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 .invgrp{margin-bottom:14px}
 .invgh{display:flex;align-items:baseline;gap:8px;margin:0 0 5px 2px}
-.invgh b{font-size:14px;color:#F0BE72}
+.invgh b{font-size:14px;color:var(--accent)}
 .invgh span{font-size:11px;color:var(--muted)}
 .xwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;-webkit-overflow-scrolling:touch}
 table.xl{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
@@ -333,9 +366,9 @@ table.xl td.c{text-align:center}
 table.xl td.xw{font-weight:800;font-size:13px;max-width:92px;
   white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
 table.xl td .sm{display:block;font-size:10px;color:var(--dim);font-weight:400;white-space:nowrap}
-table.xl .price{color:#F0BE72;font-weight:700}
+table.xl .price{color:var(--accent);font-weight:700}
 table.xl tr.zero td{opacity:.6}
-table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
+table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)}
 .left{display:flex;align-items:center;justify-content:center;gap:3px}
 .left button{width:24px;height:26px;border-radius:7px;background:var(--surface2);border:1px solid var(--line);
   color:var(--text);font-size:15px;font-weight:700;line-height:1;padding:0}
@@ -343,7 +376,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:#F0BE72}
   color:var(--ok);text-decoration:underline dotted;text-underline-offset:3px;width:auto;height:auto}
 .left .lv small{color:var(--dim);font-weight:600}
 .shipbtn{padding:6px 6px;border-radius:8px;font-size:11px;line-height:1.2;font-weight:800;border:0;
-  background:var(--hot);color:#2A1616;white-space:nowrap}
+  background:var(--hot);color:#FFFFFF;white-space:nowrap}
 .unshipbtn{padding:5px 7px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid var(--line);
   background:var(--surface2);color:var(--muted);white-space:nowrap}
 .importbox{display:flex;gap:6px;align-items:flex-end;margin-bottom:10px}
@@ -471,7 +504,7 @@ const Z={
   hapjim:{key:"hapjim",label:"합짐",tone:"lime"}};
 
 const TONE={
-  amber:{bar:"#E8A33D",plate:"rgba(232,163,61,.55)",ptext:"#F2C67E"},
+  amber:{bar:"#E8A33D",plate:"rgba(232,163,61,.55)",ptext:"var(--accent)"},
   sky:{bar:"#6FB6E8",plate:"rgba(111,182,232,.55)",ptext:"#A8D3F0"},
   cyan:{bar:"#4FC3C7",plate:"rgba(79,195,199,.55)",ptext:"#96DEE0"},
   violet:{bar:"#B197E8",plate:"rgba(177,151,232,.55)",ptext:"#CFBDF2"},
@@ -673,21 +706,26 @@ function visibleLots(){
 }
 /* 낙찰 표의 한 줄. 서버의 오늘 작업 목록(state.lots)에 있는 줄만 챙김 체크·주석이 된다.
    지난 날짜 기록(history)에서만 온 줄은 보기 전용이다. */
+const mkCls=l=>String(l.mkt||"").startsWith("서울")?"mk-seoul":String(l.mkt||"").startsWith("동화")?"mk-dong":"";
+const isReauc=l=>!!(state.reauc||{})[l.id];
+const isPick=l=>!!(state.pickup||{})[l.id];
 function lotRow(l){
   const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
   const note=live?(state.lotnotes||{})[l.id]:null;
   const stamp=(live&&state.stampGot&&state.stampGot[l.id])?state.stampGot[l.id]:null;
-  return `<tr data-id="${esc(l.id)}" class="${d?"got":""}">
+  const re=isReauc(l);
+  return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),re?"reauc":"",isPick(l)?"pick":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
       <td class="c no mono">${esc(l.no||"")}</td>
-      <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
+      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
       <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
       <td class="r qn">${l.qty}</td>
       <td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
-      <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td></tr>
-    ${(note||stamp&&d)?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="6">${note?`✎ ${esc(note.text||note)}`:""}${
+      <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td>
+      <td class="pk">${live?`<button class="pkb" data-act="pickup" aria-label="우선 픽업"><i>★</i></button>`:""}</td></tr>
+    ${(note||stamp&&d)?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="7">${note?`✎ ${esc(note.text||note)}`:""}${
       (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</td></tr>`:""}
-    ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="7">
+    ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="8">
       <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
       <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn r" data-act="lotdel">이 줄 삭제</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
     </td></tr>`:""}`;
@@ -820,10 +858,13 @@ function renderLots(chips){
   const all=dayRows(lotDate);
   const isDone=l=>l._live&&(state.got[l.id]||0)>=l.qty;
   const doneRows=all.filter(isDone).length;
+  const pickRows=all.filter(isPick).length, reRows=all.filter(isReauc).length;
   chips.innerHTML=`
     <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${all.length}</button>
     <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${all.length-doneRows}</button>
     <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
+    <button class="chip ${filter==="pick"?"on":""}" data-f="pick">우선 픽업 ${pickRows}</button>
+    <button class="chip ${filter==="re"?"on":""}" data-f="re">재경매 ${reRows}</button>
     <span class="div"></span>
     <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
     <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
@@ -834,6 +875,8 @@ function renderLots(chips){
     if(lotMkt!=="all" && !String(l.mkt||"").startsWith(lotMkt)) return false;
     if(filter==="todo"&&isDone(l)) return false;
     if(filter==="done"&&!isDone(l)) return false;
+    if(filter==="pick"&&!isPick(l)) return false;
+    if(filter==="re"&&!isReauc(l)) return false;
     if(!kw) return true;
     return [l.item,normItem(l.item),l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
   });
@@ -845,18 +888,19 @@ function renderLots(chips){
     bindEmpty(); return;
   }
   const groups=invGroups(rows);
-  const tq=rows.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=rows.reduce((a,l)=>a+lotAmt(l),0);
+  const buy=rows.filter(l=>!isReauc(l));     // 재경매 줄은 합계에서 뺀다
+  const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
   list.innerHTML=groups.map(g=>{
     const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
     <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원${
-      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.qty}`:""}</span></div>
+      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.qty}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}</span></div>
     <div class="xwrap"><table class="xl"><thead><tr>
-      <th></th><th>번호</th><th class="xw">생산자</th><th>단량<br>등급</th><th>수량</th><th>경락단가 ▲<br>거래금액</th><th></th>
+      <th></th><th>번호</th><th class="xw">생산자</th><th>단량<br>등급</th><th>수량</th><th>경락단가 ▲<br>거래금액</th><th></th><th class="pkh">우선<br>픽업</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
-    <tfoot><tr><td></td><td class="c">소계</td><td></td><td></td><td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td></td></tr></tfoot>
+    <tfoot><tr><td></td><td class="c">소계</td><td></td><td></td><td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td></td><td></td></tr></tfoot>
     </table></div></div>`;}).join("")
-    +`<div class="grand"><span>합계 ${rows.length}줄</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
+    +`<div class="grand"><span>합계 ${buy.length}줄${rows.length>buy.length?`<small>재경매 ${rows.length-buy.length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
 
 /* 실시간 수집기(poller)가 마지막으로 낙찰을 올린 때. 사무실 PC 의 poller 가 살아 있는지
@@ -943,9 +987,11 @@ function invGroups(rows){
     .sort((a,b)=>(INV_CATS.indexOf(catOf(a))-INV_CATS.indexOf(catOf(b)))||a.localeCompare(b,"ko"))
     .map(k=>({ title:k,
       rows:by[k].slice().sort((a,b)=>(a.price-b.price)||(lotAmt(a)-lotAmt(b))||(a.who||"").localeCompare(b.who||"","ko")),
-      qty:by[k].reduce((a,l)=>a+(Number(l.qty)||0),0),
-      left:by[k].reduce((a,l)=>a+(Number(l.left)||0),0),
-      amt:by[k].reduce((a,l)=>a+lotAmt(l),0) }));
+      /* 재경매로 분류한 줄은 실제로 산 게 아니므로 수량·금액 합에서 뺀다 */
+      qty:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0),
+      left:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.left)||0),0),
+      amt:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+lotAmt(l),0),
+      re:by[k].filter(isReauc).length }));
 }
 function invMatch(l){
   const kw=query.trim().toLowerCase();
@@ -996,7 +1042,7 @@ function renderInv(){
         <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · 소요 ${won(g.amt)}원</span></div>
         <div class="xwrap"><table class="xl"><thead><tr>
           <th class="xw">생산자</th><th>출고일</th><th>규격</th><th>수량</th><th>단가<br>소요금액</th><th></th>
-        </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}">
+        </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${mkCls(l)}">
           <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))} · ${esc(mmdd(l.date))} 경매</span></td>
           <td class="c">${esc(mmdd(shipDay(l)))}<span class="sm">${esc(l.shippedBy||"")}</span></td>
           <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
@@ -1010,9 +1056,10 @@ function renderInv(){
 
   const rows=inv.filter(invMatch);
   const groups=invGroups(rows);
-  const total=inv.reduce((a,l)=>a+lotAmt(l),0);
-  const leftAmt=inv.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
-  const leftQty=inv.reduce((a,l)=>a+(Number(l.left)||0),0);
+  const invBuy=inv.filter(l=>!isReauc(l));     // 재경매 줄은 산 게 아니므로 합계에서 뺀다
+  const total=invBuy.reduce((a,l)=>a+lotAmt(l),0);
+  const leftAmt=invBuy.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
+  const leftQty=invBuy.reduce((a,l)=>a+(Number(l.left)||0),0);
   const d5=new Date(Date.now()+9*3600e3-4*86400e3).toISOString().slice(0,10);
   box.innerHTML=`<div class="invsum">
       <div><small>재고 낙찰 소요금액</small><b class="tnum">${won(total)}원</b></div>
@@ -1030,7 +1077,7 @@ function renderInv(){
       <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 잔여 ${g.left}/${g.qty} · 소요 ${won(g.amt)}원</span></div>
       <div class="xwrap"><table class="xl"><thead><tr>
         <th class="xw">생산자</th><th>규격</th><th>수량</th><th>단가 ▲<br>소요금액</th><th>잔여 수량</th><th>출고</th>
-      </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${l.left>0?"":"zero"}">
+      </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${[l.left>0?"":"zero",mkCls(l),isReauc(l)?"reauc":""].join(" ")}">
         <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))} · ${esc(mmdd(l.date))}</span></td>
         <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
         <td class="r">${l.qty}</td><td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
@@ -1138,8 +1185,28 @@ document.getElementById("chips").addEventListener("click",e=>{
   if(b.dataset.im){ invMode=b.dataset.im; if(invMode==="shipped") loadShipped().then(()=>{ if(tab==="inv") render(); }); }
   render();});
 
+/* 낙찰 줄을 세 번 연속(0.9초 안) 탭하면 재경매 ↔ 일반 낙찰을 바꾼다. 체크·주석·우선 픽업 버튼을
+   누른 탭은 세지 않는다. 화면이 실시간으로 다시 그려져도 줄 id 로 세므로 끊기지 않는다. */
+const tapLog={};
+function countTap(id){
+  const now=Date.now(), a=(tapLog[id]||[]).filter(t=>now-t<900);
+  a.push(now); tapLog[id]=a;
+  if(a.length<3) return false;
+  tapLog[id]=[]; return true;
+}
 document.querySelector("main").addEventListener("click",e=>{
   const btn=e.target.closest("[data-act]");
+  const tapRow=!btn&&e.target.closest("tr[data-tap='re']");
+  if(tapRow){
+    const id=tapRow.dataset.id;
+    if(countTap(id)){
+      const on=!(state.reauc||{})[id];
+      pushOp({t:"reauc",id,on});
+      const st=document.getElementById("lotstat");
+      if(st) st.textContent=on?"재경매로 분류했습니다 (세 번 다시 탭하면 일반 낙찰로 돌아갑니다)":"일반 낙찰로 되돌렸습니다";
+    }
+    return;
+  }
   if(btn){
     const act=btn.dataset.act;
     if(act==="fold"){const k=btn.dataset.k||btn.closest("section").dataset.g;collapsed[k]=!collapsed[k];return render();}
@@ -1156,6 +1223,9 @@ document.querySelector("main").addEventListener("click",e=>{
     else if(act==="nsave"){ const v=document.getElementById("ta-"+id).value.trim();
       const st=STOPS.find(x=>x.id===id);
       openNote=null; pushOp({t:"note",id,text:v,name:st?st.name:id}); }
+    else if(act==="pickup"){
+      pushOp({t:"pickup",id,on:!(state.pickup||{})[id]});
+    }
     else if(act==="lottoggle"){
       const l=state.lots.find(x=>x.id===id); if(!l)return;
       const g=(state.got[id]||0)>=l.qty ? 0 : l.qty;
@@ -1285,6 +1355,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
+  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -1300,6 +1371,14 @@ function applyServer(sv){
   state.workday=sv.workday||state.workday;
   checkBuild(sv.build);
 }
+
+/* 날짜 줄(낙찰내역조회)을 머리 영역 바로 아래에 붙여 두기 위해 머리 높이를 CSS 변수로 알려준다 */
+(function(){
+  const h=document.querySelector("header");
+  const set=()=>document.documentElement.style.setProperty("--hh",h.offsetHeight+"px");
+  set(); window.addEventListener("resize",set);
+  if(window.ResizeObserver) new ResizeObserver(set).observe(h);
+})();
 
 /* ---------- 경매 사이트 로그인 상태 (최상단 오른쪽 툴바) ----------
    사무실 PC 의 수집기가 몇 초마다 시장별로 '로그인 살아 있음/만료'를 보내온다(poll op).
@@ -1397,12 +1476,14 @@ function localEcho(op){
     state.lots=(state.lots||[]).filter(l=>l.id!==op.id);
     delete state.got[op.id]; if(state.lotnotes) delete state.lotnotes[op.id];
   }
-  if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; }
+  if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; state.pickup={}; }
+  if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
+  if(op.t==="reauc"){ state.reauc=state.reauc||{}; if(op.on) state.reauc[op.id]={by:me,at:Date.now()}; else delete state.reauc[op.id]; }
   state.inv=state.inv||{};
   if(op.t==="invleft"&&state.inv[op.id]) state.inv[op.id]=Object.assign({},state.inv[op.id],{left:op.left});
   if(op.t==="ship") delete state.inv[op.id];
   if(op.t==="dellot") delete state.inv[op.id];
-  if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; }
+  if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; state.pickup={}; }
 }
 
 function connect(){
