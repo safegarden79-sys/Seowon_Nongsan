@@ -308,13 +308,22 @@ table.xl tr.reauc td{color:var(--dim)}
 table.xl tr.reauc td:not(.ck):not(.nb):not(.pk){text-decoration:line-through;text-decoration-thickness:2px}
 table.xl tr.reauc .price{color:var(--dim)}
 .retag{display:inline-block;margin-left:4px;font-size:10px;font-weight:800;color:#FFFFFF;background:#C0392B;
-  border-radius:5px;padding:1px 5px;text-decoration:none;vertical-align:middle}
+  border-radius:5px;padding:1px 5px;text-decoration:none;vertical-align:middle;white-space:nowrap}
 /* 우선 픽업 칸 (맨 오른쪽) */
 table.xl td.pk{width:34px;padding:0}
 .pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
 .pkb i{width:20px;height:20px;border-radius:50%;border:2px solid #E07B00;display:flex;align-items:center;justify-content:center;
   font-style:normal;font-size:12px;font-weight:900;color:transparent;background:#FFFFFF}
 tr.pick .pkb i{background:#E07B00;color:#FFFFFF}
+/* 우선 픽업한 줄 — 테두리를 기본(1px)의 3배로 두껍게, 서울청과 진파랑 · 동화청과 진초록 */
+:root{--seoul-pick:#0D3F9E;--dong-pick:#1B6B1E}
+table.xl tr.pick td{border-top:3px solid var(--pk);border-bottom:3px solid var(--pk)}
+table.xl tr.pick td:first-child{border-left:3px solid var(--pk)}
+table.xl tr.pick td:last-child{border-right:3px solid var(--pk)}
+table.xl tr.pick.mk-seoul{--pk:var(--seoul-pick)}
+table.xl tr.pick.mk-dong{--pk:var(--dong-pick)}
+table.xl tr.pick.mk-seoul .pkb i{background:var(--seoul-pick);border-color:var(--seoul-pick)}
+table.xl tr.pick.mk-dong .pkb i{background:var(--dong-pick);border-color:var(--dong-pick)}
 table.xl th.pkh{font-size:9.5px;color:#C46A00;line-height:1.15}
 /* 날짜 줄은 틀 고정 — 아래로 내려도 위에 붙어 있다 (--hh = 머리 영역 높이) */
 #lotview .datebar{position:sticky;top:var(--hh,0px);z-index:15;background:var(--bg);
