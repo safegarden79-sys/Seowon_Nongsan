@@ -9,7 +9,9 @@
 |---|---|
 | `server.js` | 공유 서버. 외부 라이브러리 없음(Node 기본 모듈만). SSE 로 실시간 전달 |
 | `index.html` | 앱 화면 전체. 낙찰 내역(날짜별 조회) · 품목 관리(재고·출고) · 오프라인 대기열 |
-| `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다 |
+| `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다. 웹 푸시 알림 표시 |
+| `webpush.js` | 웹 푸시 보내기(암호화·VAPID 서명) — 외부 라이브러리 없음 |
+| `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스) |
 | `data.json` | 서버가 자동 생성/갱신. 낙찰·체크·메모·날짜별 기록(history)·품목 관리 재고(inv)·출고 기록(shipped) |
 | `backup/` | 6시간마다 자동 백업 (최근 14개) |
 | `auction_poller/` | PC에서 돌리는 실시간 수집기(파이썬). 서울청과·동화청과를 직접 읽어 `/api/op` 로 올린다 |
@@ -76,6 +78,29 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
 - 낙찰내역조회 날짜 줄은 `position:sticky` 로 머리 영역 바로 아래에 붙는다(머리 높이 = CSS 변수 `--hh`).
 - 앱 기본 테마는 하양. 색은 `:root` 변수(`--bg` `--text` `--accent` 등)로만 바꾼다.
 
+## 새 낙찰 알림 (휴대폰)
+
+`lots` op 로 **새 id** 가 생기면(같은 줄 갱신은 제외) 서버가 `notifyNewLots` 로 한 번에 묶어 알린다
+(예: `🔔 새 낙찰 3줄 (서울 2 · 동화 1)` + 줄마다 품목·생산자·규격·수량·단가). 두 갈래:
+
+- **아이폰(홈 화면에 추가한 앱)·크롬 = 웹 푸시.** `webpush.js`(Node 기본 모듈만, RFC 8291 암호화 +
+  RFC 8292 VAPID 서명. RFC 예시값으로 검증함). 서버 열쇠는 자료 폴더의 `vapid.json` 에 처음 한 번
+  만들어진다 — **바뀌면 모든 구독이 무효**이므로 지우지 말 것. 앱(index.html)은 처음 한 번
+  '알림을 받으시겠어요?'(`#notifsheet`)를 묻고, `알림 받기`를 누른 순간 `Notification.requestPermission`
+  → `pushManager.subscribe` → `POST /api/push/subscribe`. 구독은 `state.pushSubs`(SSE 에는 안 실림),
+  푸시 서비스가 404/410 을 주면 지운다. `sw.js` 의 `push`·`notificationclick` 이 알림을 띄운다.
+  아이폰은 iOS 16.4 이상 + 홈 화면 앱에서만 된다.
+- **안드로이드 서원농산 앱(APK) = 앱이 직접.** 웹뷰는 웹 푸시를 못 받는다. 앱이 처음 한 번 묻고
+  (안드로이드 13+ 는 시스템 허용 창), 켜면 `NotifyService`(포그라운드 서비스, specialUse)가
+  `GET /api/notify`(새 낙찰 때만 `event: lots` 가 오는 가벼운 SSE)에 붙어 있다가 알림을 띄운다.
+  재부팅·업데이트 뒤엔 `BootReceiver` 가 다시 켠다. 밤새 끊기지 않게 배터리 최적화 제외를 한 번 묻는다.
+  웹 화면은 `window.SeowonApp`(notifyState/requestNotify/disableNotify)으로 상태를 보이고 켜고 끈다.
+- 아래쪽 `🔔 알림` 버튼: 켜기·끄기·`시험 알림 보내기`(`POST /api/push/test`, 모두에게 감).
+  `/api/health` 의 `알림` 에 웹 푸시 구독 수·앱 연결 수가 나온다.
+- APK 빌드: `android/build-apk.sh` (ANDROID_HOME 에 build-tools 34 · platforms/android-34 필요).
+  서명 열쇠 `android/seowon.keystore` 는 저장소에 둔다 — 같은 열쇠로 서명해야 다음 판을 지우지 않고
+  덮어 깔 수 있다. (1.1 이전 판은 다른 열쇠라 한 번은 지우고 새로 깔아야 한다)
+
 ## 품목 관리 (재고 · 전량 출고 · 소요금액 적산)
 
 `index.html` 의 `📋 품목 관리` 탭(낙찰 내역 옆). 서울청과·동화청과 구분 없이 **품목별로** 묶고,
@@ -132,6 +157,8 @@ curl localhost:3000/api/health
 - `GET  /api/history`       캘린더용 날짜별 요약 `{days:{"YYYY-MM-DD":{count, mkt:{시장명:줄수}}}}`
 - `GET  /api/history/:날짜` 그 날짜의 낙찰 줄 전체 `{date, lots:{id: 줄}}`
 - `GET  /api/shipped`       품목 관리 출고 기록 전체 `{rows:[줄]}`
+- `GET  /api/push/key` · `POST /api/push/subscribe` · `POST /api/push/unsubscribe` · `POST /api/push/test` 웹 푸시
+- `GET  /api/notify` 안드로이드 앱 알림 서비스용 SSE (새 낙찰 때만 `event: lots`)
 - `GET  /api/health` 상태 점검
 
 조작(op) 종류:

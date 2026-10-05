@@ -11,3 +11,9 @@ auction_poller/secrets.json
 auction_poller/seen_lots.json
 auction_poller/__pycache__/
 auction_poller/*.pyc
+
+# 웹 푸시 서버 열쇠 — 자료 폴더(DATA_DIR)에 자동 생성
+vapid.json
+
+# 안드로이드 빌드 결과물
+android/build/

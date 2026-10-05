@@ -3,7 +3,7 @@
    그래야 새 판이 올라오면 바로 내려가고, 신호가 끊겨도 앱은 열린다.
    경매 화면 사진과 바깥에서 받아오는 인식 엔진은 한 번 받으면 안 바뀌므로
    담아둔 것을 먼저 쓴다. 서버와 실시간으로 주고받는 /api/ 는 건드리지 않는다. */
-const CACHE = "seowon-v13";
+const CACHE = "seowon-v14";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icon.png"];
 
 self.addEventListener("install", e => {
@@ -76,4 +76,23 @@ self.addEventListener("fetch", e => {
     return;
   }
   e.respondWith(cacheFirst(req));                         // 사진·인식 엔진
+});
+
+/* ---------- 새 낙찰 알림 (웹 푸시) ----------
+   서버가 새 낙찰 때 암호화해 보낸 내용을 받아 알림으로 띄운다. 아이폰은 홈 화면에 추가한 앱에서만 온다. */
+self.addEventListener("push", e => {
+  let m = {};
+  try { m = e.data ? e.data.json() : {}; } catch (err) { m = { title: "새 낙찰", body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(m.title || "🔔 새 낙찰", {
+    body: m.body || "", tag: m.tag || "lots", renotify: true,
+    icon: "icon.png", badge: "icon.png", vibrate: [200, 100, 200], data: { url: "./" }
+  }));
+});
+/* 알림을 누르면 열려 있는 앱으로 가고, 없으면 새로 연다 */
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) if ("focus" in c) return c.focus();
+    return self.clients.openWindow ? self.clients.openWindow("./") : null;
+  }));
 });

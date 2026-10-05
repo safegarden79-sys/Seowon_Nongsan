@@ -223,6 +223,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .saved{flex:1;min-width:0;font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fbtn{padding:9px 12px;border-radius:9px;font-size:12px;font-weight:700;
   background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.fbtn.bellon{background:#E8F7EE;border-color:#7CC99A;color:#16703A}
 .fbtn.red{background:var(--hot);border-color:var(--hot);color:#FFFFFF}
 .hidden{display:none!important}
 .revmkt{flex:none;font-size:10px;font-weight:700;color:var(--dim);border:1px solid var(--line);
@@ -456,6 +457,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
 
 <footer>
   <span class="saved" id="saved">체크하면 자동 저장됩니다</span>
+  <button class="fbtn" id="bellbtn">🔔 알림</button>
   <span id="footbtns"></span>
 </footer>
 
@@ -478,6 +480,14 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
   <div class="sheet">
     <div class="sheethead"><b>경매 사이트 로그인 상태</b><button class="ebtn g" id="sessclose">닫기</button></div>
     <div id="sessbody"></div>
+  </div>
+</div>
+
+<div id="notifsheet" class="modal hidden">
+  <div class="sheet">
+    <div class="sheethead"><b>🔔 새 낙찰 알림</b><button class="ebtn g" id="notifclose">닫기</button></div>
+    <p class="hint" id="notiftext"></p>
+    <div id="notifbtns"></div>
   </div>
 </div>
 
@@ -1539,6 +1549,94 @@ function pushOp(op){
 setInterval(()=>{ if(pending.length) flush(); },4000);
 window.addEventListener("online",()=>{ flush(); connect(); });
 
+/* ---------- 새 낙찰 알림 ----------
+   · 아이폰(홈 화면에 추가한 앱)·크롬: 웹 푸시. 처음 한 번 '알림을 받으시겠어요?'를 묻고, 허용하면
+     구독 정보를 서버에 맡긴다(/api/push/subscribe). 앱을 닫아 둬도 알림이 온다.
+   · 안드로이드 서원농산 앱(APK): 웹뷰는 웹 푸시를 못 받으므로 앱(SeowonApp)이 직접 묻고 띄운다.
+     여기서는 그 상태만 보여주고 켜기·시험을 앱에 맡긴다. */
+const NKEY="seowon-notif-asked";
+const inApk=()=>!!(window.SeowonApp&&window.SeowonApp.notifyState);
+const webPushOK=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+const standalone=window.navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
+function urlB64(s){ const p="=".repeat((4-s.length%4)%4), b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));
+  return Uint8Array.from(b,c=>c.charCodeAt(0)); }
+function notifState(){
+  if(inApk()) return window.SeowonApp.notifyState();          // on | off | denied
+  if(!webPushOK()) return "unsupported";
+  return Notification.permission==="granted"?"on":Notification.permission==="denied"?"denied":"off";
+}
+async function subscribePush(){
+  const perm=await Notification.requestPermission();           // 반드시 버튼을 누른 그 순간에 물어야 한다(아이폰)
+  if(perm!=="granted") return false;
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub){
+    const k=await (await fetch(serverUrl+"/api/push/key")).json();
+    sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(k.key)});
+  }
+  await fetch(serverUrl+"/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user:me,sub:sub.toJSON()})});
+  return true;
+}
+async function unsubscribePush(){
+  const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription();
+  if(!sub) return;
+  await fetch(serverUrl+"/api/push/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({endpoint:sub.endpoint})});
+  await sub.unsubscribe();
+}
+function renderBell(){
+  const st=notifState(), b=document.getElementById("bellbtn");
+  b.textContent=st==="on"?"🔔 알림 켜짐":"🔕 알림 꺼짐";
+  b.classList.toggle("bellon",st==="on");
+}
+function openNotif(){
+  const st=notifState(), t=document.getElementById("notiftext"), box=document.getElementById("notifbtns");
+  let msg="", btns="";
+  if(st==="unsupported"){
+    msg=isIOS&&!standalone
+      ?"아이폰은 사파리에서 <b>공유 → 홈 화면에 추가</b>로 만든 앱에서만 알림을 받을 수 있습니다. 홈 화면의 서원농산 아이콘으로 열어 주세요. (iOS 16.4 이상)"
+      :"이 브라우저는 알림을 받을 수 없습니다.";
+  } else if(st==="denied"){
+    msg=inApk()?"알림이 꺼져 있습니다. 휴대폰 <b>설정 → 애플리케이션 → 서원농산 체크 → 알림</b>에서 허용해 주세요."
+      :"알림을 거절해 두셨습니다. <b>설정 → 알림 → 서원농산</b>에서 허용으로 바꾼 뒤 다시 눌러 주세요.";
+    btns=inApk()?`<button class="bigbtn accent" data-n="on">알림 다시 켜기</button>`:"";
+  } else if(st==="on"){
+    msg="새 낙찰이 들어오면 이 휴대폰에 알림이 옵니다. 앱을 닫아 두어도 옵니다.";
+    btns=`<button class="bigbtn" data-n="test">시험 알림 보내기 (모두에게)</button><button class="bigbtn" data-n="off">이 휴대폰 알림 끄기</button>`;
+  } else {
+    msg="새 낙찰이 들어올 때마다 이 휴대폰에 알림을 받으시겠어요? 앱을 닫아 두어도 옵니다.";
+    btns=`<button class="bigbtn accent" data-n="on">알림 받기</button><button class="bigbtn" data-n="later">나중에</button>`;
+  }
+  t.innerHTML=msg; box.innerHTML=btns;
+  document.getElementById("notifsheet").classList.remove("hidden");
+}
+document.getElementById("bellbtn").onclick=openNotif;
+document.getElementById("notifclose").onclick=()=>document.getElementById("notifsheet").classList.add("hidden");
+document.getElementById("notifbtns").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-n]"); if(!b) return;
+  const a=b.dataset.n; localStorage.setItem(NKEY,"1");
+  try{
+    if(a==="on"){ if(inApk()) window.SeowonApp.requestNotify(); else if(!(await subscribePush())) alert("알림이 허용되지 않았습니다."); }
+    if(a==="off"){ if(inApk()) window.SeowonApp.disableNotify(); else await unsubscribePush(); }
+    if(a==="test"){ const r=await (await fetch(serverUrl+"/api/push/test",{method:"POST"})).json();
+      alert(`시험 알림을 보냈습니다 (아이폰·브라우저 ${r.웹푸시}대, 안드로이드 앱 ${r.앱}대)`); }
+  }catch(err){ alert("알림 설정 중 문제가 생겼습니다: "+err.message); }
+  document.getElementById("notifsheet").classList.add("hidden");
+  setTimeout(renderBell,500);
+});
+/* 안드로이드 앱이 알림 상태가 바뀌면 불러 준다 */
+window.onNotifyChanged=renderBell;
+/* 처음 한 번 묻는다 (안드로이드 앱은 앱이 직접 묻는다). 이미 허용했으면 구독을 서버에 다시 알려 둔다. */
+function askNotifOnce(){
+  renderBell();
+  if(inApk()||!me) return;
+  const st=notifState();
+  if(st==="on"){ subscribePush().catch(()=>{}); return; }
+  if(st==="off"&&!localStorage.getItem(NKEY)) setTimeout(openNotif,800);
+}
+
 /* ---------- 이름 고르기 ----------
    사무실에서 쓰는 다섯 사람. 예전 A·B·C 로 골라 둔 폰은 켤 때 다시 고르게 한다. */
 const USERS=["호열","상혁","상용","부장님","사장님"];
@@ -1564,13 +1662,14 @@ document.getElementById("pickok").onclick=()=>{
   document.getElementById("mename").textContent=me;
   document.getElementById("pick").classList.add("hidden");
   connect();
+  askNotifOnce();
 };
 document.getElementById("mename").onclick=openPick;
 document.getElementById("connstat").onclick=openPick;
 
 if(["A","B","C"].includes(me)){ me=""; localStorage.removeItem(UKEY); }
 document.getElementById("mename").textContent=me||"이름";
-if(!me) openPick(); else connect();
+if(!me) openPick(); else { connect(); askNotifOnce(); }
 
 render(); renderFooter();
 
