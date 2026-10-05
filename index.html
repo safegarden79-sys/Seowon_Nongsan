@@ -281,7 +281,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .dbtns button{flex:1;padding:14px 0;border-radius:99px;border:0;font-size:16px;font-weight:700}
 .dclose{background:#DDD;color:#0B8A3E}
 .dok{background:#0B8A3E;color:#FFF}
-/* 낙찰 내역 표 — 품목 관리와 같은 엑셀식 표, 맨 아래 소계·합계 */
+/* 낙찰 내역 표 — 재고 관리와 같은 엑셀식 표, 맨 아래 소계·합계 */
 table.xl td.ck{width:30px;padding:0}
 .ckb{width:30px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
 .ckb i{width:18px;height:18px;border-radius:5px;border:1.5px solid #9AA1A9;display:flex;align-items:center;justify-content:center;
@@ -297,7 +297,7 @@ table.xl tr.noterow td{background:#FFF8E6;color:var(--accent);font-size:11.5px;w
 table.xl tr.noterow .lby{color:var(--dim);float:right}
 table.xl tr.edrow td{background:#FFF8E6;white-space:normal}
 table.xl tr.edrow textarea{padding:9px 12px;border-radius:10px;background:#FFFFFF;font-size:13px;min-height:56px;resize:vertical}
-/* 시장별 줄 배경 — 서울청과 파랑, 동화청과 연두 (품목 관리 표도 같음) */
+/* 시장별 줄 배경 — 서울청과 파랑, 동화청과 연두 (재고 관리 표도 같음) */
 table.xl tr.mk-seoul td{background:var(--seoul)}
 table.xl tr.mk-dong td{background:var(--dong)}
 table.xl tr.mk-seoul td:first-child{box-shadow:inset 4px 0 0 var(--seoul-edge)}
@@ -354,7 +354,7 @@ table.xl th.pkh{font-size:9.5px;color:#C46A00;line-height:1.15}
 .caldetail{padding-bottom:20px}
 .caldhead{font-size:14px;font-weight:800;color:var(--text);margin:4px 0 10px}
 .caldempty{color:var(--muted);font-size:13px;text-align:center;padding:30px 0}
-/* 품목 관리 탭 — 엑셀처럼 칸이 맞는 표. 좁은 폰에서는 옆으로 밀어서 본다(생산자 칸은 고정). */
+/* 재고 관리 탭 — 엑셀처럼 칸이 맞는 표. 좁은 폰에서는 옆으로 밀어서 본다(생산자 칸은 고정). */
 .invsum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 .invsum div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 9px}
 .invsum small{display:block;font-size:10px;color:var(--dim)}
@@ -412,7 +412,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
 
   <div class="tabs">
     <button class="tab on" data-tab="lot">📦 낙찰 내역</button>
-    <button class="tab" data-tab="inv">📋 품목 관리</button>
+    <button class="tab" data-tab="inv">📋 재고 관리</button>
   </div>
 
   <div class="searchwrap">
@@ -976,7 +976,7 @@ document.getElementById("dok").onclick=()=>{
   render();
 };
 
-/* ==================== 품목 관리 탭 ====================
+/* ==================== 재고 관리 탭 (예전 이름: 품목 관리) ====================
    서울청과·동화청과 구분 없이 품목별로 묶고, 그 안에서 낙찰 단가가 싼 것부터 늘어놓는다
    (단가가 같으면 소요금액이 작은 줄 먼저). 각 줄의 잔여 수량을 고칠 수 있고,
    '전량 출고'를 누르면 목록에서 빠져 출고 기록으로 옮겨진다(서버 state.shipped).
@@ -1034,7 +1034,12 @@ function inPeriod(l){
 }
 
 function renderInv(){
-  const inv=Object.values(state.inv||{});
+  /* 재고 관리에는 지난 경매일 낙찰만 보인다. 오늘 경매일 낙찰은 낙찰 내역에서 챙기고,
+     하루가 지나면(한국 시간 15시에 경매일이 바뀌면) 서버가 자동으로 넘겨준다. */
+  const curDay=경매일KST();
+  const allInv=Object.values(state.inv||{});
+  const inv=allInv.filter(l=>!l.date||l.date<curDay);
+  const waiting=allInv.length-inv.length;
   const shipped=shippedRows||[];
   const chips=document.getElementById("chips");
   chips.innerHTML=`
@@ -1080,14 +1085,14 @@ function renderInv(){
   const leftAmt=invBuy.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
   const leftQty=invBuy.reduce((a,l)=>a+(Number(l.left)||0),0);
   const d5=new Date(Date.now()+9*3600e3-4*86400e3).toISOString().slice(0,10);
-  box.innerHTML=`<div class="invsum">
+  box.innerHTML=`${waiting?`<p class="hint">오늘 경매(${mmdd(curDay)}) 낙찰 ${waiting}줄은 낙찰 내역에서 챙기고, 하루가 지나면(오후 3시) 자동으로 여기로 넘어옵니다.</p>`:""}<div class="invsum">
       <div><small>재고 낙찰 소요금액</small><b class="tnum">${won(total)}원</b></div>
       <div><small>남은 물건 금액</small><b class="tnum">${won(leftAmt)}원</b></div>
       <div><small>남은 수량</small><b class="tnum">${won(leftQty)}</b></div></div>
     <div class="invtools">
       <button data-iact="csv">📥 엑셀로 내려받기</button>
       <button data-iact="importtoggle">📅 지난 낙찰 불러오기 ${invImportOpen?"▾":"▸"}</button></div>
-    ${invImportOpen?`<p class="hint">캘린더에 쌓인 낙찰 기록 중 고른 기간의 줄을 품목 관리 목록에 올립니다.
+    ${invImportOpen?`<p class="hint">캘린더에 쌓인 낙찰 기록 중 고른 기간의 줄을 재고 관리 목록에 올립니다.
       이미 목록에 있거나 전량 출고한 줄은 다시 올리지 않습니다.</p>
       <div class="importbox"><div><label class="fl">부터</label><input type="text" id="imp_from" value="${d5}"></div>
         <div><label class="fl">까지</label><input type="text" id="imp_to" value="${경매일KST()}"></div>
@@ -1106,14 +1111,15 @@ function renderInv(){
         <td class="c"><button class="shipbtn" data-iact="ship">전량<br>출고</button></td></tr>`).join("")}
       </tbody><tfoot><tr><td class="xw">소계</td><td></td>
         <td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td class="c">${g.left}</td><td></td></tr></tfoot></table></div></div>`).join("")
-      :`<div class="empty">품목 관리 목록이 비어 있습니다.<br>낙찰이 들어오면 자동으로 올라오고,
+      :`<div class="empty">재고 관리 목록이 비어 있습니다.<br>낙찰은 하루가 지나면 자동으로 넘어오고,
         위의 '지난 낙찰 불러오기'로 캘린더 기록에서 가져올 수도 있습니다.</div>`}`;
 }
 
 /* 엑셀에서 바로 열리는 CSV(UTF-8 BOM)로 내려받는다 — 지금 화면에 보이는 목록 그대로 */
 function invCSV(){
   const shippedView=invMode==="shipped";
-  const rows=shippedView?(shippedRows||[]).filter(inPeriod).filter(invMatch):Object.values(state.inv||{}).filter(invMatch);
+  const rows=shippedView?(shippedRows||[]).filter(inPeriod).filter(invMatch)
+    :Object.values(state.inv||{}).filter(l=>!l.date||l.date<경매일KST()).filter(invMatch);
   const head=shippedView
     ?["품목","생산자","시장","경매일","번호","단위","등급","수량","단가","소요금액","출고일","출고자"]
     :["품목","생산자","시장","경매일","번호","단위","등급","수량","단가","소요금액","잔여수량"];
@@ -1125,7 +1131,7 @@ function invCSV(){
   const csv="\ufeff"+lines.map(r=>r.map(v=>{const t=String(v??"");return /[",\n]/.test(t)?`"${t.replace(/"/g,'""')}"`:t;}).join(",")).join("\r\n");
   const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-  a.download=`${shippedView?"출고기록":"품목관리"}_${오늘KST()}.csv`;
+  a.download=`${shippedView?"출고기록":"재고관리"}_${오늘KST()}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
 }

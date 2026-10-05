@@ -19,7 +19,7 @@ const PORT   = process.env.PORT || 3000;
 /* 날짜별 낙찰 기록(history)을 며칠까지 보관할지. 캘린더에서 "최근 한 달"을 보여주려는
    용도라 여유 있게 40일로 둔다. */
 const HISTORY_DAYS = 40;
-/* 품목 관리에서 '전량 출고'한 줄(출고 기록)을 며칠까지 보관할지. 소요금액을 월별로
+/* 재고 관리에서 '전량 출고'한 줄(출고 기록)을 며칠까지 보관할지. 소요금액을 월별로
    적산해 보려는 용도라 1년 넘게 둔다. */
 const SHIPPED_DAYS = 400;
 
@@ -127,8 +127,9 @@ function addToHistory(rows) {
   });
 }
 
-/* ---------- 품목 관리 (재고) ----------
-   낙찰 줄은 들어오는 즉시 품목 관리 목록(state.inv)에도 잔여 수량 = 낙찰 수량으로 올라간다.
+/* ---------- 재고 관리 (재고) ----------
+   낙찰 줄은 들어오는 즉시 재고 목록(state.inv)에 잔여 수량 = 낙찰 수량으로 올라간다. 화면(재고 관리 탭)에는
+   경매일이 지난 줄만 보이고, 오늘 경매일 줄은 하루가 지나면 rollover() 가 오늘 목록에서 빼면서 보이게 된다.
    이 목록은 '새 작업 시작'·'낙찰 내역 전체 삭제'와 상관없이 날을 넘겨 남는다 — 어제 받은
    물건이 오늘도 창고에 남아 있을 수 있기 때문이다. '전량 출고'를 누르면 목록에서 빠지고
    출고 기록(state.shipped)으로 옮겨져 소요금액 적산에 쓰인다. 이미 출고한 줄은 같은 id 로
@@ -169,7 +170,7 @@ function persist() {
 /* ---------- 접속자에게 밀어주기 (SSE) ---------- */
 const clients = new Set();
 /* history(날짜별 기록)와 shipped(출고 기록)는 꽤 커질 수 있어서 실시간으로 계속 내려보내는
-   자료에는 안 싣는다. 캘린더는 /api/history*, 품목 관리의 출고 기록은 /api/shipped 로
+   자료에는 안 싣는다. 캘린더는 /api/history*, 재고 관리의 출고 기록은 /api/shipped 로
    필요할 때만 따로 받아간다. */
 const payload = () => {
   const { history, shipped, pushSubs, ...rest } = state;
@@ -232,7 +233,7 @@ function applyOp(user, op, meta = {}) {
       });
       addToHistory(op.rows);                          // 캘린더용 날짜별 기록에도 함께 남긴다
       pruneHistory();
-      addToInv(op.rows, now);                         // 품목 관리(재고) 목록에도 올린다
+      addToInv(op.rows, now);                         // 재고 관리(재고) 목록에도 올린다
       /* 수집기(poller)가 마지막으로 낙찰을 올린 때. 화면과 /api/health 에서 poller 가 살아 있는지 본다. */
       const seen = (op.rows || []).map(r => Number(r && r.seenAt)).filter(x => x > 0);
       const lag = seen.length ? Math.max(0, now - Math.min(...seen)) : null;
@@ -274,16 +275,16 @@ function applyOp(user, op, meta = {}) {
       bump(by, `지난 낙찰 내역 ${n}줄 가져옴`);
       return;
     }
-    case "invimport": {                              // 캘린더 기록에서 기간을 골라 품목 관리 목록으로 불러온다
+    case "invimport": {                              // 캘린더 기록에서 기간을 골라 재고 관리 목록으로 불러온다
       const from = String(op.from || ""), to = String(op.to || "9999-12-31");
       const rows = [];
       Object.keys(state.history).filter(d => d >= from && d <= to)
         .forEach(d => rows.push(...Object.values(state.history[d])));
       const n = addToInv(rows, now);
-      bump(by, `품목 관리로 ${n}줄 불러옴 (${from}~${op.to || "오늘"})`);
+      bump(by, `재고 관리로 ${n}줄 불러옴 (${from}~${op.to || "오늘"})`);
       return;
     }
-    case "invleft": {                                // 품목 관리 — 잔여 수량 고치기
+    case "invleft": {                                // 재고 관리 — 잔여 수량 고치기
       const it = state.inv[op.id];
       if (!it) return;
       it.left = Math.max(0, Math.min(Number(it.qty) || 0, Math.round(Number(op.left) || 0)));
@@ -361,7 +362,7 @@ function applyOp(user, op, meta = {}) {
       delete state.lotnotes[op.id];
       if (lot.date && state.history[lot.date]) delete state.history[lot.date][op.id];
       delete state.pickup[op.id]; delete state.reauc[op.id];
-      delete state.inv[op.id];                        // 잘못 들어간 줄이니 품목 관리 목록에서도 뺀다
+      delete state.inv[op.id];                        // 잘못 들어간 줄이니 재고 관리 목록에서도 뺀다
       bump(by, `${[lot.item, lot.who].filter(Boolean).join(" · ") || "낙찰"} 줄 삭제`);
       return;
     }
@@ -435,7 +436,7 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({ ok: true, date, lots: state.history[date] || {} }));
   }
 
-  /* 품목 관리 — 출고 기록 전체(최근 SHIPPED_DAYS 일). 소요금액 적산은 화면에서 한다. */
+  /* 재고 관리 — 출고 기록 전체(최근 SHIPPED_DAYS 일). 소요금액 적산은 화면에서 한다. */
   /* ---------- 알림 ---------- */
   if (u.pathname === "/api/push/key") {               // 웹 푸시 공개 열쇠
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
@@ -550,6 +551,26 @@ function backup() {
 }
 backup();
 setInterval(backup, 6 * 3600e3);
+
+/* ---------- 하루가 지나면 지난 낙찰을 재고 관리로 ----------
+   경매일 = 경매가 끝나는 날(수집기 auction_date 와 같은 규칙: 한국 시간 15시 이후는 내일).
+   경매일이 바뀌면 오늘 작업 목록(state.lots)에서 지난 경매일 줄을 빼서 재고(state.inv)로 넘긴다.
+   그 줄들은 날짜별 기록(history)에 그대로 남아 낙찰 내역에서 날짜를 골라 계속 볼 수 있다. */
+function auctionDay() {
+  const k = new Date(Date.now() + 9 * 3600e3);
+  if (k.getUTCHours() >= 15) k.setUTCDate(k.getUTCDate() + 1);
+  return k.toISOString().slice(0, 10);
+}
+function rollover() {
+  const day = auctionDay();
+  const old = Object.values(state.lots).filter(l => !l.date || l.date < day);
+  if (!old.length) return;
+  addToInv(old, Date.now());                           // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
+  for (const l of old) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
+  bump("서원이", `지난 낙찰 ${old.length}줄을 재고 관리로 넘겼습니다 (새 경매일 ${day})`);
+}
+rollover();
+setInterval(rollover, 60 * 1000);
 
 /* 예기치 못한 오류로 서버가 죽지 않게 막는다 */
 process.on("uncaughtException", e => { console.error("오류:", e.message); persist(); });
