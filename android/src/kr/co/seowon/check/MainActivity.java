@@ -22,6 +22,12 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.content.Intent;
+import android.app.NotificationManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.webkit.JavascriptInterface;
 
 /**
  * 서원농산 작업 체크 — 사무실 서버에 붙는 껍데기 앱.
@@ -34,6 +40,8 @@ public class MainActivity extends Activity {
     WebView web;
     ValueCallback<Uri[]> filePicker;
     static final int PICK_FILE = 1001;
+    static final int REQ_NOTIFY = 1002;
+    static final String PREF_ASKED = "notify_asked";
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -48,7 +56,9 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);  // 신호가 끊겨도 저장된 화면을 쓴다
-        web.setBackgroundColor(Color.parseColor("#262624"));
+        web.setBackgroundColor(Color.WHITE);
+        /* 웹 화면이 알림 상태를 보고 켜고 끌 수 있게 이어준다 (window.SeowonApp) */
+        web.addJavascriptInterface(new Bridge(this), "SeowonApp");
 
         web.setWebViewClient(new Client(this));
 
@@ -59,7 +69,87 @@ public class MainActivity extends Activity {
 
         String url = prefs().getString(KEY_URL, null);
         if (url == null || url.length() == 0) askServer(true);
-        else web.loadUrl(url);
+        else { web.loadUrl(url); askNotifyOnce(); }
+    }
+
+    /* ==================== 새 낙찰 알림 ====================
+       처음 한 번 '알림을 받으시겠어요?'를 묻고, 받기를 누르면 안드로이드 알림 허용(13 이상)을 거쳐
+       알림 서비스(NotifyService)를 켠다. 켜 두었으면 앱을 열 때마다 서비스가 살아 있게 한다. */
+    void askNotifyOnce() {
+        if (prefs().getBoolean(NotifyService.PREF_ON, false)) { if (notifyAllowed()) NotifyService.start(this); return; }
+        if (prefs().getBoolean(PREF_ASKED, false)) return;
+        prefs().edit().putBoolean(PREF_ASKED, true).apply();
+        new AlertDialog.Builder(this)
+                .setTitle("새 낙찰 알림")
+                .setMessage("새 낙찰이 들어올 때마다 이 휴대폰에 알림을 받으시겠어요?\n앱을 닫아 두어도 알림이 옵니다.")
+                .setPositiveButton("알림 받기", (d, w) -> enableNotify())
+                .setNegativeButton("나중에", null)
+                .show();
+    }
+
+    boolean notifyAllowed() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return false;
+        return ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).areNotificationsEnabled();
+    }
+
+    void enableNotify() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQ_NOTIFY);   // 안드로이드가 직접 허용 여부를 묻는다
+            return;
+        }
+        if (!((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).areNotificationsEnabled()) {
+            Toast.makeText(this, "알림이 꺼져 있습니다. 설정에서 '알림 허용'을 켜 주세요.", Toast.LENGTH_LONG).show();
+            Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            startActivity(i);
+            return;
+        }
+        prefs().edit().putBoolean(NotifyService.PREF_ON, true).apply();
+        NotifyService.start(this);
+        askBatteryExemption();
+        Toast.makeText(this, "새 낙찰 알림을 켰습니다", Toast.LENGTH_SHORT).show();
+        notifyWeb();
+    }
+
+    void disableNotify() {
+        prefs().edit().putBoolean(NotifyService.PREF_ON, false).apply();
+        NotifyService.stop(this);
+        Toast.makeText(this, "이 휴대폰의 낙찰 알림을 껐습니다", Toast.LENGTH_SHORT).show();
+        notifyWeb();
+    }
+
+    /* 절전 때문에 밤사이 알림이 끊기지 않도록, 이 앱을 '배터리 최적화 제외'로 해 달라고 한 번 묻는다 */
+    void askBatteryExemption() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (Build.VERSION.SDK_INT >= 23 && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())));
+            }
+        } catch (Exception e) { /* 지원하지 않는 기기 */ }
+    }
+
+    void notifyWeb() { web.post(() -> web.evaluateJavascript("window.onNotifyChanged&&window.onNotifyChanged()", null)); }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        if (req == REQ_NOTIFY) {
+            if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) enableNotify();
+            else { Toast.makeText(this, "알림이 허용되지 않았습니다. 앱 아래쪽 🔔 알림 에서 다시 켤 수 있습니다.", Toast.LENGTH_LONG).show(); notifyWeb(); }
+            return;
+        }
+        super.onRequestPermissionsResult(req, perms, res);
+    }
+
+    /** 웹 화면(index.html)에서 부르는 창구 — window.SeowonApp.notifyState() 등 */
+    public static class Bridge {
+        private final MainActivity a;
+        Bridge(MainActivity act) { a = act; }
+        @JavascriptInterface public String notifyState() {
+            boolean on = a.prefs().getBoolean(NotifyService.PREF_ON, false);
+            if (!on) return "off";                   // 아직 안 켬 → 웹 화면에 '알림 받기' 버튼
+            return a.notifyAllowed() ? "on" : "denied"; // 켰는데 설정에서 막힘 → 설정 안내
+        }
+        @JavascriptInterface public void requestNotify() { a.runOnUiThread(a::enableNotify); }
+        @JavascriptInterface public void disableNotify() { a.runOnUiThread(a::disableNotify); }
     }
 
     /* 안드로이드 dex 변환 도구가 비정적 내부 클래스의 WebChromeClient 상속을 처리하지 못한다.
@@ -99,7 +189,7 @@ public class MainActivity extends Activity {
         final EditText box = new EditText(this);
         box.setInputType(InputType.TYPE_TEXT_VARIATION_URI);
         box.setHint("http://192.168.0.10:3000");
-        box.setText(prefs().getString(KEY_URL, "http://192.168.0.10:3000"));
+        box.setText(prefs().getString(KEY_URL, "https://seowon-nongsan-zjyr.onrender.com"));   // 새로 깔아도 주소를 다시 칠 필요 없게
 
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(48, 24, 48, 0);
@@ -126,6 +216,7 @@ public class MainActivity extends Activity {
             while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
             a.prefs().edit().putString(KEY_URL, u).apply();
             a.web.loadUrl(u);
+            a.askNotifyOnce();
         }
     }
 

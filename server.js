@@ -6,6 +6,7 @@ const http   = require("http");
 const fs     = require("fs");
 const path   = require("path");
 const crypto = require("crypto");
+const webpush = require("./webpush");
 
 const ROOT   = __dirname;
 /* 자료를 어디에 둘지. Render 에 유료 디스크를 붙이면 그 경로를 DATA_DIR 로 준다.
@@ -68,6 +69,38 @@ if (!state.shipped) state.shipped = {};
 if (!state.pollers) state.pollers = {};
 if (!state.pickup)  state.pickup = {};    // 우선 픽업 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
+if (!state.pushSubs) state.pushSubs = {}; // 웹 푸시 구독 (아이폰 홈 화면 앱 등) — endpoint → {sub, user, at}
+
+/* ---------- 새 낙찰 알림 ----------
+   ① 웹 푸시: 아이폰(홈 화면에 추가한 앱)·크롬이 '알림 허용'하면 구독을 받아 두고, 새 낙찰 때 보낸다.
+   ② 안드로이드 서원농산 앱(APK): 앱 안의 알림 서비스가 /api/notify 에 붙어 있다가 받으면 알림을 띄운다.
+      (APK 의 웹뷰는 웹 푸시를 못 받으므로 앱이 직접 띄운다) */
+const VAPID = webpush.loadVapid(path.join(DIR, "vapid.json"));
+const notifyClients = new Set();
+function lotLine(r) {
+  const unit = parseFloat(r.unit) ? parseFloat(r.unit) + "kg " : "";
+  const item = String(r.item || "").replace(/\s+/g, "").replace(/^(.+)\((.+)\)$/, "$2$1");   // 고추(꽈리) → 꽈리고추
+  return `${String(r.mkt || "").replace("청과", "")} ${item} · ${r.who || "-"} · ${unit}${r.grade || ""} ${r.qty}박스 · ${Number(r.price || 0).toLocaleString("ko-KR")}원`;
+}
+function notifyNewLots(rows) {
+  if (!rows.length) return;
+  const 시장 = {};
+  rows.forEach(r => { const m = String(r.mkt || "").replace("청과", ""); 시장[m] = (시장[m] || 0) + 1; });
+  const msg = {
+    title: rows.length === 1 ? "🔔 새 낙찰" : `🔔 새 낙찰 ${rows.length}줄 (${Object.entries(시장).map(([m, n]) => m + " " + n).join(" · ")})`,
+    body: rows.slice(0, 4).map(lotLine).join("\n") + (rows.length > 4 ? `\n외 ${rows.length - 4}줄` : ""),
+    tag: "lots-" + Date.now(), at: Date.now(), n: rows.length
+  };
+  const line = "event: lots\ndata: " + JSON.stringify(msg) + "\n\n";
+  for (const res of notifyClients) { try { res.write(line); } catch (e) { notifyClients.delete(res); } }
+  const subject = state.publicUrl || "https://seowon-nongsan.local";
+  for (const [ep, s] of Object.entries(state.pushSubs)) {
+    webpush.send(s.sub, msg, VAPID, subject).then(r => {
+      if (r.gone) { delete state.pushSubs[ep]; persist(); }
+      else if (!r.ok) console.error("웹 푸시 실패", r.status, r.error || "", ep.slice(0, 60));
+    });
+  }
+}
 
 /* 캘린더용 날짜별 기록을 너무 오래된 것부터 지운다 (매일 들어오는 낙찰 줄마다 부른다) */
 function pruneHistory() {
@@ -139,7 +172,7 @@ const clients = new Set();
    자료에는 안 싣는다. 캘린더는 /api/history*, 품목 관리의 출고 기록은 /api/shipped 로
    필요할 때만 따로 받아간다. */
 const payload = () => {
-  const { history, shipped, ...rest } = state;
+  const { history, shipped, pushSubs, ...rest } = state;
   return Object.assign({ build: BUILD, now: Date.now() }, rest);   // 판 번호·서버 시각을 얹어 보낸다
 };
 function broadcast() {
@@ -185,7 +218,7 @@ function applyOp(user, op, meta = {}) {
 
   switch (op.t) {
     case "lots": {                                   // 실시간 수집기(또는 직접 추가)가 넣은 낙찰 줄 반영
-      let added = 0, updated = 0;
+      let added = 0, updated = 0; const fresh = [];
       (op.rows || []).forEach(r => {
         if (!r.id) return;
         const old = state.lots[r.id];
@@ -194,7 +227,7 @@ function applyOp(user, op, meta = {}) {
           addedAt: old ? old.addedAt : now,
           updatedBy: by, updatedAt: now
         });
-        old ? updated++ : added++;
+        if (old) updated++; else { added++; fresh.push(r); }
         if (state.got[r.id] && state.got[r.id].n > r.qty) state.got[r.id].n = r.qty;
       });
       addToHistory(op.rows);                          // 캘린더용 날짜별 기록에도 함께 남긴다
@@ -210,6 +243,7 @@ function applyOp(user, op, meta = {}) {
       const 시장 = {};
       (op.rows || []).forEach(r => { if (r && r.mkt) 시장[r.mkt] = (시장[r.mkt] || 0) + 1; });
       const 내역 = Object.keys(시장).map(m => `${m} ${시장[m]}`).join(" · ");
+      notifyNewLots(fresh);                           // 새로 생긴 줄만 알림 (같은 줄 갱신은 알리지 않는다)
       bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${내역 ? ` (${내역})` : ""}`);
       return;
     }
@@ -371,6 +405,7 @@ const server = http.createServer((req, res) => {
       수신지연ms: lagStats(),
       /* 낙찰 지연(seenAt→서버)에서 'PC 시계 차이 + 전송'(net)을 빼면 수집기 안에서 기다린 시간이 남는다 */
       마지막낙찰: state.lastLots ? { 지연ms: state.lastLots.lag, 시계차와전송ms: state.lastLots.net ?? null } : null,
+      알림: { 웹푸시: Object.keys(state.pushSubs).length, 앱: notifyClients.size },
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
   }
@@ -401,6 +436,52 @@ const server = http.createServer((req, res) => {
   }
 
   /* 품목 관리 — 출고 기록 전체(최근 SHIPPED_DAYS 일). 소요금액 적산은 화면에서 한다. */
+  /* ---------- 알림 ---------- */
+  if (u.pathname === "/api/push/key") {               // 웹 푸시 공개 열쇠
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ ok: true, key: VAPID.publicKey }));
+  }
+  if ((u.pathname === "/api/push/subscribe" || u.pathname === "/api/push/unsubscribe") && req.method === "POST") {
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 1e4) req.destroy(); });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(body);
+        const ep = j.sub && j.sub.endpoint || j.endpoint;
+        if (!ep || !/^https:\/\//.test(ep)) throw new Error();
+        if (u.pathname.endsWith("/subscribe")) {
+          if (!j.sub.keys || !j.sub.keys.p256dh || !j.sub.keys.auth) throw new Error();
+          state.pushSubs[ep] = { sub: { endpoint: ep, keys: j.sub.keys }, user: String(j.user || "?").slice(0, 12), at: Date.now() };
+          /* VAPID 'sub' 에 넣을 이 서버 주소 (사람 이메일 대신 서버 주소를 쓴다) */
+          const proto = req.headers["x-forwarded-proto"] || "https";
+          if (req.headers.host) state.publicUrl = `${proto}://${req.headers.host}`;
+        } else delete state.pushSubs[ep];
+        persist();
+        res.writeHead(200, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: false, error: "구독 정보를 읽지 못했습니다" }));
+      }
+    });
+    return;
+  }
+  if (u.pathname === "/api/push/test" && req.method === "POST") {   // 시험 알림 (앱의 '시험 알림' 버튼)
+    notifyNewLots([{ mkt: "서울청과", item: "시험 알림", who: "서원농산", unit: "", grade: "", qty: 1, price: 0 }]);
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ ok: true, 웹푸시: Object.keys(state.pushSubs).length, 앱: notifyClients.size }));
+  }
+  /* 안드로이드 앱 알림 서비스용 — 새 낙찰 때만 짧은 신호가 온다 (전체 자료는 안 보내 데이터를 아낀다) */
+  if (u.pathname === "/api/notify") {
+    res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive", "X-Accel-Buffering": "no" });
+    res.write("retry: 5000\n\n");
+    notifyClients.add(res);
+    const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
+    req.on("close", () => { clearInterval(ping); notifyClients.delete(res); });
+    return;
+  }
+
   if (u.pathname === "/api/shipped") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify({ ok: true, rows: Object.values(state.shipped) }));
