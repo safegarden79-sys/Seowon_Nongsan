@@ -294,9 +294,16 @@ function applyOp(user, op, meta = {}) {
       bump(by, `재고 관리로 ${n}줄 불러옴 (${from}~${op.to || "오늘"})`);
       return;
     }
-    case "invleft": {                                // 재고 관리 — 잔여 수량 고치기
+    case "invlock": {                                // 재고 관리 — 체크(고정). 풀기 전에는 잔여 수량·출고·삭제가 안 된다
       const it = state.inv[op.id];
       if (!it) return;
+      if (op.on) it.lock = { by, at: now }; else delete it.lock;
+      bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} ${op.on ? "고정" : "고정 풀기"}`);
+      return;
+    }
+    case "invleft": {                                // 재고 관리 — 잔여 수량 고치기
+      const it = state.inv[op.id];
+      if (!it || it.lock) return;                    // 고정(체크)한 줄은 고치지 않는다
       it.left = Math.max(0, Math.min(Number(it.qty) || 0, Math.round(Number(op.left) || 0)));
       it.leftBy = by; it.leftAt = now;
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 잔여 ${it.left}/${it.qty}`);
@@ -304,7 +311,7 @@ function applyOp(user, op, meta = {}) {
     }
     case "ship": {                                   // 전량 출고 — 목록에서 빼서 출고 기록으로 옮긴다
       const it = state.inv[op.id];
-      if (!it) return;
+      if (!it || it.lock) return;                    // 고정(체크)한 줄은 출고하지 않는다
       delete state.inv[op.id];
       state.shipped[op.id] = Object.assign({}, it, { left: 0, shippedAt: now, shippedBy: by });
       pruneShipped();
@@ -318,6 +325,14 @@ function applyOp(user, op, meta = {}) {
       const { shippedAt, shippedBy, ...rest } = it;
       state.inv[op.id] = Object.assign(rest, { left: Number(it.qty) || 0 });
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
+      return;
+    }
+    case "prepsave": {                               // 준비 양식 저장 — 수량을 적은 품목만 남겨 보여준다 (on:false 면 다시 전체 양식)
+      const d = String(op.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      const day = state.prep[d] = state.prep[d] || {};
+      if (op.on) day._saved = { by, at: now }; else delete day._saved;
+      bump(by, `준비 양식 ${op.on ? "저장" : "다시 고치기"} (${d.slice(5)})`);
       return;
     }
     case "prep": {                                   // 경매 전 준비 양식 한 칸 (세계로 box·봉지대·봉지소 / 일일향 / 초록)
@@ -392,7 +407,7 @@ function applyOp(user, op, meta = {}) {
     }
     case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다 (오늘 목록 + 그 날짜 기록 모두에서)
       const lot = state.lots[op.id];
-      if (!lot) return;
+      if (!lot || (state.inv[op.id] && state.inv[op.id].lock)) return;   // 재고에서 고정(체크)한 줄은 지우지 않는다
       delete state.lots[op.id];
       delete state.got[op.id];
       delete state.lotnotes[op.id];
@@ -419,7 +434,8 @@ function applyOp(user, op, meta = {}) {
 /* ---------- 요청 처리 ---------- */
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json",
-  ".png": "image/png", ".jpg": "image/jpeg", ".css": "text/css; charset=utf-8" };
+  ".png": "image/png", ".jpg": "image/jpeg", ".css": "text/css; charset=utf-8",
+  ".apk": "application/vnd.android.package-archive" };
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -445,6 +461,15 @@ const server = http.createServer((req, res) => {
       알림: { 웹푸시: Object.keys(state.pushSubs).length, 앱: notifyClients.size },
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
+  }
+
+  /* 안드로이드 앱 업데이트 — 앱이 열릴 때 이 판 번호를 보고 더 높으면 '업데이트할까요?' 를 묻는다.
+     판 정보는 android/build-apk.sh 가 APK 와 함께 app/version.json 에 쓴다. APK 는 /app/SEOWONY.apk */
+  if (u.pathname === "/api/app") {
+    let v = null;
+    try { v = JSON.parse(fs.readFileSync(path.join(ROOT, "app", "version.json"), "utf8")); } catch (e) {}
+    res.writeHead(v ? 200 : 404, { "Content-Type": TYPES[".json"], "Cache-Control": "no-cache" });
+    return res.end(JSON.stringify(v ? { ...v, url: "/app/SEOWONY.apk" } : { error: "앱 판 정보 없음" }));
   }
 
   if (u.pathname === "/api/state") {
@@ -576,7 +601,7 @@ const server = http.createServer((req, res) => {
   const file = path.join(ROOT, path.normalize(name).replace(/^(\.\.[/\\])+/, ""));
   if (fs.existsSync(file) && fs.statSync(file).isFile()) {
     /* 화면·스크립트는 늘 서버에 다시 물어보게 한다. 그래야 새 판이 바로 내려간다. */
-    const fresh = /\.(html|js|webmanifest)$/i.test(file);
+    const fresh = /\.(html|js|webmanifest|apk)$/i.test(file);
     res.writeHead(200, {
       "Content-Type": TYPES[path.extname(file)] || "application/octet-stream",
       "Cache-Control": fresh ? "no-cache" : "public, max-age=86400"
@@ -612,13 +637,21 @@ function auctionDay() {
   if (k.getUTCHours() >= 15) k.setUTCDate(k.getUTCDate() + 1);
   return k.toISOString().slice(0, 10);
 }
+/* 재고로 넘기는 기준 — 경매는 밤 22:30 에 시작해 새벽에 끝나므로, 한국 시간 0시 30분이 지나면 그날(경매가 끝나는 날)
+   낙찰을 재고로 넘긴다. 이 날짜 '전'의 줄이 재고 대상이다. (00:00~00:30 은 아직 오늘 경매 중으로 본다) */
+const INV_CUT_MIN = 30;                                // 0시 30분
+function invCutDay() {
+  const k = new Date(Date.now() + 9 * 3600e3);
+  if (k.getUTCHours() * 60 + k.getUTCMinutes() >= INV_CUT_MIN) k.setUTCDate(k.getUTCDate() + 1);
+  return k.toISOString().slice(0, 10);
+}
 function rollover() {
-  const day = auctionDay();
+  const day = invCutDay();
   const old = Object.values(state.lots).filter(l => !l.date || l.date < day);
   if (!old.length) return;
   addToInv(old, Date.now());                           // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
   for (const l of old) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
-  bump("서원이", `지난 낙찰 ${old.length}줄을 재고 관리로 넘겼습니다 (새 경매일 ${day})`);
+  bump("서원이", `경매가 끝난 낙찰 ${old.length}줄을 재고 관리로 넘겼습니다`);
 }
 rollover();
 setInterval(rollover, 60 * 1000);

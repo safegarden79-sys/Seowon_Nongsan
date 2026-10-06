@@ -1,12 +1,17 @@
 {
-  "name": "서원농산 작업 체크",
-  "short_name": "서원농산",
+  "name": "SEOWONY",
+  "short_name": "SEOWONY",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#FFFFFF",
   "lang": "ko",
   "icons": [
-    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

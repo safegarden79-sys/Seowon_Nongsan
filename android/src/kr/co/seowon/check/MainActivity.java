@@ -28,9 +28,17 @@ import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
+import android.app.PendingIntent;
+import android.content.pm.PackageInstaller;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONObject;
 
 /**
- * 서원농산 작업 체크 — 사무실 서버에 붙는 껍데기 앱.
+ * SEOWONY (서원농산 작업 체크) — 사무실 서버에 붙는 껍데기 앱.
  * 화면과 자료는 모두 서버에서 온다. 주소는 처음 한 번만 넣으면 기억한다.
  */
 public class MainActivity extends Activity {
@@ -70,6 +78,135 @@ public class MainActivity extends Activity {
         String url = prefs().getString(KEY_URL, null);
         if (url == null || url.length() == 0) askServer(true);
         else { web.loadUrl(url); askNotifyOnce(); }
+    }
+
+    /* ==================== 앱 업데이트 ====================
+       앱을 열거나 다시 볼 때 서버(/api/app)에 새 판이 있는지 물어본다. 더 높은 판이 있으면
+       '업데이트할까요?' 를 묻고, 누르면 서버의 SEOWONY.apk 를 받아 안드로이드 설치 화면을 띄운다.
+       (플레이 스토어 밖 앱이라 조용히 깔 수는 없고, 안드로이드가 마지막에 한 번 더 확인한다.
+        처음 한 번은 '이 출처의 앱 설치 허용'을 켜 달라고 설정 화면으로 보낸다.) */
+    static final String ACTION_INSTALL = "kr.co.seowon.check.INSTALL_STATUS";
+    static final String PREF_UPD_LATER = "upd_later_";
+    long lastUpdCheck = 0;
+    String pendingApk = null;               // 설치 허용을 켜러 간 사이 기다리는 APK 주소
+    boolean updating = false;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (pendingApk != null && canInstall()) { String a = pendingApk; pendingApk = null; downloadAndInstall(a); return; }
+        checkUpdate(false);
+    }
+
+    int myVersion() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; } catch (Exception e) { return 0; }
+    }
+    String myVersionName() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return "?"; }
+    }
+
+    boolean canInstall() { return Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls(); }
+
+    static String readAll(InputStream in) throws Exception {
+        ByteArrayOutputStream b = new ByteArrayOutputStream(); byte[] buf = new byte[8192]; int n;
+        while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
+        return b.toString("UTF-8");
+    }
+
+    void toast(String m) { runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show()); }
+
+    void checkUpdate(final boolean manual) {
+        final String base = prefs().getString(KEY_URL, null);
+        if (base == null || updating) return;
+        final long now = System.currentTimeMillis();
+        if (!manual && now - lastUpdCheck < 10 * 60 * 1000) return;     // 10분에 한 번만
+        lastUpdCheck = now;
+        new Thread(() -> {
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(base + "/api/app").openConnection();
+                c.setConnectTimeout(8000); c.setReadTimeout(8000);
+                if (c.getResponseCode() != 200) throw new Exception("서버 응답 " + c.getResponseCode());
+                JSONObject j = new JSONObject(readAll(c.getInputStream()));
+                final int vc = j.getInt("versionCode");
+                final String vn = j.optString("versionName", "" + vc), notes = j.optString("notes", "");
+                String apk = j.optString("url", "/app/SEOWONY.apk");
+                final String apkUrl = apk.startsWith("http") ? apk : base + apk;
+                if (vc <= myVersion()) { if (manual) toast("최신 판입니다 (" + myVersionName() + ")"); return; }
+                if (!manual && prefs().getLong(PREF_UPD_LATER + vc, 0) > now) return;   // '나중에' 누른 뒤 12시간은 조용히
+                runOnUiThread(() -> askUpdate(vc, vn, notes, apkUrl));
+            } catch (Exception e) {
+                if (manual) toast("업데이트 확인 실패: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    void askUpdate(final int vc, String vn, String notes, final String apkUrl) {
+        if (isFinishing()) return;
+        new AlertDialog.Builder(this)
+                .setTitle("SEOWONY 업데이트")
+                .setMessage("새 판 " + vn + " 이 나왔습니다. (지금 " + myVersionName() + ")\n"
+                        + (notes.length() > 0 ? "\n" + notes + "\n" : "") + "\n지금 업데이트할까요?")
+                .setPositiveButton("업데이트", (d, w) -> startUpdate(apkUrl))
+                .setNegativeButton("나중에", (d, w) ->
+                        prefs().edit().putLong(PREF_UPD_LATER + vc, System.currentTimeMillis() + 12L * 3600 * 1000).apply())
+                .show();
+    }
+
+    void startUpdate(String apkUrl) {
+        if (!canInstall()) {
+            pendingApk = apkUrl;
+            Toast.makeText(this, "처음 한 번만: '이 출처 허용'을 켜고 뒤로 돌아오면 설치가 이어집니다", Toast.LENGTH_LONG).show();
+            try { startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()))); }
+            catch (Exception e) { pendingApk = null; toast("설정 화면을 열지 못했습니다"); }
+            return;
+        }
+        downloadAndInstall(apkUrl);
+    }
+
+    void downloadAndInstall(final String apkUrl) {
+        updating = true;
+        Toast.makeText(this, "새 판을 내려받는 중…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                PackageInstaller pi = getPackageManager().getPackageInstaller();
+                PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                p.setAppPackageName(getPackageName());
+                int id = pi.createSession(p);
+                PackageInstaller.Session s = pi.openSession(id);
+                HttpURLConnection c = (HttpURLConnection) new URL(apkUrl).openConnection();
+                c.setConnectTimeout(10000); c.setReadTimeout(30000);
+                if (c.getResponseCode() != 200) throw new Exception("서버 응답 " + c.getResponseCode());
+                long len = c.getContentLengthLong();
+                try (InputStream in = c.getInputStream(); OutputStream out = s.openWrite("SEOWONY.apk", 0, len > 0 ? len : -1)) {
+                    byte[] buf = new byte[65536]; int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    s.fsync(out);
+                }
+                Intent i = new Intent(this, MainActivity.class).setAction(ACTION_INSTALL);
+                int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
+                s.commit(PendingIntent.getActivity(this, 7, i, fl).getIntentSender());
+                s.close();
+            } catch (Exception e) {
+                updating = false;
+                toast("업데이트하지 못했습니다: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /* 설치 진행 결과 — 안드로이드가 '설치할까요?' 확인을 요구하면 그 화면을 띄운다 */
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        if (!ACTION_INSTALL.equals(i.getAction())) return;
+        int st = i.getIntExtra(PackageInstaller.EXTRA_STATUS, -999);
+        if (st == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            Intent confirm = i.getParcelableExtra(Intent.EXTRA_INTENT);
+            if (confirm != null) startActivity(confirm);
+        } else if (st != PackageInstaller.STATUS_SUCCESS) {
+            updating = false;
+            String m = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+            if (st != PackageInstaller.STATUS_FAILURE_ABORTED) Toast.makeText(this, "설치하지 못했습니다" + (m != null ? ": " + m : ""), Toast.LENGTH_LONG).show();
+        }
     }
 
     /* ==================== 새 낙찰 알림 ====================
@@ -150,6 +287,8 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void requestNotify() { a.runOnUiThread(a::enableNotify); }
         @JavascriptInterface public void disableNotify() { a.runOnUiThread(a::disableNotify); }
+        @JavascriptInterface public String appVersion() { return a.myVersionName(); }
+        @JavascriptInterface public void checkUpdate() { a.runOnUiThread(() -> a.checkUpdate(true)); }
     }
 
     /* 안드로이드 dex 변환 도구가 비정적 내부 클래스의 WebChromeClient 상속을 처리하지 못한다.
@@ -224,6 +363,7 @@ public class MainActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu m) {
         m.add(0, 1, 0, "새로 고침");
         m.add(0, 2, 0, "서버 주소 바꾸기");
+        m.add(0, 3, 0, "업데이트 확인");
         return true;
     }
 
@@ -231,6 +371,7 @@ public class MainActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == 1) { web.reload(); return true; }
         if (item.getItemId() == 2) { askServer(false); return true; }
+        if (item.getItemId() == 3) { checkUpdate(true); return true; }
         return super.onOptionsItemSelected(item);
     }
 

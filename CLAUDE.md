@@ -3,6 +3,25 @@
 가락시장 중도매인 사무실(서원농산)에서 호열·상혁·상용·부장님·사장님 다섯 사람이 함께 쓰는
 상차 체크 / 낙찰 내역 공유 앱입니다.
 
+## 앱 이름 · 아이콘
+
+앱 이름은 **SEOWONY**(웹 `manifest.webmanifest`·`<title>`·`apple-mobile-web-app-title`, 안드로이드 `android:label`).
+아이콘은 하양 바탕에 빨간 고추 픽토그램 — 웹 `icon.png`(512, maskable 안전영역 안), 안드로이드 `android/res/mipmap-*`
+(옛 판용 `ic_launcher.png` + 8.0 이상 적응형 `mipmap-anydpi-v26/ic_launcher.xml` = 하양 바탕 + `ic_launcher_fg.png`).
+APK 는 `android/build/SEOWONY.apk` 로 나온다.
+
+## 앱 업데이트 (자동으로 묻기)
+
+- **웹·아이폰(홈 화면 앱)**: 따로 할 일 없음. 서버 판(`BUILD`, index.html·sw.js 해시)이 바뀌면 열려 있는 폰이 스스로 새 화면을 받는다.
+- **안드로이드 APK**: 앱을 열거나 다시 볼 때(10분에 한 번) `GET /api/app`(= `app/version.json`)의 `versionCode` 가
+  깔린 판보다 크면 'SEOWONY 업데이트 — 지금 업데이트할까요?' 를 묻는다. `업데이트` → `/app/SEOWONY.apk` 를 받아
+  `PackageInstaller` 로 설치 화면을 띄운다(안드로이드가 마지막 확인을 한 번 더 묻는다. 처음 한 번은 '이 출처 허용' 설정).
+  `나중에` → 그 판은 12시간 동안 다시 묻지 않는다. 메뉴의 `업데이트 확인` 으로 바로 확인할 수도 있다.
+- 새 판 내는 법: `android/AndroidManifest.xml` 의 `versionCode` 를 1 올리고(versionName 도) →
+  `NOTES="바뀐 내용" bash android/build-apk.sh` → 만들어진 `app/SEOWONY.apk`·`app/version.json` 을 커밋·배포.
+  **같은 서명 열쇠(`android/seowon.keystore`)로 서명해야** 덮어 깔린다. 업데이트 묻기는 1.2(versionCode 3)부터 들어 있어,
+  그 전 판은 한 번은 손으로 1.2 를 깔아야 한다(`https://서버주소/app/SEOWONY.apk`).
+
 ## 구성
 
 | 파일 | 역할 |
@@ -11,7 +30,8 @@
 | `index.html` | 앱 화면 전체. 낙찰 내역(날짜별 조회) · 재고 관리(재고·출고) · 오프라인 대기열 |
 | `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다. 웹 푸시 알림 표시 |
 | `webpush.js` | 웹 푸시 보내기(암호화·VAPID 서명) — 외부 라이브러리 없음 |
-| `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스) |
+| `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스 + 업데이트 묻기) |
+| `app/` | 서버가 내려주는 안드로이드 최신 판 `SEOWONY.apk` + `version.json` (build-apk.sh 가 만든다) |
 | `data.json` | 서버가 자동 생성/갱신. 낙찰·체크·메모·날짜별 기록(history)·재고 관리 재고(inv)·출고 기록(shipped) |
 | `backup/` | 6시간마다 자동 백업 (최근 14개) |
 | `auction_poller/` | PC에서 돌리는 실시간 수집기(파이썬). 서울청과·동화청과를 직접 읽어 `/api/op` 로 올린다 |
@@ -37,6 +57,14 @@ DATA_DIR=/var/data node server.js   # 자료를 다른 곳(유료 디스크 등)
 poller 가 그 역할을 대신하게 되어 앱에서 완전히 제거했습니다(`server.js` 의 `/api/ocr`,
 `photo`/`delphoto` op, `/photos/` 정적 서빙 및 `index.html` 의 OCR·사진 UI 전부 삭제).
 `data.json` 에도 더 이상 `photos` 필드가 쓰이지 않습니다.
+
+## 화면 배치 — 탭 없이 한 화면
+
+탭으로 나누지 않고 한 화면에 위에서부터 **✅ 챙길 품목**(`#prepview`: 경매 전 준비 양식 + 선입선출 품목별 재고, `renderPrep`→`renderFifo`)
+→ **📦 낙찰 내역**(`#lotview`, `renderLots`, 필터 칩 `#lotchips`) → **📋 재고 관리**(`#invview`, `renderInv`, 재고/출고 기록 칩 `#invchips`)
+순서로 이어진다. `render()` 가 세 구역을 모두 그린다. 머리의 세 버튼(`.tabs [data-jump]`)은 탭이 아니라 그 구역으로 내려가는
+바로가기이고, 지금 보이는 구역에 밑줄이 간다(`markJump`). 각 구역 머리(`.sechead`)를 누르면 접고 편다(이 폰에만 기억, `seowon-folds`).
+검색창은 세 구역 모두에 걸린다. 예전 `tab` 변수는 `"all"` 로 고정(옛 상차 체크 `carview` 는 숨김).
 
 ## 낙찰 내역 날짜별 조회 (예전 캘린더 탭)
 
@@ -75,6 +103,7 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
   지난 날짜 합계에도 쓰이므로 `state.reauc` 는 `newday`·`clearlots` 로 지우지 않고, id 의 날짜로
   `HISTORY_DAYS` 지나면 `pruneHistory` 가 정리한다.
 - 줄 배경: 서울청과 파랑(`--seoul`), 동화청과 연두(`--dong`) — `mkCls`. 재고 관리 표도 같다.
+- 시장 고르기(`전체 시장 | 서울청과 | 동화청과`, 줄 수 표시)는 날짜 바로 아래 줄(`#mktchips`), 그 아래 수집기 수신 시각, 그 아래 필터 칩(`#lotchips`).
 - 낙찰내역조회 날짜 줄은 `position:sticky` 로 머리 영역 바로 아래에 붙는다(머리 높이 = CSS 변수 `--hh`).
 - 앱 기본 테마는 하양. 색은 `:root` 변수(`--bg` `--text` `--accent` 등)로만 바꾼다.
 
@@ -103,10 +132,11 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
 
 ## 재고 관리 (재고 · 전량 출고 · 소요금액 적산)
 
-**하루가 지나면 자동으로 넘어온다.** 서버의 `rollover()` 가 1분마다 경매일(`auctionDay`, 한국 시간
-15시 이후는 내일 — 수집기 `auction_date` 와 같은 규칙)을 보고, 경매일이 바뀌면 오늘 작업 목록(`state.lots`)에서
-지난 경매일 줄을 빼서(체크·주석·우선 픽업도 함께 정리) 재고(`state.inv`)로 넘긴다. 재고 관리 탭은
-경매일이 지난 줄만 보여주고, 오늘 경매일 줄 수는 안내문으로만 보인다. 지난 줄은 날짜별 기록에 그대로
+**경매가 끝나면(한국 시간 0시 30분) 자동으로 넘어온다.** 서버의 `rollover()` 가 1분마다 재고 기준일(`invCutDay`:
+0시 30분이 지나면 내일 날짜, 화면은 `재고기준KST`)을 보고, 그보다 앞선 날짜(= 경매가 끝나는 날이 오늘이면 오늘 포함)의 줄을
+오늘 작업 목록(`state.lots`)에서 빼서(체크·주석·우선 픽업도 함께 정리) 재고(`state.inv`)로 넘긴다. 재고 관리 구역도 같은 기준으로
+보여주고, 아직 경매 중인 줄 수는 안내문으로만 보인다. (경매일 `auctionDay`/`경매일KST` — 15시 이후 내일 — 은 준비 양식·선입선출
+날짜와 수집기 `auction_date` 에 그대로 쓴다.) 0시 30분 뒤에 늦게 들어온 낙찰은 1분 안에 바로 재고로 넘어간다. 지난 줄은 날짜별 기록에 그대로
 남아 낙찰 내역에서 날짜를 골라 계속 볼 수 있다(보기 전용).
 
 `index.html` 의 `📋 재고 관리` 탭(낙찰 내역 옆). 서울청과·동화청과 구분 없이 **품목별로** 묶고,
@@ -117,6 +147,9 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
 - 서버는 `lots` op 로 들어온 줄을 `state.inv[id]` 에도 올린다(`addToInv`, 잔여 `left` = 수량).
   이 목록은 `newday`·`clearlots` 로 **지워지지 않고** 날을 넘겨 남는다 (재고이므로).
 - 각 줄의 잔여 수량은 `invleft` op 로 고친다(−/+ 또는 숫자를 눌러 직접 입력).
+- **맨 왼쪽 체크(🔒) = 고정.** 탭하면 `invlock` op 로 `state.inv[id].lock={by,at}` 가 켜지고, 다시 탭해 풀기 전까지는
+  잔여 수량(`invleft`)·전량 출고(`ship`)·줄 삭제(`dellot`)를 **서버가 거절**한다(다른 사람 폰에서도 못 고침). 화면에서는
+  −/+·숫자·출고 버튼이 흐려지고 출고 칸에 '고정'이 보인다. poller 가 같은 줄을 다시 보내도 lock 은 유지된다.
 - 맨 오른쪽 `전량 출고`(`ship` op) → `state.inv` 에서 빠지고 `state.shipped[id]` 로 옮겨진다
   (`shippedAt`, `shippedBy` 기록). 잘못 눌렀으면 출고 기록 화면의 `되돌리기`(`unship`).
   이미 출고한 id 는 poller 가 다시 보내도 재고 목록에 되살리지 않는다.
@@ -127,11 +160,16 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
   (`invimport` op, 캘린더 기록 `state.history` 에서 기간을 골라 가져옴).
 - `📥 엑셀로 내려받기` 는 지금 보이는 목록을 엑셀에서 열리는 CSV(UTF-8 BOM)로 저장한다.
 - `dellot` 으로 지운 줄은 재고 목록에서도 빠진다.
-- **경매 전 준비 양식** (📋 선입선출 준비 화면 맨 위, `prepTable`/`PREP_ROWS`): 품목·규격 한 줄씩
+- **경매 전 준비 양식** (화면 맨 위 '챙길 품목' 구역의 첫 표, `prepTable`/`PREP_ROWS`): 품목·규격 한 줄씩
   (빨강·노랑 파프리카 XL/L/M, 피망·홍피망·청양·홍청양·꽈리·홍고추(홍초) 특(L)/상(M), 롱그린·아삭이벌크 특/상, 아삭이팩)
   × 칸: **세계로**(수량 box · 봉지 대 · 봉지 소 — 머리글 병합) · 일일향 · 초록, 맨 아래 합계. 칸 값은 `prep` op 로
   `state.prep[경매일][품목|규격][box|bagL|bagS|ilil|chorok]` 에 저장(40일 지나면 정리). 줄을 바꾸려면 `PREP_ROWS` 만 고친다.
-- **📋 선입선출 준비** (재고 관리 탭의 세 번째 칩, `renderFifo`): 지금까지 낙찰받은 모든 품목(최근 40일 기록
+  **💾 저장** 을 누르면(`prepsave` op → `state.prep[경매일]._saved={by,at}`, 다섯 명 공통) 수량을 적은 줄만 남고 칸은 글자로 바뀐다.
+  아래 품목별 재고 카드도 챙길 품목(준비 양식에 수량이 있는 품목 — `prepBase`/`matchPrep` 로 이름 맞춤 — 또는 목표·메모를 적은 품목)만 남는다.
+  `✏️ 다시 고치기` 로 전체 양식으로 돌아간다. 경매일이 바뀌면 새 양식(저장 안 된 상태)이 된다.
+  저장 버튼은 아직 칸을 벗어나지 않은 값까지 먼저 올린다. 칸 값을 올릴 때는 화면을 다시 그리지 않는다(`pushOp(op,true)` →
+  `refreshSoon`) — 다시 그리면 다음 칸을 누른 손가락이 튕기고 그 칸에 적은 값이 사라진다.
+- **📋 선입선출 준비** (화면 맨 위 '챙길 품목' 구역, `renderFifo`): 지금까지 낙찰받은 모든 품목(최근 40일 기록
   `GET /api/itemstats` + 재고 + 출고 기록, 이름은 `normItem`/`ITEM_ALIAS` 로 맞춤)을 한 장에 모아,
   품목마다 남은 재고를 오래된 경매일부터(`먼저`, 2, 3…) 보여주고 3일(`OLD_DAYS`) 넘은 재고는 빨갛게.
   최근 경매 7회 평균 낙찰 수량과 '권장(평균−재고)'을 보고 오늘 경매 목표·메모를 적고 `준비 확인`.
@@ -175,6 +213,7 @@ curl localhost:3000/api/health
 - `GET  /api/shipped`       재고 관리 출고 기록 전체 `{rows:[줄]}`
 - `GET  /api/push/key` · `POST /api/push/subscribe` · `POST /api/push/unsubscribe` · `POST /api/push/test` 웹 푸시
 - `GET  /api/notify` 안드로이드 앱 알림 서비스용 SSE (새 낙찰 때만 `event: lots`)
+- `GET  /api/app` 안드로이드 앱 최신 판 `{versionCode, versionName, notes, url}` (APK 는 `/app/SEOWONY.apk`)
 - `GET  /api/health` 상태 점검
 
 조작(op) 종류:
@@ -185,7 +224,8 @@ curl localhost:3000/api/health
 - `clearlots` 낙찰 내역만 삭제 (상차 체크는 유지, 캘린더 기록은 남는다)
 - `newday` 전체 초기화 (캘린더 기록·재고 관리 재고/출고 기록은 남는다)
 - `poll` 수집기 신호(시장별 로그인 세션 상태, 툴바용)
-- `invleft` 재고 관리 잔여 수량, `ship` 전량 출고, `unship` 출고 되돌리기, `invimport` 캘린더 기록에서 불러오기
+- `prep` 준비 양식 한 칸, `prepsave` 준비 양식 저장/다시 고치기, `fifo` 선입선출 목표·메모·확인
+- `invlock` 재고 줄 고정/풀기, `invleft` 재고 관리 잔여 수량, `ship` 전량 출고, `unship` 출고 되돌리기, `invimport` 캘린더 기록에서 불러오기
 
 ## 손댈 때 주의할 점
 
