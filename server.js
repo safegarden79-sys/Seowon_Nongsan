@@ -327,6 +327,14 @@ function applyOp(user, op, meta = {}) {
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
       return;
     }
+    case "prepsave": {                               // 준비 양식 저장 — 수량을 적은 품목만 남겨 보여준다 (on:false 면 다시 전체 양식)
+      const d = String(op.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      const day = state.prep[d] = state.prep[d] || {};
+      if (op.on) day._saved = { by, at: now }; else delete day._saved;
+      bump(by, `준비 양식 ${op.on ? "저장" : "다시 고치기"} (${d.slice(5)})`);
+      return;
+    }
     case "prep": {                                   // 경매 전 준비 양식 한 칸 (세계로 box·봉지대·봉지소 / 일일향 / 초록)
       const d = String(op.date || ""), row = String(op.row || "").slice(0, 40), col = String(op.col || "");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !row || !["box", "bagL", "bagS", "ilil", "chorok"].includes(col)) return;

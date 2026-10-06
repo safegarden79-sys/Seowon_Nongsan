@@ -292,6 +292,10 @@ tr.got .ckb i{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
 /* 재고 관리 — 체크(고정)한 줄 */
 tr.locked .ckb i{background:var(--accent);border-color:var(--accent);color:#FFFFFF}
 table.xl tr.locked td{font-weight:600}
+/* 준비 양식 저장 */
+.invtools .savebtn{background:var(--ok);color:#FFFFFF;border-color:var(--ok);font-weight:800}
+.savedhint{color:var(--ok);font-weight:700}
+table.xl.prep.saved td.pc{text-align:center;font-size:14px}
 /* 고정 칸이 생긴 만큼 재고 표를 조금 좁혀 폰 한 화면에 '출고'까지 들어오게 */
 table.xl.inv th,table.xl.inv td{padding:5px 2px}
 table.xl.inv td.xw{max-width:66px;font-size:12px}
@@ -1215,15 +1219,29 @@ const PREP_ROWS=[
   ["아삭이팩",[""]]
 ].flatMap(([item,gs])=>gs.map(g=>({key:item+"|"+g,label:item+(g?" "+g:"")})));
 const PREP_COLS=["box","bagL","bagS","ilil","chorok"];
+/* 저장을 누르면(prepsave op → state.prep[경매일]._saved) 수량을 적은 줄만 남기고, 아래 품목별 재고 카드도
+   챙길 품목(준비 양식에 수량이 있는 품목 · 목표/메모를 적은 품목)만 보여준다. '다시 고치기'로 전체 양식에 돌아간다. */
+const prepHas=v=>PREP_COLS.some(c=>(Number((v||{})[c])||0)>0);
+const prepSaved=curDay=>!!(((state.prep||{})[curDay]||{})._saved);
+/* 준비 양식 품목 이름 → 재고 카드 품목 이름(normItem)과 맞춰 보기: '빨강 파프리카'→'홍파프리카', '꽈리'→'꽈리고추' */
+const prepBase=item=>normItem(String(item).replace(/\(.*\)/,""));
+function prepItems(curDay){
+  const day=(state.prep||{})[curDay]||{};
+  return [...new Set(PREP_ROWS.filter(r=>prepHas(day[r.key])).map(r=>prepBase(r.key.split("|")[0])))];
+}
+const matchPrep=(name,bases)=>bases.some(b=>name.startsWith(b)||b.startsWith(name));
 function prepTable(curDay){
   const day=(state.prep||{})[curDay]||{};
+  const saved=prepSaved(curDay);
+  const rows=saved?PREP_ROWS.filter(r=>prepHas(day[r.key])):PREP_ROWS;
   const sum=c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0);
-  return `<div class="xwrap"><table class="xl prep"><thead>
+  return `<div class="xwrap"><table class="xl prep${saved?" saved":""}"><thead>
       <tr><th rowspan="2" class="pitem">품목</th><th colspan="3" class="pseg">세계로</th><th rowspan="2">일일향</th><th rowspan="2">초록</th></tr>
       <tr><th>수량<br>(box)</th><th>봉지<br>(대)</th><th>봉지<br>(소)</th></tr></thead><tbody>
-    ${PREP_ROWS.map(r=>{ const v=day[r.key]||{};
+    ${rows.map(r=>{ const v=day[r.key]||{};
       return `<tr data-prow="${esc(r.key)}"><td class="pitem">${esc(r.label)}</td>${PREP_COLS.map(c=>
-        `<td class="pc${c==="bagS"?" pseg-end":""}"><input type="number" inputmode="numeric" min="0" data-pc="${c}" value="${v[c]??""}"></td>`).join("")}</tr>`; }).join("")}
+        `<td class="pc${c==="bagS"?" pseg-end":""}">${saved?`<b class="tnum">${v[c]||""}</b>`
+          :`<input type="number" inputmode="numeric" min="0" data-pc="${c}" value="${v[c]??""}">`}</td>`).join("")}</tr>`; }).join("")}
     </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
@@ -1231,15 +1249,21 @@ function renderFifo(box,curDay,inv){
   if(itemStats===null){ box.innerHTML=`<div class="caldempty">불러오는 중…</div>`; loadItemStats().then(()=>{ if(tab==="inv") render(); }); return; }
   const {list,dates}=fifoData(curDay,inv);
   const kw=query.trim().toLowerCase();
-  const shown=list.filter(it=>!kw||it.name.toLowerCase().includes(kw));
   const sheet=(state.fifo||{})[curDay]||{};
+  const saved=prepSaved(curDay), sv=((state.prep||{})[curDay]||{})._saved||{};
+  const bases=prepItems(curDay);
+  const need=it=>{ const f=sheet[it.name]||{}; return (Number(f.plan)||0)>0||!!f.memo||matchPrep(it.name,bases); };
+  const shown=list.filter(it=>(!kw||it.name.toLowerCase().includes(kw))&&(!saved||need(it)));
   const oldLots=list.reduce((a,it)=>a+it.lots.filter(l=>dayDiff(curDay,l.date)>=OLD_DAYS).length,0);
   const doneN=list.filter(it=>(sheet[it.name]||{}).done).length;
   box.innerHTML=`<div class="ffhead0"><b>경매 전 준비 양식</b><span>경매일 ${mmdd(curDay)}</span></div>
-    <p class="hint">칸에 수량을 적으면 바로 저장되어 다섯 명이 같이 봅니다. 경매일이 바뀌면(오후 3시) 새 양식이 됩니다.</p>
+    ${saved?`<p class="hint savedhint">💾 저장됨 — 챙길 품목만 남겼습니다 (${esc(sv.by||"")} · ${ago(sv.at)}). 고치려면 '다시 고치기'를 누르세요.</p>`
+      :`<p class="hint">칸에 수량을 적으면 바로 다섯 명이 같이 봅니다. 다 적고 <b>저장</b>을 누르면 수량을 적은 품목만 남습니다. 경매일이 바뀌면(오후 3시) 새 양식이 됩니다.</p>`}
     ${prepTable(curDay)}
-    <div class="invtools"><button data-iact="csv">📥 엑셀로 내려받기 (준비 양식 + 재고 순서)</button></div>
-    <div class="ffhead0" style="margin-top:18px"><b>선입선출 — 품목별 재고</b><span>품목 ${list.length}개</span></div>
+    <div class="invtools">${saved?`<button data-iact="prepedit">✏️ 다시 고치기 (전체 양식)</button>`
+      :`<button class="savebtn" data-iact="prepsave">💾 저장 — 챙길 품목만 남기기</button>`}
+      <button data-iact="csv">📥 엑셀로 내려받기</button></div>
+    <div class="ffhead0" style="margin-top:18px"><b>선입선출 — ${saved?"챙길 품목 재고":"품목별 재고"}</b><span>품목 ${saved?shown.length+"/":""}${list.length}개</span></div>
     <div class="invsum">
       <div><small>재고 있는 품목</small><b class="tnum">${list.filter(i=>i.stock>0).length}개</b></div>
       <div><small>${OLD_DAYS}일 넘은 재고</small><b class="tnum" style="${oldLots?"color:#C0392B":""}">${oldLots}줄</b></div>
@@ -1267,16 +1291,24 @@ function renderFifo(box,curDay,inv){
           <input type="text" data-ff="memo" value="${esc(f.memo||"")}" placeholder="메모 (예: 특만, 4kg)"></div>
         ${f.by?`<p class="ffby">${esc(f.by)} · ${ago(f.at)}</p>`:""}
       </div>`; }).join("")
-    :`<div class="empty">아직 기록된 품목이 없습니다.</div>`}`;
+    :`<div class="empty">${saved?"챙길 품목의 재고가 없습니다.":"아직 기록된 품목이 없습니다."}</div>`}`;
 }
 /* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("invview").addEventListener("change",e=>{
   const pc=e.target.closest("[data-pc]");
-  if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value}); return; }
+  if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value},true); refreshSoon(); return; }
   const inp=e.target.closest("[data-ff]"); if(!inp) return;
   const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
-  pushOp({t:"fifo",date:경매일KST(),item,[k]:inp.value});
+  pushOp({t:"fifo",date:경매일KST(),item,[k]:inp.value},true); refreshSoon();
 });
+/* 칸을 다 적고 다른 곳을 누른 뒤(어느 칸에도 손이 없을 때) 합계 등을 다시 그린다 */
+let refreshT=null;
+function refreshSoon(){ clearTimeout(refreshT); refreshT=setTimeout(()=>{
+  const a=document.activeElement, box=document.getElementById("invbody");
+  if(a&&a.tagName==="INPUT"&&box&&box.contains(a)) return;   // 다음 칸에 적는 중이면 그 칸을 벗어날 때 다시
+  if(tab==="inv") render(); },400);
+}
+document.getElementById("invview").addEventListener("focusout",()=>{ if(tab==="inv"&&invMode==="fifo") refreshSoon(); });
 
 function invCSV(){
   if(invMode==="fifo"){                               // 선입선출 준비표를 그대로 엑셀로
@@ -1327,6 +1359,27 @@ document.getElementById("invview").addEventListener("click",e=>{
   if(act==="ffdone"){
     const item=b.closest("[data-item]").dataset.item, cur=(((state.fifo||{})[경매일KST()]||{})[item]||{}).done;
     pushOp({t:"fifo",date:경매일KST(),item,done:!cur}); return;
+  }
+  if(act==="prepsave"||act==="prepedit"){
+    const d=경매일KST();
+    if(act==="prepsave"){                             // 방금 적고 칸을 벗어나지 않은 값까지 빠짐없이 먼저 올린다
+      document.querySelectorAll("#invbody [data-pc]").forEach(inp=>{
+        const row=inp.closest("[data-prow]").dataset.prow, c=inp.dataset.pc;
+        const cur=((((state.prep||{})[d]||{})[row])||{})[c];
+        const v=inp.value===""?null:Math.max(0,Math.round(Number(inp.value)||0));
+        if((cur??null)!==v) pushOp({t:"prep",date:d,row,col:c,value:inp.value});
+      });
+      document.querySelectorAll("#invbody [data-ff]").forEach(inp=>{
+        const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
+        const cur=((((state.fifo||{})[d]||{})[item])||{})[k];
+        if(String(cur??"")!==inp.value) pushOp({t:"fifo",date:d,item,[k]:inp.value});
+      });
+    }
+    if(act==="prepsave"&&!PREP_ROWS.some(r=>prepHas(((state.prep||{})[d]||{})[r.key]))&&!Object.values((state.fifo||{})[d]||{}).some(f=>(Number(f.plan)||0)>0||f.memo)){
+      alert("아직 적은 수량이 없습니다. 챙길 품목의 수량을 적은 뒤 저장해 주세요."); return; }
+    pushOp({t:"prepsave",date:d,on:act==="prepsave"});
+    invStat(act==="prepsave"?"저장했습니다 — 챙길 품목만 남겼습니다.":"전체 양식으로 돌아왔습니다.");
+    return;
   }
   if(act==="importtoggle"){ invImportOpen=!invImportOpen; return render(); }
   if(act==="import"){
@@ -1698,6 +1751,8 @@ function localEcho(op){
   }
   if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; state.pickup={}; }
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
+  if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
+    if(op.on) d._saved={by:me||"나",at:Date.now()}; else delete d._saved; }
   if(op.t==="prep"){ state.prep=state.prep||{}; const d=state.prep[op.date]=state.prep[op.date]||{};
     const r=d[op.row]=Object.assign({},d[op.row]||{}); const v=op.value===""?null:Math.max(0,Math.round(Number(op.value)||0));
     if(v==null) delete r[op.col]; else r[op.col]=v; }
@@ -1751,8 +1806,8 @@ async function flush(){
     pending=pending.slice(batch.length); savePending(); setConn(true);
   }catch(e){ setConn(false); }
 }
-function pushOp(op){
-  localEcho(op); save(); render();
+function pushOp(op,quiet){
+  localEcho(op); save(); if(!quiet) render();     // quiet: 칸에 적는 중 — 화면을 다시 그리면 다음 칸으로 옮긴 손가락이 튕긴다
   if(!serverUrl) return;                   // 서버를 안 쓰면 이 폰에만 저장된다
   pending.push(op); savePending(); flush();
 }
