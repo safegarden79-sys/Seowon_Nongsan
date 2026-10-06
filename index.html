@@ -58,6 +58,16 @@ h1{font-size:20px;margin:2px 0 0;color:var(--text)}
 .tab{flex:1;padding:10px 8px;background:none;border:0;border-bottom:2px solid transparent;
   color:var(--dim);font-size:14px;font-weight:700}
 .tab.on{color:var(--text);border-bottom-color:var(--warn)}
+/* 한 화면 세 구역 (챙길 품목 · 낙찰 내역 · 재고 관리) — 머리를 누르면 접고 편다 */
+.sec{margin-bottom:22px}
+.sechead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;border-bottom:2px solid var(--warn);
+  padding:10px 0 8px;margin-bottom:10px;color:var(--text);text-align:left;scroll-margin-top:var(--hh,0px)}
+.sechead b{font-size:17px;font-weight:800}
+.secsub{flex:1;font-size:12px;color:var(--muted);font-weight:600}
+.secarr{font-style:normal;color:var(--dim);font-size:14px}
+.sec.folded .secbody{display:none}
+.sec.folded .secarr{transform:rotate(-90deg)}
+.sec .chips{margin-top:0}
 
 .searchwrap{position:relative;margin-top:12px}
 input[type=search],textarea,input[type=text],input[type=number],select{
@@ -458,9 +468,11 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     </div>
   </div>
 
+  <!-- 한 화면에 챙길 품목 → 낙찰 내역 → 재고 관리 순서로 이어진다. 아래 버튼은 그 구역으로 바로 내려가는 바로가기 -->
   <div class="tabs">
-    <button class="tab on" data-tab="lot">📦 낙찰 내역</button>
-    <button class="tab" data-tab="inv">📋 재고 관리</button>
+    <button class="tab on" data-jump="prepview">✅ 챙길 품목</button>
+    <button class="tab" data-jump="lotview">📦 낙찰 내역</button>
+    <button class="tab" data-jump="invview">📋 재고 관리</button>
   </div>
 
   <div class="searchwrap">
@@ -469,11 +481,11 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <button class="sclear hidden" id="qclear" aria-label="지우기">✕</button>
   </div>
 
-  <div class="chips" id="chips"></div>
+  <div class="chips hidden" id="chips"></div>
 </header>
 
 <main>
-  <div id="carview">
+  <div id="carview" class="hidden">
     <button class="panelbtn" id="refbtn">📋 계정 · 파렛트 반납 정보 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="refpanel"></div>
     <button class="panelbtn" id="workbtn">📝 품목 · 소분 작업 메모 <span class="arrow">▸</span></button>
@@ -481,12 +493,23 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div id="carlist"></div>
   </div>
 
-  <div id="lotview" class="hidden">
+  <section id="prepview" class="sec">
+    <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
+    <div class="secbody">
+      <p class="hint" id="prepstat"></p>
+      <div id="prepbody"></div>
+    </div>
+  </section>
+
+  <section id="lotview" class="sec">
+    <button class="sechead" data-fold="lot"><b>📦 낙찰 내역</b><span class="secsub" id="lotsub"></span><i class="secarr">▾</i></button>
+    <div class="secbody">
     <div class="datebar">
       <span class="dtitle">낙찰내역조회</span>
       <button class="datebtn" id="datebtn">📅 <span id="datetxt">날짜</span></button>
     </div>
     <p class="hint" id="pollstat"></p>
+    <div class="chips" id="lotchips"></div>
     <p class="hint" id="lotstat"></p>
     <div id="lotlist"></div>
 
@@ -494,12 +517,17 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="addpanel"></div>
     <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
-  </div>
+    </div>
+  </section>
 
-  <div id="invview" class="hidden">
-    <p class="hint" id="invstat"></p>
-    <div id="invbody"></div>
-  </div>
+  <section id="invview" class="sec">
+    <button class="sechead" data-fold="inv"><b>📋 재고 관리</b><span class="secsub" id="invsub"></span><i class="secarr">▾</i></button>
+    <div class="secbody">
+      <div class="chips" id="invchips"></div>
+      <p class="hint" id="invstat"></p>
+      <div id="invbody"></div>
+    </div>
+  </section>
 
 </main>
 
@@ -693,7 +721,7 @@ function withKeys(arr){
 /* ==================== 상태 ==================== */
 const KEY="seowon-check-v2";
 let state={done:{},notes:{},lots:null,got:{},savedAt:null};
-let tab="lot", filter="all", groupMode="doc", query="", lotMkt="all";
+let tab="all", filter="all", groupMode="doc", query="", lotMkt="all";
 let collapsed={}, openNote=null, confirmReset=false;
 
 try{const raw=localStorage.getItem(KEY); if(raw) state=Object.assign(state,JSON.parse(raw));}catch(e){}
@@ -839,14 +867,13 @@ function lotGroups(vis){
 
 /* ==================== 렌더 ==================== */
 function render(){
-  document.getElementById("carview").classList.toggle("hidden",tab!=="car");
-  document.getElementById("lotview").classList.toggle("hidden",tab!=="lot");
-  document.getElementById("invview").classList.toggle("hidden",tab!=="inv");
-  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
-  document.getElementById("q").placeholder = tab==="car"?"차량번호 · 상호 · 위치 검색":"품목 · 생산자 · 번호 검색";
-
+  /* 한 화면: 맨 위 챙길 품목(경매 전 준비 양식 + 선입선출) → 낙찰 내역 → 재고 관리 */
+  document.getElementById("q").placeholder="품목 · 생산자 · 번호 검색 (세 구역 모두)";
+  renderPrep();
+  renderLots(document.getElementById("lotchips"));
+  renderInv();
+  return;
   const chips=document.getElementById("chips");
-  if(tab==="inv"){ renderInv(); return; }
   if(tab==="car"){
     const total=STOPS.length;
     const fixAll=STOPS.filter(s=>s.fix);
@@ -867,7 +894,7 @@ function render(){
         <span class="stitle">${esc(g.title)}</span><span class="scount tnum">${gd}/${g.items.length}</span>
         <span class="sline"></span><span class="sarrow">${open?"▾":"▸"}</span></button>
         ${open?g.items.map(carCard).join(""):""}</section>`;}).join("");
-  } else renderLots(chips);
+  }
 }
 function emptyHTML(){return `<div class="empty">조건에 맞는 항목이 없습니다.<br><button id="resetview">전체 보기</button></div>`;}
 function bindEmpty(){const b=document.getElementById("resetview"); if(b)b.onclick=()=>{
@@ -902,7 +929,7 @@ async function loadCalDay(date){
     calDayCache[date]=Object.values((j&&j.lots)||{});
   }catch(e){ calDayCache[date]=calDayCache[date]||[]; }
   if(dayLoading===date) dayLoading=null;
-  if(tab==="lot"&&date===lotDate) render();
+  if(date===lotDate) render();
 }
 /* 날짜를 고르지 않았으면 오늘 작업 목록에서 가장 최근 경매일을 보여준다 */
 function defaultLotDate(){
@@ -926,6 +953,7 @@ function renderLots(chips){
   const isDone=l=>l._live&&(state.got[l.id]||0)>=l.qty;
   const doneRows=all.filter(isDone).length;
   const pickRows=all.filter(isPick).length, reRows=all.filter(isReauc).length;
+  document.getElementById("lotsub").textContent=`${dateKo(lotDate)} · ${all.length}줄${all.length?` · 챙김 ${doneRows}`:""}`;
   chips.innerHTML=`
     <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${all.length}</button>
     <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${all.length-doneRows}</button>
@@ -1089,9 +1117,9 @@ function renderInv(){
   const inv=allInv.filter(l=>!l.date||l.date<curDay);
   const waiting=allInv.length-inv.length;
   const shipped=shippedRows||[];
-  const chips=document.getElementById("chips");
+  const chips=document.getElementById("invchips");
+  document.getElementById("invsub").textContent=`재고 ${inv.length}줄`;
   chips.innerHTML=`
-    <button class="chip ${invMode==="fifo"?"on":""}" data-im="fifo">📋 선입선출 준비</button>
     <button class="chip ${invMode==="stock"?"on":""}" data-im="stock">재고 ${inv.length}</button>
     <button class="chip ${invMode==="shipped"?"on":""}" data-im="shipped">출고 기록${shippedRows?" "+shipped.length:""}</button>
     ${invMode==="shipped"?`<span class="div"></span>
@@ -1099,13 +1127,6 @@ function renderInv(){
     <button class="chip mode ${invPeriod==="prev"?"on":""}" data-ip="prev">지난 달</button>
     <button class="chip mode ${invPeriod==="all"?"on":""}" data-ip="all">전체</button>`:""}`;
   const box=document.getElementById("invbody");
-
-  if(invMode==="fifo"){
-    /* 칸에 적는 중이면 다시 그리지 않는다 (다른 사람이 바꿀 때마다 쓰던 글자가 날아가지 않게) */
-    const a=document.activeElement;
-    if(a&&a.tagName==="INPUT"&&box.contains(a)) return;
-    return renderFifo(box,curDay,inv);
-  }
 
   if(invMode==="shipped"){
     if(shippedRows===null){ box.innerHTML=`<div class="caldempty">불러오는 중…</div>`; return; }
@@ -1245,8 +1266,21 @@ function prepTable(curDay){
     </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
+/* 맨 위 '챙길 품목' 구역 = 경매 전 준비 양식 + 선입선출 품목별 재고 */
+function renderPrep(){
+  const box=document.getElementById("prepbody"); if(!box) return;
+  /* 칸에 적는 중이면 다시 그리지 않는다 (다른 사람이 바꿀 때마다 쓰던 글자가 날아가지 않게) */
+  const a=document.activeElement;
+  if(a&&a.tagName==="INPUT"&&box.contains(a)) return;
+  const curDay=경매일KST();
+  const inv=Object.values(state.inv||{}).filter(l=>!l.date||l.date<curDay);
+  const day=(state.prep||{})[curDay]||{};
+  const n=PREP_ROWS.filter(r=>prepHas(day[r.key])).length;
+  document.getElementById("prepsub").textContent=`경매일 ${mmdd(curDay)} · ${prepSaved(curDay)?"💾 저장됨 · ":""}${n}품목`;
+  renderFifo(box,curDay,inv);
+}
 function renderFifo(box,curDay,inv){
-  if(itemStats===null){ box.innerHTML=`<div class="caldempty">불러오는 중…</div>`; loadItemStats().then(()=>{ if(tab==="inv") render(); }); return; }
+  if(itemStats===null){ box.innerHTML=`<div class="caldempty">불러오는 중…</div>`; loadItemStats().then(()=>render()); return; }
   const {list,dates}=fifoData(curDay,inv);
   const kw=query.trim().toLowerCase();
   const sheet=(state.fifo||{})[curDay]||{};
@@ -1294,7 +1328,7 @@ function renderFifo(box,curDay,inv){
     :`<div class="empty">${saved?"챙길 품목의 재고가 없습니다.":"아직 기록된 품목이 없습니다."}</div>`}`;
 }
 /* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
-document.getElementById("invview").addEventListener("change",e=>{
+document.getElementById("prepview").addEventListener("change",e=>{
   const pc=e.target.closest("[data-pc]");
   if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value},true); refreshSoon(); return; }
   const inp=e.target.closest("[data-ff]"); if(!inp) return;
@@ -1304,14 +1338,14 @@ document.getElementById("invview").addEventListener("change",e=>{
 /* 칸을 다 적고 다른 곳을 누른 뒤(어느 칸에도 손이 없을 때) 합계 등을 다시 그린다 */
 let refreshT=null;
 function refreshSoon(){ clearTimeout(refreshT); refreshT=setTimeout(()=>{
-  const a=document.activeElement, box=document.getElementById("invbody");
+  const a=document.activeElement, box=document.getElementById("prepbody");
   if(a&&a.tagName==="INPUT"&&box&&box.contains(a)) return;   // 다음 칸에 적는 중이면 그 칸을 벗어날 때 다시
-  if(tab==="inv") render(); },400);
+  render(); },400);
 }
-document.getElementById("invview").addEventListener("focusout",()=>{ if(tab==="inv"&&invMode==="fifo") refreshSoon(); });
+document.getElementById("prepview").addEventListener("focusout",()=>refreshSoon());
 
-function invCSV(){
-  if(invMode==="fifo"){                               // 선입선출 준비표를 그대로 엑셀로
+function invCSV(prep){
+  if(prep){                               // 선입선출 준비표를 그대로 엑셀로
     const curDay=경매일KST(), sheet=(state.fifo||{})[curDay]||{};
     const {list}=fifoData(curDay,Object.values(state.inv||{}).filter(l=>!l.date||l.date<curDay));
     const day=(state.prep||{})[curDay]||{};
@@ -1352,10 +1386,10 @@ function invCSV(){
 }
 
 const invStat=t=>{const el=document.getElementById("invstat"); if(el)el.textContent=t||"";};
-document.getElementById("invview").addEventListener("click",e=>{
+function onInvClick(e){
   const b=e.target.closest("[data-iact]"); if(!b)return;
   const act=b.dataset.iact;
-  if(act==="csv") return invCSV();
+  if(act==="csv") return invCSV(!!b.closest("#prepview"));
   if(act==="ffdone"){
     const item=b.closest("[data-item]").dataset.item, cur=(((state.fifo||{})[경매일KST()]||{})[item]||{}).done;
     pushOp({t:"fifo",date:경매일KST(),item,done:!cur}); return;
@@ -1363,13 +1397,13 @@ document.getElementById("invview").addEventListener("click",e=>{
   if(act==="prepsave"||act==="prepedit"){
     const d=경매일KST();
     if(act==="prepsave"){                             // 방금 적고 칸을 벗어나지 않은 값까지 빠짐없이 먼저 올린다
-      document.querySelectorAll("#invbody [data-pc]").forEach(inp=>{
+      document.querySelectorAll("#prepbody [data-pc]").forEach(inp=>{
         const row=inp.closest("[data-prow]").dataset.prow, c=inp.dataset.pc;
         const cur=((((state.prep||{})[d]||{})[row])||{})[c];
         const v=inp.value===""?null:Math.max(0,Math.round(Number(inp.value)||0));
         if((cur??null)!==v) pushOp({t:"prep",date:d,row,col:c,value:inp.value});
       });
-      document.querySelectorAll("#invbody [data-ff]").forEach(inp=>{
+      document.querySelectorAll("#prepbody [data-ff]").forEach(inp=>{
         const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
         const cur=((((state.fifo||{})[d]||{})[item])||{})[k];
         if(String(cur??"")!==inp.value) pushOp({t:"fifo",date:d,item,[k]:inp.value});
@@ -1422,7 +1456,7 @@ document.getElementById("invview").addEventListener("click",e=>{
     pushOp({t:"ship",id});
     invStat(`'${이름}' 전량 출고 — 출고 기록으로 옮겼습니다.`);
   }
-});
+}
 
 function renderFooter(){
   document.getElementById("saved").textContent=state.savedAt
@@ -1441,21 +1475,49 @@ function renderFooter(){
 }
 
 /* ==================== 이벤트 ==================== */
+/* 위 버튼 = 그 구역으로 내려가기 (접혀 있으면 편다) */
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest(".tab"); if(!b)return;
-  tab=b.dataset.tab; filter="all";
-  if(tab==="inv") loadShipped().then(()=>{ if(tab==="inv") render(); });
-  render();});
+  const sec=document.getElementById(b.dataset.jump);
+  if(sec.classList.contains("folded")) toggleFold(sec.querySelector(".sechead").dataset.fold,false);
+  sec.querySelector(".sechead").scrollIntoView({behavior:"smooth",block:"start"});
+});
+/* 지금 보고 있는 구역에 맞춰 위 버튼에 밑줄 */
+function markJump(){
+  const top=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hh"))||0)+40;
+  let cur="prepview";
+  ["prepview","lotview","invview"].forEach(id=>{ if(document.getElementById(id).getBoundingClientRect().top<=top) cur=id; });
+  document.querySelectorAll(".tabs .tab").forEach(t=>t.classList.toggle("on",t.dataset.jump===cur));
+}
+window.addEventListener("scroll",()=>requestAnimationFrame(markJump),{passive:true});
+/* 구역 접기·펴기 — 이 폰에만 기억 */
+let folds={}; try{ folds=JSON.parse(localStorage.getItem("seowon-folds")||"{}"); }catch(e){}
+function toggleFold(k,on){
+  folds[k]=on===undefined?!folds[k]:on;
+  try{ localStorage.setItem("seowon-folds",JSON.stringify(folds)); }catch(e){}
+  applyFolds();
+}
+function applyFolds(){
+  document.querySelectorAll(".sechead[data-fold]").forEach(h=>h.closest(".sec").classList.toggle("folded",!!folds[h.dataset.fold]));
+}
+document.querySelector("main").addEventListener("click",e=>{
+  const h=e.target.closest(".sechead[data-fold]"); if(h) toggleFold(h.dataset.fold);
+});
+applyFolds();
+document.getElementById("prepview").addEventListener("click",onInvClick);
+document.getElementById("invview").addEventListener("click",onInvClick);
 
-document.getElementById("chips").addEventListener("click",e=>{
+function onChip(e){
   const b=e.target.closest(".chip"); if(!b)return;
   if(b.dataset.f)filter=b.dataset.f;
   if(b.dataset.g)groupMode=b.dataset.g;
   if(b.dataset.mk)lotMkt=b.dataset.mk;
   if(b.dataset.ip)invPeriod=b.dataset.ip;
-  if(b.dataset.im){ invMode=b.dataset.im; if(invMode==="shipped") loadShipped().then(()=>{ if(tab==="inv") render(); });
-    if(invMode==="fifo"){ loadShipped().then(()=>loadItemStats(true)).then(()=>{ if(tab==="inv") render(); }); } }
-  render();});
+  if(b.dataset.im){ invMode=b.dataset.im; if(invMode==="shipped") loadShipped().then(()=>render()); }
+  render();}
+document.getElementById("lotchips").addEventListener("click",onChip);
+document.getElementById("invchips").addEventListener("click",onChip);
+
 
 /* 낙찰 줄을 세 번 연속(0.9초 안) 탭하면 재경매 ↔ 일반 낙찰을 바꾼다. 체크·주석·우선 픽업 버튼을
    누른 탭은 세지 않는다. 화면이 실시간으로 다시 그려져도 줄 id 로 세므로 끊기지 않는다. */
@@ -1634,12 +1696,12 @@ function applyServer(sv){
   if(sv.now) clockSkew=sv.now-Date.now();
   pollers=sv.pollers||{}; renderSess();
   /* 누가 줄을 지웠거나 지난 날짜가 채워졌을 수 있으니, 보고 있는 날짜의 기록은 다시 받는다 */
-  if(tab==="lot"&&lotDate&&sv.version!==lastSvVersion) loadCalDay(lotDate);
+  if(lotDate&&sv.version!==lastSvVersion) loadCalDay(lotDate);
   lastSvVersion=sv.version;
   liveLog=sv.log||[];
   pending.forEach(o=>localEcho(o));      // 아직 서버에 못 보낸 내 조작은 화면에 유지
   /* 다른 사람이 전량 출고·되돌리기를 했을 수 있으니 출고 기록을 보고 있으면 다시 받는다 */
-  if(tab==="inv"&&invMode==="shipped") loadShipped().then(()=>{ if(tab==="inv") render(); });
+  if(invMode==="shipped") loadShipped().then(()=>render());
   save(); render();
   state.workday=sv.workday||state.workday;
   checkBuild(sv.build);
@@ -1775,7 +1837,9 @@ function connect(){
   if(es) try{ es.close(); }catch(e){}
   setConn(false,"연결 중");
   es=new EventSource(serverUrl+"/api/stream");
-  es.onopen=()=>{ setConn(true); retryMs=3000; flush(); };
+  es.onopen=()=>{ setConn(true); retryMs=3000; flush();
+    /* 챙길 품목(선입선출)은 출고 기록·품목 통계도 쓰므로 처음 붙을 때 한 번 받아 둔다 */
+    if(shippedRows===null) loadShipped().then(()=>loadItemStats(true)).then(()=>render()); };
   es.onmessage=e=>{ try{ applyServer(JSON.parse(e.data)); setConn(true); }catch(err){} };
   es.addEventListener("poll",e=>{ try{ const j=JSON.parse(e.data); pollers=j.pollers||{}; if(j.now) clockSkew=j.now-Date.now(); renderSess(); setConn(true); }catch(err){} });
   /* 브라우저는 끊긴 뒤 한 번 다시 붙어 보다가 서버가 아직 안 떠 있으면(재배포·재시작 중)
