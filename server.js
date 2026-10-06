@@ -70,7 +70,8 @@ if (!state.pollers) state.pollers = {};
 if (!state.pickup)  state.pickup = {};    // 우선 픽업 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 if (!state.pushSubs) state.pushSubs = {};
-if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at} // 웹 푸시 구독 (아이폰 홈 화면 앱 등) — endpoint → {sub, user, at}
+if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at}
+if (!state.prep)    state.prep = {};      // 경매 전 준비 양식 — 경매일 → 줄(품목|규격) → 칸 → 수량
 
 /* ---------- 새 낙찰 알림 ----------
    ① 웹 푸시: 아이폰(홈 화면에 추가한 앱)·크롬이 '알림 허용'하면 구독을 받아 두고, 새 낙찰 때 보낸다.
@@ -109,6 +110,10 @@ function pruneHistory() {
   for (const d of Object.keys(state.history)) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (isNaN(t) || t < cutoff) delete state.history[d];
+  }
+  for (const d of Object.keys(state.prep || {})) {
+    const t = new Date(d + "T00:00:00+09:00").getTime();
+    if (isNaN(t) || t < cutoff) delete state.prep[d];
   }
   for (const d of Object.keys(state.fifo || {})) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
@@ -313,6 +318,18 @@ function applyOp(user, op, meta = {}) {
       const { shippedAt, shippedBy, ...rest } = it;
       state.inv[op.id] = Object.assign(rest, { left: Number(it.qty) || 0 });
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
+      return;
+    }
+    case "prep": {                                   // 경매 전 준비 양식 한 칸 (세계로 box·봉지대·봉지소 / 일일향 / 초록)
+      const d = String(op.date || ""), row = String(op.row || "").slice(0, 40), col = String(op.col || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !row || !["box", "bagL", "bagS", "ilil", "chorok"].includes(col)) return;
+      const day = state.prep[d] = state.prep[d] || {};
+      const r = day[row] = day[row] || {};
+      const v = op.value === "" || op.value == null ? null : Math.max(0, Math.round(Number(op.value) || 0));
+      if (v == null) delete r[col]; else r[col] = v;
+      if (!Object.keys(r).length) delete day[row];
+      const 칸 = { box: "세계로 박스", bagL: "세계로 봉지(대)", bagS: "세계로 봉지(소)", ilil: "일일향", chorok: "초록" }[col];
+      bump(by, `준비 양식 · ${row.replace("|", " ")} ${칸} ${v ?? "지움"}`);
       return;
     }
     case "fifo": {                                   // 선입선출 준비표 — 품목별 오늘 목표 수량·메모·준비 확인

@@ -329,6 +329,16 @@ table.xl th.pkh{font-size:9.5px;color:#C46A00;line-height:1.15}
 /* 날짜 줄은 틀 고정 — 아래로 내려도 위에 붙어 있다 (--hh = 머리 영역 높이) */
 #lotview .datebar{position:sticky;top:var(--hh,0px);z-index:15;background:var(--bg);
   margin:0 -16px 10px;padding:8px 16px;border-bottom:1px solid var(--line)}
+/* 경매 전 준비 양식 */
+table.xl.prep{min-width:0}
+table.xl.prep th{font-size:10.5px;line-height:1.2;padding:4px 2px}
+table.xl.prep th.pseg{background:#DCEBFF;color:#0D3F9E;font-size:12px;font-weight:800}
+table.xl.prep td.pitem,table.xl.prep th.pitem{text-align:left;font-weight:700;font-size:12.5px;padding:4px 6px;white-space:normal;word-break:keep-all}
+table.xl.prep td.pc{padding:2px}
+table.xl.prep input{width:100%;min-width:38px;padding:6px 2px;text-align:center;font-size:14px;font-weight:700;border-radius:6px;
+  background:#FFFFFF;border:1px solid var(--line)}
+table.xl.prep input:not(:placeholder-shown){border-color:#7CA9E0}
+table.xl.prep td.pseg-end,table.xl.prep th.pseg,table.xl.prep thead tr:last-child th:last-child{border-right:2px solid #3B7DD8}
 /* 선입선출 준비표 */
 .ffhead0{display:flex;align-items:baseline;gap:8px;margin:0 0 8px}
 .ffhead0 b{font-size:16px}.ffhead0 span{font-size:12px;color:var(--muted)}
@@ -1180,6 +1190,27 @@ function fifoData(curDay,inv){
   list.sort((a,b)=>(b.stock>0)-(a.stock>0)||(b.age??-1)-(a.age??-1)||b.avg-a.avg||a.name.localeCompare(b.name,"ko"));
   return {list,dates};
 }
+/* 경매 전 준비 양식 — 품목·규격 한 줄씩, 거래처별 수량 칸.
+   세계로(수량 box · 봉지 대 · 봉지 소) / 일일향 / 초록. 경매일별로 서버에 저장(prep op, state.prep). */
+const PREP_ROWS=[
+  ["빨강 파프리카",["XL","L","M"]],["노랑 파프리카",["XL","L","M"]],
+  ["피망",["특(L)","상(M)"]],["홍피망",["특(L)","상(M)"]],["청양",["특(L)","상(M)"]],["홍청양",["특(L)","상(M)"]],
+  ["꽈리",["특(L)","상(M)"]],["홍고추(홍초)",["특(L)","상(M)"]],["롱그린",["특","상"]],["아삭이벌크",["특","상"]],
+  ["아삭이팩",[""]]
+].flatMap(([item,gs])=>gs.map(g=>({key:item+"|"+g,label:item+(g?" "+g:"")})));
+const PREP_COLS=["box","bagL","bagS","ilil","chorok"];
+function prepTable(curDay){
+  const day=(state.prep||{})[curDay]||{};
+  const sum=c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0);
+  return `<div class="xwrap"><table class="xl prep"><thead>
+      <tr><th rowspan="2" class="pitem">품목</th><th colspan="3" class="pseg">세계로</th><th rowspan="2">일일향</th><th rowspan="2">초록</th></tr>
+      <tr><th>수량<br>(box)</th><th>봉지<br>(대)</th><th>봉지<br>(소)</th></tr></thead><tbody>
+    ${PREP_ROWS.map(r=>{ const v=day[r.key]||{};
+      return `<tr data-prow="${esc(r.key)}"><td class="pitem">${esc(r.label)}</td>${PREP_COLS.map(c=>
+        `<td class="pc${c==="bagS"?" pseg-end":""}"><input type="number" inputmode="numeric" min="0" data-pc="${c}" value="${v[c]??""}"></td>`).join("")}</tr>`; }).join("")}
+    </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
+}
+
 function renderFifo(box,curDay,inv){
   if(itemStats===null){ box.innerHTML=`<div class="caldempty">불러오는 중…</div>`; loadItemStats().then(()=>{ if(tab==="inv") render(); }); return; }
   const {list,dates}=fifoData(curDay,inv);
@@ -1188,14 +1219,17 @@ function renderFifo(box,curDay,inv){
   const sheet=(state.fifo||{})[curDay]||{};
   const oldLots=list.reduce((a,it)=>a+it.lots.filter(l=>dayDiff(curDay,l.date)>=OLD_DAYS).length,0);
   const doneN=list.filter(it=>(sheet[it.name]||{}).done).length;
-  box.innerHTML=`<div class="ffhead0"><b>선입선출 준비표</b><span>경매일 ${mmdd(curDay)} · 품목 ${list.length}개</span></div>
+  box.innerHTML=`<div class="ffhead0"><b>경매 전 준비 양식</b><span>경매일 ${mmdd(curDay)}</span></div>
+    <p class="hint">칸에 수량을 적으면 바로 저장되어 다섯 명이 같이 봅니다. 경매일이 바뀌면(오후 3시) 새 양식이 됩니다.</p>
+    ${prepTable(curDay)}
+    <div class="invtools"><button data-iact="csv">📥 엑셀로 내려받기 (준비 양식 + 재고 순서)</button></div>
+    <div class="ffhead0" style="margin-top:18px"><b>선입선출 — 품목별 재고</b><span>품목 ${list.length}개</span></div>
     <div class="invsum">
       <div><small>재고 있는 품목</small><b class="tnum">${list.filter(i=>i.stock>0).length}개</b></div>
       <div><small>${OLD_DAYS}일 넘은 재고</small><b class="tnum" style="${oldLots?"color:#C0392B":""}">${oldLots}줄</b></div>
       <div><small>준비 확인</small><b class="tnum">${doneN}/${list.length}</b></div></div>
     <p class="hint">품목마다 남은 재고를 <b>오래된 것부터</b> 적었습니다 — 위에서부터 먼저 내보내세요.
       '7회 평균'은 최근 경매 ${dates.length}번의 하루 평균 낙찰 수량이고, '권장'은 평균에서 남은 재고를 뺀 참고값입니다.</p>
-    <div class="invtools"><button data-iact="csv">📥 엑셀로 내려받기</button></div>
     ${shown.length?shown.map(it=>{
       const f=sheet[it.name]||{};
       return `<div class="ffcard ${f.done?"ffdone":""}" data-item="${esc(it.name)}">
@@ -1219,8 +1253,10 @@ function renderFifo(box,curDay,inv){
       </div>`; }).join("")
     :`<div class="empty">아직 기록된 품목이 없습니다.</div>`}`;
 }
-/* 목표·메모는 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
+/* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("invview").addEventListener("change",e=>{
+  const pc=e.target.closest("[data-pc]");
+  if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value}); return; }
   const inp=e.target.closest("[data-ff]"); if(!inp) return;
   const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
   pushOp({t:"fifo",date:경매일KST(),item,[k]:inp.value});
@@ -1230,7 +1266,12 @@ function invCSV(){
   if(invMode==="fifo"){                               // 선입선출 준비표를 그대로 엑셀로
     const curDay=경매일KST(), sheet=(state.fifo||{})[curDay]||{};
     const {list}=fifoData(curDay,Object.values(state.inv||{}).filter(l=>!l.date||l.date<curDay));
-    const lines=[["품목","출고순서","경매일","경과일","시장","생산자","단위","등급","잔여","총재고","7회평균","오늘목표","메모","준비확인"]];
+    const day=(state.prep||{})[curDay]||{};
+    const lines=[[`경매 전 준비 양식 (경매일 ${curDay})`],["품목","세계로","","","일일향","초록"],["","수량(box)","봉지(대)","봉지(소)","",""]];
+    PREP_ROWS.forEach(r=>{ const v=day[r.key]||{}; lines.push([r.label,...PREP_COLS.map(c=>v[c]??"")]); });
+    lines.push(["합계",...PREP_COLS.map(c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0))]);
+    lines.push([],["선입선출 — 품목별 재고 (오래된 것부터)"]);
+    lines.push(["품목","출고순서","경매일","경과일","시장","생산자","단위","등급","잔여","총재고","7회평균","오늘목표","메모","준비확인"]);
     list.forEach(it=>{ const f=sheet[it.name]||{};
       const tail=[it.stock,it.avg,f.plan??"",f.memo||"",f.done?"✓":""];
       if(!it.lots.length) lines.push([it.name,"","","","","","","","",...tail]);
@@ -1511,7 +1552,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{};
+  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -1634,6 +1675,9 @@ function localEcho(op){
   }
   if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; state.pickup={}; }
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
+  if(op.t==="prep"){ state.prep=state.prep||{}; const d=state.prep[op.date]=state.prep[op.date]||{};
+    const r=d[op.row]=Object.assign({},d[op.row]||{}); const v=op.value===""?null:Math.max(0,Math.round(Number(op.value)||0));
+    if(v==null) delete r[op.col]; else r[op.col]=v; }
   if(op.t==="fifo"){ state.fifo=state.fifo||{}; const d=state.fifo[op.date]=state.fifo[op.date]||{};
     const c=Object.assign({},d[op.item]||{},{by:me,at:Date.now()});
     if("plan" in op) c.plan=op.plan===""?null:Math.max(0,Math.round(Number(op.plan)||0));
