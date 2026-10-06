@@ -6,7 +6,9 @@
 <meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>서원농산 작업 체크</title>
+<title>SEOWONY</title>
+<meta name="apple-mobile-web-app-title" content="SEOWONY">
+<meta name="application-name" content="SEOWONY">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <style>
@@ -1781,11 +1783,11 @@ function openNotif(){
   let msg="", btns="";
   if(st==="unsupported"){
     msg=isIOS&&!standalone
-      ?"아이폰은 사파리에서 <b>공유 → 홈 화면에 추가</b>로 만든 앱에서만 알림을 받을 수 있습니다. 홈 화면의 서원농산 아이콘으로 열어 주세요. (iOS 16.4 이상)"
+      ?"아이폰은 사파리에서 <b>공유 → 홈 화면에 추가</b>로 만든 앱에서만 알림을 받을 수 있습니다. 홈 화면의 SEOWONY(고추) 아이콘으로 열어 주세요. (iOS 16.4 이상)"
       :"이 브라우저는 알림을 받을 수 없습니다.";
   } else if(st==="denied"){
-    msg=inApk()?"알림이 꺼져 있습니다. 휴대폰 <b>설정 → 애플리케이션 → 서원농산 체크 → 알림</b>에서 허용해 주세요."
-      :"알림을 거절해 두셨습니다. <b>설정 → 알림 → 서원농산</b>에서 허용으로 바꾼 뒤 다시 눌러 주세요.";
+    msg=inApk()?"알림이 꺼져 있습니다. 휴대폰 <b>설정 → 애플리케이션 → SEOWONY → 알림</b>에서 허용해 주세요."
+      :"알림을 거절해 두셨습니다. <b>설정 → 알림 → SEOWONY</b>에서 허용으로 바꾼 뒤 다시 눌러 주세요.";
     btns=inApk()?`<button class="bigbtn accent" data-n="on">알림 다시 켜기</button>`:"";
   } else if(st==="on"){
     msg="새 낙찰이 들어오면 이 휴대폰에 알림이 옵니다. 앱을 닫아 두어도 옵니다.";

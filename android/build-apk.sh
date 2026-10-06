@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 서원농산 체크 — APK 빌드 (Gradle 없이 안드로이드 도구만 사용)
+# SEOWONY (서원농산) — APK 빌드 (Gradle 없이 안드로이드 도구만 사용)
 set -e
 SDK="${ANDROID_HOME:-/home/claude/android/sdk}"
 BT="$SDK/build-tools/34.0.0"
@@ -41,9 +41,9 @@ if [ ! -f "$APP/seowon.keystore" ]; then
     -validity 10000 -dname "CN=Seowon Nongsan, O=Seowon, C=KR" >/dev/null 2>&1
 fi
 "$BT/apksigner" sign --ks "$APP/seowon.keystore" --ks-pass pass:seowon1234 \
-  --key-pass pass:seowon1234 --out "$OUT/서원농산체크.apk" aligned.apk
+  --key-pass pass:seowon1234 --out "$OUT/SEOWONY.apk" aligned.apk
 
-"$BT/apksigner" verify --print-certs "$OUT/서원농산체크.apk" | head -3
+"$BT/apksigner" verify --print-certs "$OUT/SEOWONY.apk" | head -3
 echo
-echo "완성: $OUT/서원농산체크.apk"
-ls -lh "$OUT/서원농산체크.apk"
+echo "완성: $OUT/SEOWONY.apk"
+ls -lh "$OUT/SEOWONY.apk"

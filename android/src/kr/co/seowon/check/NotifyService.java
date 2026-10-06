@@ -69,7 +69,7 @@ public class NotifyService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification waitN = builder(CH_WAIT)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle("서원농산 낙찰 알림 켜짐")
+                .setContentTitle("SEOWONY 낙찰 알림 켜짐")
                 .setContentText("새 낙찰이 들어오면 알려 드립니다")
                 .setContentIntent(openApp())
                 .setOngoing(true)

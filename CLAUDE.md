@@ -3,6 +3,13 @@
 가락시장 중도매인 사무실(서원농산)에서 호열·상혁·상용·부장님·사장님 다섯 사람이 함께 쓰는
 상차 체크 / 낙찰 내역 공유 앱입니다.
 
+## 앱 이름 · 아이콘
+
+앱 이름은 **SEOWONY**(웹 `manifest.webmanifest`·`<title>`·`apple-mobile-web-app-title`, 안드로이드 `android:label`).
+아이콘은 하양 바탕에 빨간 고추 픽토그램 — 웹 `icon.png`(512, maskable 안전영역 안), 안드로이드 `android/res/mipmap-*`
+(옛 판용 `ic_launcher.png` + 8.0 이상 적응형 `mipmap-anydpi-v26/ic_launcher.xml` = 하양 바탕 + `ic_launcher_fg.png`).
+APK 는 `android/build/SEOWONY.apk` 로 나온다.
+
 ## 구성
 
 | 파일 | 역할 |
