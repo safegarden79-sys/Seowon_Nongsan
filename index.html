@@ -68,6 +68,10 @@ h1{font-size:20px;margin:2px 0 0;color:var(--text)}
 .sec.folded .secbody{display:none}
 .sec.folded .secarr{transform:rotate(-90deg)}
 .sec .chips{margin-top:0}
+.mktchips{padding-bottom:6px}
+.mktchips .chip{flex:1;text-align:center}
+.mktchips .chip.mk-s.on{background:var(--seoul-pick);border-color:var(--seoul-pick);color:#FFFFFF}
+.mktchips .chip.mk-d.on{background:var(--dong-pick);border-color:var(--dong-pick);color:#FFFFFF}
 
 .searchwrap{position:relative;margin-top:12px}
 input[type=search],textarea,input[type=text],input[type=number],select{
@@ -508,6 +512,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
       <span class="dtitle">낙찰내역조회</span>
       <button class="datebtn" id="datebtn">📅 <span id="datetxt">날짜</span></button>
     </div>
+    <div class="chips mktchips" id="mktchips"></div>
     <p class="hint" id="pollstat"></p>
     <div class="chips" id="lotchips"></div>
     <p class="hint" id="lotstat"></p>
@@ -959,11 +964,13 @@ function renderLots(chips){
     <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${all.length-doneRows}</button>
     <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
     <button class="chip ${filter==="pick"?"on":""}" data-f="pick">우선 픽업 ${pickRows}</button>
-    <button class="chip ${filter==="re"?"on":""}" data-f="re">재경매 ${reRows}</button>
-    <span class="div"></span>
-    <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장</button>
-    <button class="chip mode ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과</button>
-    <button class="chip mode ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과</button>`;
+    <button class="chip ${filter==="re"?"on":""}" data-f="re">재경매 ${reRows}</button>`;
+  /* 시장 고르기는 날짜 바로 아래 줄 */
+  const nM=m=>all.filter(l=>String(l.mkt||"").startsWith(m)).length;
+  document.getElementById("mktchips").innerHTML=`
+    <button class="chip mode ${lotMkt==="all"?"on":""}" data-mk="all">전체 시장 ${all.length}</button>
+    <button class="chip mode mk-s ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과 ${nM("서울")}</button>
+    <button class="chip mode mk-d ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과 ${nM("동화")}</button>`;
   renderFeed();
   const kw=query.trim().toLowerCase();
   const rows=all.filter(l=>{
@@ -1110,11 +1117,12 @@ function inPeriod(l){
 }
 
 function renderInv(){
-  /* 재고 관리에는 지난 경매일 낙찰만 보인다. 오늘 경매일 낙찰은 낙찰 내역에서 챙기고,
-     하루가 지나면(한국 시간 15시에 경매일이 바뀌면) 서버가 자동으로 넘겨준다. */
+  /* 재고 관리에는 경매가 끝난 낙찰만 보인다. 오늘 경매 낙찰은 낙찰 내역에서 챙기고,
+     경매가 끝나면(한국 시간 0시 30분) 서버 rollover() 가 자동으로 넘겨준다. */
   const curDay=경매일KST();
   const allInv=Object.values(state.inv||{});
-  const inv=allInv.filter(l=>!l.date||l.date<curDay);
+  const cut=재고기준KST();                             // 0시 30분이 지나면 그날 경매 낙찰도 재고
+  const inv=allInv.filter(l=>!l.date||l.date<cut);
   const waiting=allInv.length-inv.length;
   const shipped=shippedRows||[];
   const chips=document.getElementById("invchips");
@@ -1162,7 +1170,7 @@ function renderInv(){
   const leftAmt=invBuy.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
   const leftQty=invBuy.reduce((a,l)=>a+(Number(l.left)||0),0);
   const d5=new Date(Date.now()+9*3600e3-4*86400e3).toISOString().slice(0,10);
-  box.innerHTML=`${waiting?`<p class="hint">오늘 경매(${mmdd(curDay)}) 낙찰 ${waiting}줄은 낙찰 내역에서 챙기고, 하루가 지나면(오후 3시) 자동으로 여기로 넘어옵니다.</p>`:""}<div class="invsum">
+  box.innerHTML=`${waiting?`<p class="hint">오늘 경매(${mmdd(curDay)}) 낙찰 ${waiting}줄은 낙찰 내역에서 챙기고, 경매가 끝나면(새벽 0시 30분) 자동으로 여기로 넘어옵니다.</p>`:""}<div class="invsum">
       <div><small>재고 낙찰 소요금액</small><b class="tnum">${won(total)}원</b></div>
       <div><small>남은 물건 금액</small><b class="tnum">${won(leftAmt)}원</b></div>
       <div><small>남은 수량</small><b class="tnum">${won(leftQty)}</b></div></div>
@@ -1273,7 +1281,7 @@ function renderPrep(){
   const a=document.activeElement;
   if(a&&a.tagName==="INPUT"&&box.contains(a)) return;
   const curDay=경매일KST();
-  const inv=Object.values(state.inv||{}).filter(l=>!l.date||l.date<curDay);
+  const inv=Object.values(state.inv||{}).filter(l=>!l.date||l.date<재고기준KST());
   const day=(state.prep||{})[curDay]||{};
   const n=PREP_ROWS.filter(r=>prepHas(day[r.key])).length;
   document.getElementById("prepsub").textContent=`경매일 ${mmdd(curDay)} · ${prepSaved(curDay)?"💾 저장됨 · ":""}${n}품목`;
@@ -1347,7 +1355,7 @@ document.getElementById("prepview").addEventListener("focusout",()=>refreshSoon(
 function invCSV(prep){
   if(prep){                               // 선입선출 준비표를 그대로 엑셀로
     const curDay=경매일KST(), sheet=(state.fifo||{})[curDay]||{};
-    const {list}=fifoData(curDay,Object.values(state.inv||{}).filter(l=>!l.date||l.date<curDay));
+    const {list}=fifoData(curDay,Object.values(state.inv||{}).filter(l=>!l.date||l.date<재고기준KST()));
     const day=(state.prep||{})[curDay]||{};
     const lines=[[`경매 전 준비 양식 (경매일 ${curDay})`],["품목","세계로","","","일일향","초록"],["","수량(box)","봉지(대)","봉지(소)","",""]];
     PREP_ROWS.forEach(r=>{ const v=day[r.key]||{}; lines.push([r.label,...PREP_COLS.map(c=>v[c]??"")]); });
@@ -1368,7 +1376,7 @@ function invCSV(prep){
   }
   const shippedView=invMode==="shipped";
   const rows=shippedView?(shippedRows||[]).filter(inPeriod).filter(invMatch)
-    :Object.values(state.inv||{}).filter(l=>!l.date||l.date<경매일KST()).filter(invMatch);
+    :Object.values(state.inv||{}).filter(l=>!l.date||l.date<재고기준KST()).filter(invMatch);
   const head=shippedView
     ?["품목","생산자","시장","경매일","번호","단위","등급","수량","단가","소요금액","출고일","출고자"]
     :["품목","생산자","시장","경매일","번호","단위","등급","수량","단가","소요금액","잔여수량"];
@@ -1516,6 +1524,7 @@ function onChip(e){
   if(b.dataset.im){ invMode=b.dataset.im; if(invMode==="shipped") loadShipped().then(()=>render()); }
   render();}
 document.getElementById("lotchips").addEventListener("click",onChip);
+document.getElementById("mktchips").addEventListener("click",onChip);
 document.getElementById("invchips").addEventListener("click",onChip);
 
 
@@ -1640,6 +1649,11 @@ const 오늘KST=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
    수집기(seowon_bridge.auction_date)가 두 시장 낙찰에 붙이는 날짜와 같은 규칙이다. */
 const 경매일KST=()=>{ const k=new Date(Date.now()+9*3600e3);
   if(k.getUTCHours()>=15) k.setUTCDate(k.getUTCDate()+1);
+  return k.toISOString().slice(0,10); };
+/* 재고로 넘기는 기준일 (서버 invCutDay 와 같음): 한국 시간 0시 30분이 지나면 그날 경매 낙찰이 재고가 된다.
+   이 날짜 '전'의 줄이 재고 관리에 보인다. */
+const 재고기준KST=()=>{ const k=new Date(Date.now()+9*3600e3);
+  if(k.getUTCHours()*60+k.getUTCMinutes()>=30) k.setUTCDate(k.getUTCDate()+1);
   return k.toISOString().slice(0,10); };
 
 /* 낙찰 탭 하단의 짧은 안내문 (지움·추가 결과 등을 보여준다) */

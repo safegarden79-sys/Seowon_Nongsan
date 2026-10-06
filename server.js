@@ -637,13 +637,21 @@ function auctionDay() {
   if (k.getUTCHours() >= 15) k.setUTCDate(k.getUTCDate() + 1);
   return k.toISOString().slice(0, 10);
 }
+/* 재고로 넘기는 기준 — 경매는 밤 22:30 에 시작해 새벽에 끝나므로, 한국 시간 0시 30분이 지나면 그날(경매가 끝나는 날)
+   낙찰을 재고로 넘긴다. 이 날짜 '전'의 줄이 재고 대상이다. (00:00~00:30 은 아직 오늘 경매 중으로 본다) */
+const INV_CUT_MIN = 30;                                // 0시 30분
+function invCutDay() {
+  const k = new Date(Date.now() + 9 * 3600e3);
+  if (k.getUTCHours() * 60 + k.getUTCMinutes() >= INV_CUT_MIN) k.setUTCDate(k.getUTCDate() + 1);
+  return k.toISOString().slice(0, 10);
+}
 function rollover() {
-  const day = auctionDay();
+  const day = invCutDay();
   const old = Object.values(state.lots).filter(l => !l.date || l.date < day);
   if (!old.length) return;
   addToInv(old, Date.now());                           // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
   for (const l of old) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
-  bump("서원이", `지난 낙찰 ${old.length}줄을 재고 관리로 넘겼습니다 (새 경매일 ${day})`);
+  bump("서원이", `경매가 끝난 낙찰 ${old.length}줄을 재고 관리로 넘겼습니다`);
 }
 rollover();
 setInterval(rollover, 60 * 1000);
