@@ -69,7 +69,8 @@ if (!state.shipped) state.shipped = {};
 if (!state.pollers) state.pollers = {};
 if (!state.pickup)  state.pickup = {};    // 우선 픽업 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
-if (!state.pushSubs) state.pushSubs = {}; // 웹 푸시 구독 (아이폰 홈 화면 앱 등) — endpoint → {sub, user, at}
+if (!state.pushSubs) state.pushSubs = {};
+if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at} // 웹 푸시 구독 (아이폰 홈 화면 앱 등) — endpoint → {sub, user, at}
 
 /* ---------- 새 낙찰 알림 ----------
    ① 웹 푸시: 아이폰(홈 화면에 추가한 앱)·크롬이 '알림 허용'하면 구독을 받아 두고, 새 낙찰 때 보낸다.
@@ -108,6 +109,10 @@ function pruneHistory() {
   for (const d of Object.keys(state.history)) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (isNaN(t) || t < cutoff) delete state.history[d];
+  }
+  for (const d of Object.keys(state.fifo || {})) {
+    const t = new Date(d + "T00:00:00+09:00").getTime();
+    if (isNaN(t) || t < cutoff) delete state.fifo[d];
   }
   /* 재경매 표시도 그 날짜 기록과 함께 정리한다 (id = K|시장|날짜|번호|수량|단가) */
   for (const id of Object.keys(state.reauc || {})) {
@@ -310,6 +315,20 @@ function applyOp(user, op, meta = {}) {
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
       return;
     }
+    case "fifo": {                                   // 선입선출 준비표 — 품목별 오늘 목표 수량·메모·준비 확인
+      const d = String(op.date || ""), item = String(op.item || "").slice(0, 40);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !item) return;
+      const day = state.fifo[d] = state.fifo[d] || {};
+      const cur = Object.assign({}, day[item] || {});
+      if ("plan" in op) cur.plan = op.plan === "" || op.plan == null ? null : Math.max(0, Math.round(Number(op.plan) || 0));
+      if ("memo" in op) cur.memo = String(op.memo || "").slice(0, 100);
+      if ("done" in op) cur.done = !!op.done;
+      cur.by = by; cur.at = now;
+      day[item] = cur;
+      const 말 = "done" in op ? (cur.done ? "준비 확인" : "준비 확인 취소") : "plan" in op ? `목표 ${cur.plan ?? "-"}` : "메모";
+      bump(by, `선입선출 · ${item} ${말}`);
+      return;
+    }
     case "pickup": {                                 // 우선 픽업 표시 켜기/끄기
       if (!op.id) return;
       if (op.on) state.pickup[op.id] = { by, at: now };
@@ -481,6 +500,21 @@ const server = http.createServer((req, res) => {
     const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
     req.on("close", () => { clearInterval(ping); notifyClients.delete(res); });
     return;
+  }
+
+  /* 선입선출 준비표용 — 날짜별 품목 낙찰 수량 (재경매 제외). 품목 이름 맞추기는 화면에서 한다. */
+  if (u.pathname === "/api/itemstats") {
+    const agg = {};
+    for (const [d, rows] of Object.entries(state.history)) {
+      for (const r of Object.values(rows)) {
+        if (!r || state.reauc[r.id]) continue;
+        const k = (r.item || "품목 미상") + "\u0000" + d;
+        agg[k] = (agg[k] || 0) + (Number(r.qty) || 0);
+      }
+    }
+    const rows = Object.entries(agg).map(([k, qty]) => { const [item, date] = k.split("\u0000"); return { item, date, qty }; });
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ ok: true, rows }));
   }
 
   if (u.pathname === "/api/shipped") {
