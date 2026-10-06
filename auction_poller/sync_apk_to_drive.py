@@ -28,8 +28,14 @@ def candidates():
     """드라이브 폴더가 있을 만한 곳들 (먼저 찾은 것을 쓴다)"""
     custom = os.path.join(HERE, "drive_folder.txt")
     if os.path.exists(custom):
-        with open(custom, encoding="utf-8-sig") as f:
-            p = f.read().strip().strip('"')
+        raw = open(custom, "rb").read()
+        for enc in ("utf-8-sig", "cp949"):          # 메모장 기본 저장(ANSI=cp949)으로 적어도 읽히게
+            try:
+                p = raw.decode(enc).strip().strip('"')
+                break
+            except UnicodeDecodeError:
+                p = ""
+        p = p.splitlines()[0].strip().strip('"') if p else ""
         if p:
             yield p
     env = os.environ.get("SEOWONY_DRIVE_DIR")
