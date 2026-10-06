@@ -3,7 +3,7 @@
    그래야 새 판이 올라오면 바로 내려가고, 신호가 끊겨도 앱은 열린다.
    경매 화면 사진과 바깥에서 받아오는 인식 엔진은 한 번 받으면 안 바뀌므로
    담아둔 것을 먼저 쓴다. 서버와 실시간으로 주고받는 /api/ 는 건드리지 않는다. */
-const CACHE = "seowon-v21";
+const CACHE = "seowon-v22";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icon.png"];
 
 self.addEventListener("install", e => {

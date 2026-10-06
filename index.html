@@ -365,7 +365,13 @@ table.xl th.pkh{font-size:9.5px;color:#C46A00;line-height:1.15}
 /* 경매 전 준비 양식 */
 table.xl.prep{min-width:0}
 table.xl.prep th{font-size:10.5px;line-height:1.2;padding:4px 2px}
-table.xl.prep th.pseg{background:#DCEBFF;color:#0D3F9E;font-size:12px;font-weight:800}
+table.xl.prep th.pseg{background:#DCEBFF;color:#0D3F9E;font-size:15px;font-weight:800}
+/* 거래처 칸 색 — 일일향 연분홍, 초록 연초록 (머리글 글자는 세계로와 함께 3 키움) */
+table.xl.prep th.c-ilil,table.xl.prep th.c-chorok{font-size:13.5px;font-weight:800}
+table.xl.prep th.c-ilil,table.xl.prep td.c-ilil{background:#FDE2EA;color:#A3214F}
+table.xl.prep th.c-chorok,table.xl.prep td.c-chorok{background:#DFF3D6;color:#1B6B1E}
+table.xl.prep td.c-ilil input{background:#FFF4F7;border-color:#F3B6C8}
+table.xl.prep td.c-chorok input{background:#F3FBEF;border-color:#A9D99A}
 table.xl.prep td.pitem,table.xl.prep th.pitem{text-align:left;font-weight:700;font-size:12.5px;padding:4px 6px;white-space:normal;word-break:keep-all}
 table.xl.prep td.pc{padding:2px}
 table.xl.prep input{width:100%;min-width:38px;padding:6px 2px;text-align:center;font-size:14px;font-weight:700;border-radius:6px;
@@ -1265,13 +1271,13 @@ function prepTable(curDay){
   const rows=saved?PREP_ROWS.filter(r=>prepHas(day[r.key])):PREP_ROWS;
   const sum=c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0);
   return `<div class="xwrap"><table class="xl prep${saved?" saved":""}"><thead>
-      <tr><th rowspan="2" class="pitem">품목</th><th colspan="3" class="pseg">세계로</th><th rowspan="2">일일향</th><th rowspan="2">초록</th></tr>
+      <tr><th rowspan="2" class="pitem">품목</th><th colspan="3" class="pseg">세계로</th><th rowspan="2" class="c-ilil">일일향</th><th rowspan="2" class="c-chorok">초록</th></tr>
       <tr><th>수량<br>(box)</th><th>봉지<br>(대)</th><th>봉지<br>(소)</th></tr></thead><tbody>
     ${rows.map(r=>{ const v=day[r.key]||{};
       return `<tr data-prow="${esc(r.key)}"><td class="pitem">${esc(r.label)}</td>${PREP_COLS.map(c=>
-        `<td class="pc${c==="bagS"?" pseg-end":""}">${saved?`<b class="tnum">${v[c]||""}</b>`
+        `<td class="pc c-${c}${c==="bagS"?" pseg-end":""}">${saved?`<b class="tnum">${v[c]||""}</b>`
           :`<input type="number" inputmode="numeric" min="0" data-pc="${c}" value="${v[c]??""}">`}</td>`).join("")}</tr>`; }).join("")}
-    </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
+    </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r c-${c}">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
 /* 맨 위 '챙길 품목' 구역 = 경매 전 준비 양식 */
