@@ -46,4 +46,14 @@ fi
 "$BT/apksigner" verify --print-certs "$OUT/SEOWONY.apk" | head -3
 echo
 echo "완성: $OUT/SEOWONY.apk"
+
+# 서버가 내려줄 새 판으로 복사 — 커밋·배포하면 폰의 앱이 열릴 때 '업데이트할까요?' 를 묻는다.
+# 바뀐 내용 한 줄은 NOTES="..." bash android/build-apk.sh 처럼 넘긴다.
+VC=$(sed -n 's/.*android:versionCode="\([0-9]*\)".*/\1/p' "$APP/AndroidManifest.xml" | head -1)
+VN=$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' "$APP/AndroidManifest.xml" | head -1)
+mkdir -p "$APP/../app"
+cp "$OUT/SEOWONY.apk" "$APP/../app/SEOWONY.apk"
+node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({versionCode:+process.argv[2], versionName:process.argv[3], notes:process.argv[4]||""}, null, 1)+"\n")' \
+  "$APP/../app/version.json" "$VC" "$VN" "${NOTES:-}"
+echo "서버용: app/SEOWONY.apk · app/version.json (판 $VN / $VC)"
 ls -lh "$OUT/SEOWONY.apk"

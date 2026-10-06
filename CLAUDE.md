@@ -10,6 +10,18 @@
 (옛 판용 `ic_launcher.png` + 8.0 이상 적응형 `mipmap-anydpi-v26/ic_launcher.xml` = 하양 바탕 + `ic_launcher_fg.png`).
 APK 는 `android/build/SEOWONY.apk` 로 나온다.
 
+## 앱 업데이트 (자동으로 묻기)
+
+- **웹·아이폰(홈 화면 앱)**: 따로 할 일 없음. 서버 판(`BUILD`, index.html·sw.js 해시)이 바뀌면 열려 있는 폰이 스스로 새 화면을 받는다.
+- **안드로이드 APK**: 앱을 열거나 다시 볼 때(10분에 한 번) `GET /api/app`(= `app/version.json`)의 `versionCode` 가
+  깔린 판보다 크면 'SEOWONY 업데이트 — 지금 업데이트할까요?' 를 묻는다. `업데이트` → `/app/SEOWONY.apk` 를 받아
+  `PackageInstaller` 로 설치 화면을 띄운다(안드로이드가 마지막 확인을 한 번 더 묻는다. 처음 한 번은 '이 출처 허용' 설정).
+  `나중에` → 그 판은 12시간 동안 다시 묻지 않는다. 메뉴의 `업데이트 확인` 으로 바로 확인할 수도 있다.
+- 새 판 내는 법: `android/AndroidManifest.xml` 의 `versionCode` 를 1 올리고(versionName 도) →
+  `NOTES="바뀐 내용" bash android/build-apk.sh` → 만들어진 `app/SEOWONY.apk`·`app/version.json` 을 커밋·배포.
+  **같은 서명 열쇠(`android/seowon.keystore`)로 서명해야** 덮어 깔린다. 업데이트 묻기는 1.2(versionCode 3)부터 들어 있어,
+  그 전 판은 한 번은 손으로 1.2 를 깔아야 한다(`https://서버주소/app/SEOWONY.apk`).
+
 ## 구성
 
 | 파일 | 역할 |
@@ -18,7 +30,8 @@ APK 는 `android/build/SEOWONY.apk` 로 나온다.
 | `index.html` | 앱 화면 전체. 낙찰 내역(날짜별 조회) · 재고 관리(재고·출고) · 오프라인 대기열 |
 | `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다. 웹 푸시 알림 표시 |
 | `webpush.js` | 웹 푸시 보내기(암호화·VAPID 서명) — 외부 라이브러리 없음 |
-| `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스) |
+| `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스 + 업데이트 묻기) |
+| `app/` | 서버가 내려주는 안드로이드 최신 판 `SEOWONY.apk` + `version.json` (build-apk.sh 가 만든다) |
 | `data.json` | 서버가 자동 생성/갱신. 낙찰·체크·메모·날짜별 기록(history)·재고 관리 재고(inv)·출고 기록(shipped) |
 | `backup/` | 6시간마다 자동 백업 (최근 14개) |
 | `auction_poller/` | PC에서 돌리는 실시간 수집기(파이썬). 서울청과·동화청과를 직접 읽어 `/api/op` 로 올린다 |
@@ -182,6 +195,7 @@ curl localhost:3000/api/health
 - `GET  /api/shipped`       재고 관리 출고 기록 전체 `{rows:[줄]}`
 - `GET  /api/push/key` · `POST /api/push/subscribe` · `POST /api/push/unsubscribe` · `POST /api/push/test` 웹 푸시
 - `GET  /api/notify` 안드로이드 앱 알림 서비스용 SSE (새 낙찰 때만 `event: lots`)
+- `GET  /api/app` 안드로이드 앱 최신 판 `{versionCode, versionName, notes, url}` (APK 는 `/app/SEOWONY.apk`)
 - `GET  /api/health` 상태 점검
 
 조작(op) 종류:

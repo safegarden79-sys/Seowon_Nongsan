@@ -419,7 +419,8 @@ function applyOp(user, op, meta = {}) {
 /* ---------- 요청 처리 ---------- */
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json",
-  ".png": "image/png", ".jpg": "image/jpeg", ".css": "text/css; charset=utf-8" };
+  ".png": "image/png", ".jpg": "image/jpeg", ".css": "text/css; charset=utf-8",
+  ".apk": "application/vnd.android.package-archive" };
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -445,6 +446,15 @@ const server = http.createServer((req, res) => {
       알림: { 웹푸시: Object.keys(state.pushSubs).length, 앱: notifyClients.size },
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
       가동초: Math.round(process.uptime()) }));
+  }
+
+  /* 안드로이드 앱 업데이트 — 앱이 열릴 때 이 판 번호를 보고 더 높으면 '업데이트할까요?' 를 묻는다.
+     판 정보는 android/build-apk.sh 가 APK 와 함께 app/version.json 에 쓴다. APK 는 /app/SEOWONY.apk */
+  if (u.pathname === "/api/app") {
+    let v = null;
+    try { v = JSON.parse(fs.readFileSync(path.join(ROOT, "app", "version.json"), "utf8")); } catch (e) {}
+    res.writeHead(v ? 200 : 404, { "Content-Type": TYPES[".json"], "Cache-Control": "no-cache" });
+    return res.end(JSON.stringify(v ? { ...v, url: "/app/SEOWONY.apk" } : { error: "앱 판 정보 없음" }));
   }
 
   if (u.pathname === "/api/state") {
@@ -576,7 +586,7 @@ const server = http.createServer((req, res) => {
   const file = path.join(ROOT, path.normalize(name).replace(/^(\.\.[/\\])+/, ""));
   if (fs.existsSync(file) && fs.statSync(file).isFile()) {
     /* 화면·스크립트는 늘 서버에 다시 물어보게 한다. 그래야 새 판이 바로 내려간다. */
-    const fresh = /\.(html|js|webmanifest)$/i.test(file);
+    const fresh = /\.(html|js|webmanifest|apk)$/i.test(file);
     res.writeHead(200, {
       "Content-Type": TYPES[path.extname(file)] || "application/octet-stream",
       "Cache-Control": fresh ? "no-cache" : "public, max-age=86400"
