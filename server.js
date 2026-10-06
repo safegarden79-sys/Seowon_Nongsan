@@ -294,9 +294,16 @@ function applyOp(user, op, meta = {}) {
       bump(by, `재고 관리로 ${n}줄 불러옴 (${from}~${op.to || "오늘"})`);
       return;
     }
-    case "invleft": {                                // 재고 관리 — 잔여 수량 고치기
+    case "invlock": {                                // 재고 관리 — 체크(고정). 풀기 전에는 잔여 수량·출고·삭제가 안 된다
       const it = state.inv[op.id];
       if (!it) return;
+      if (op.on) it.lock = { by, at: now }; else delete it.lock;
+      bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} ${op.on ? "고정" : "고정 풀기"}`);
+      return;
+    }
+    case "invleft": {                                // 재고 관리 — 잔여 수량 고치기
+      const it = state.inv[op.id];
+      if (!it || it.lock) return;                    // 고정(체크)한 줄은 고치지 않는다
       it.left = Math.max(0, Math.min(Number(it.qty) || 0, Math.round(Number(op.left) || 0)));
       it.leftBy = by; it.leftAt = now;
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 잔여 ${it.left}/${it.qty}`);
@@ -304,7 +311,7 @@ function applyOp(user, op, meta = {}) {
     }
     case "ship": {                                   // 전량 출고 — 목록에서 빼서 출고 기록으로 옮긴다
       const it = state.inv[op.id];
-      if (!it) return;
+      if (!it || it.lock) return;                    // 고정(체크)한 줄은 출고하지 않는다
       delete state.inv[op.id];
       state.shipped[op.id] = Object.assign({}, it, { left: 0, shippedAt: now, shippedBy: by });
       pruneShipped();
@@ -392,7 +399,7 @@ function applyOp(user, op, meta = {}) {
     }
     case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다 (오늘 목록 + 그 날짜 기록 모두에서)
       const lot = state.lots[op.id];
-      if (!lot) return;
+      if (!lot || (state.inv[op.id] && state.inv[op.id].lock)) return;   // 재고에서 고정(체크)한 줄은 지우지 않는다
       delete state.lots[op.id];
       delete state.got[op.id];
       delete state.lotnotes[op.id];

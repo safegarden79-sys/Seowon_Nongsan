@@ -289,6 +289,19 @@ table.xl td.ck{width:30px;padding:0}
 .ckb i{width:18px;height:18px;border-radius:5px;border:1.5px solid #9AA1A9;display:flex;align-items:center;justify-content:center;
   font-style:normal;font-size:12px;font-weight:900;color:transparent}
 tr.got .ckb i{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
+/* 재고 관리 — 체크(고정)한 줄 */
+tr.locked .ckb i{background:var(--accent);border-color:var(--accent);color:#FFFFFF}
+table.xl tr.locked td{font-weight:600}
+/* 고정 칸이 생긴 만큼 재고 표를 조금 좁혀 폰 한 화면에 '출고'까지 들어오게 */
+table.xl.inv th,table.xl.inv td{padding:5px 2px}
+table.xl.inv td.xw{max-width:66px;font-size:12px}
+table.xl.inv td.ck,table.xl.inv th.ck{width:26px}
+table.xl.inv .ckb{width:26px}
+table.xl.inv .left{gap:2px}
+table.xl.inv .left button{width:21px}
+table.xl.inv .left .lv{min-width:30px;font-size:12px}
+table.xl tr.locked button:disabled{opacity:.35}
+table.xl tr.locked .shipbtn:disabled{opacity:1;background:#E8EAED;color:#5F6368;border-color:#E8EAED}
 table.xl tr.got td.qn{text-decoration:none}
 table.xl tr.got td.qn{color:var(--dim)}
 table.xl td.qn{font-weight:800;font-size:14px}
@@ -1074,9 +1087,9 @@ function renderInv(){
   const shipped=shippedRows||[];
   const chips=document.getElementById("chips");
   chips.innerHTML=`
+    <button class="chip ${invMode==="fifo"?"on":""}" data-im="fifo">📋 선입선출 준비</button>
     <button class="chip ${invMode==="stock"?"on":""}" data-im="stock">재고 ${inv.length}</button>
     <button class="chip ${invMode==="shipped"?"on":""}" data-im="shipped">출고 기록${shippedRows?" "+shipped.length:""}</button>
-    <button class="chip ${invMode==="fifo"?"on":""}" data-im="fifo">📋 선입선출 준비</button>
     ${invMode==="shipped"?`<span class="div"></span>
     <button class="chip mode ${invPeriod==="month"?"on":""}" data-ip="month">이번 달</button>
     <button class="chip mode ${invPeriod==="prev"?"on":""}" data-ip="prev">지난 달</button>
@@ -1138,17 +1151,18 @@ function renderInv(){
         <button data-iact="import">불러오기</button></div>`:""}
     ${groups.length?groups.map(g=>`<div class="invgrp">
       <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 잔여 ${g.left}/${g.qty} · 소요 ${won(g.amt)}원</span></div>
-      <div class="xwrap"><table class="xl"><thead><tr>
-        <th class="xw">생산자</th><th>규격</th><th>수량</th><th>단가 ▲<br>소요금액</th><th>잔여 수량</th><th>출고</th>
-      </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${[l.left>0?"":"zero",mkCls(l),isReauc(l)?"reauc":""].join(" ")}">
+      <div class="xwrap"><table class="xl inv"><thead><tr>
+        <th class="ck" title="체크하면 고정 — 풀기 전엔 수정·출고·삭제 안 됨">🔒</th><th class="xw">생산자</th><th>규격</th><th>수량</th><th>단가 ▲<br>소요금액</th><th>잔여 수량</th><th>출고</th>
+      </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${[l.left>0?"":"zero",mkCls(l),isReauc(l)?"reauc":"",l.lock?"locked":""].join(" ")}">
+        <td class="ck"><button class="ckb" data-iact="lock" aria-label="${l.lock?"고정 풀기":"고정"}" title="${l.lock?esc((l.lock.by||"")+" 고정 · 탭하면 풀기"):"탭하면 고정"}"><i>✓</i></button></td>
         <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))} · ${esc(mmdd(l.date))}</span></td>
         <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
         <td class="r">${l.qty}</td><td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
-        <td><div class="left"><button data-iact="dec" aria-label="하나 빼기">−</button>
-          <button class="lv tnum" data-iact="setleft">${l.left}<small>/${l.qty}</small></button>
-          <button data-iact="inc" aria-label="하나 더하기">+</button></div></td>
-        <td class="c"><button class="shipbtn" data-iact="ship">전량<br>출고</button></td></tr>`).join("")}
-      </tbody><tfoot><tr><td class="xw">소계</td><td></td>
+        <td><div class="left"><button data-iact="dec" aria-label="하나 빼기"${l.lock?" disabled":""}>−</button>
+          <button class="lv tnum" data-iact="setleft"${l.lock?" disabled":""}>${l.left}<small>/${l.qty}</small></button>
+          <button data-iact="inc" aria-label="하나 더하기"${l.lock?" disabled":""}>+</button></div></td>
+        <td class="c"><button class="shipbtn" data-iact="ship"${l.lock?" disabled":""}>${l.lock?"고정":"전량<br>출고"}</button></td></tr>`).join("")}
+      </tbody><tfoot><tr><td></td><td class="xw">소계</td><td></td>
         <td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td class="c">${g.left}</td><td></td></tr></tfoot></table></div></div>`).join("")
       :`<div class="empty">재고 관리 목록이 비어 있습니다.<br>낙찰은 하루가 지나면 자동으로 넘어오고,
         위의 '지난 낙찰 불러오기'로 캘린더 기록에서 가져올 수도 있습니다.</div>`}`;
@@ -1333,6 +1347,12 @@ document.getElementById("invview").addEventListener("click",e=>{
     return render();
   }
   const l=(state.inv||{})[id]; if(!l)return;
+  if(act==="lock"){                                   // 체크 = 고정. 다시 탭해야 풀린다
+    pushOp({t:"invlock",id,on:!l.lock});
+    invStat(l.lock?`'${normItem(l.item)} · ${l.who||""}' 고정을 풀었습니다.`:`'${normItem(l.item)} · ${l.who||""}' 고정 — 체크를 풀기 전엔 수정·출고·삭제가 안 됩니다.`);
+    return;
+  }
+  if(l.lock){ invStat("고정(체크)한 줄입니다. 맨 왼쪽 체크를 풀어야 고칠 수 있습니다."); return; }
   if(act==="dec"||act==="inc"){
     const n=Math.max(0,Math.min(l.qty,(l.left||0)+(act==="inc"?1:-1)));
     if(n!==l.left) pushOp({t:"invleft",id,left:n});
@@ -1445,6 +1465,7 @@ document.querySelector("main").addEventListener("click",e=>{
       /* 잘못 읽힌 줄을 하나만 지운다. 모두에게서 사라지므로 한 번 더 묻는다. */
       const l=(state.lots||[]).find(x=>x.id===id);
       const 이름=l?[l.item,l.who].filter(Boolean).join(" · "):"이 줄";
+      if(((state.inv||{})[id]||{}).lock){ alert(`'${이름}' 은(는) 재고 관리에서 고정(체크)한 줄이라 지울 수 없습니다.`); return; }
       if(!confirm(`'${이름}' 줄을 지웁니다.
 모두의 화면에서 사라지고, 세어둔 박스 수도 함께 지워집니다.`)) return;
       openLotNote=null; pushOp({t:"dellot",id});
@@ -1686,7 +1707,9 @@ function localEcho(op){
     if("memo" in op) c.memo=op.memo; if("done" in op) c.done=!!op.done; d[op.item]=c; }
   if(op.t==="reauc"){ state.reauc=state.reauc||{}; if(op.on) state.reauc[op.id]={by:me,at:Date.now()}; else delete state.reauc[op.id]; }
   state.inv=state.inv||{};
-  if(op.t==="invleft"&&state.inv[op.id]) state.inv[op.id]=Object.assign({},state.inv[op.id],{left:op.left});
+  if(op.t==="invlock"&&state.inv[op.id]){ const it=Object.assign({},state.inv[op.id]);
+    if(op.on) it.lock={by:me||"나",at:Date.now()}; else delete it.lock; state.inv[op.id]=it; }
+  if(op.t==="invleft"&&state.inv[op.id]&&!state.inv[op.id].lock) state.inv[op.id]=Object.assign({},state.inv[op.id],{left:op.left});
   if(op.t==="ship") delete state.inv[op.id];
   if(op.t==="dellot") delete state.inv[op.id];
   if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; state.pickup={}; }
