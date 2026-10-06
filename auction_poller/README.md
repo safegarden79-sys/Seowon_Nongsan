@@ -168,3 +168,15 @@ python backfill_donghwa.py 40     # 기간을 늘리고 싶으면 숫자만 바�
 이번 직접 읽기 방식이 더 빠르고 정확해서, 기존 OCR(화면 찍어서 글자 인식) 방식은
 당장은 쓰지 않아도 됩니다. 다만 혹시 두 사이트 구조가 바뀌어 이 프로그램이 멈추는
 상황을 대비한 비상용으로는 그대로 남겨두었습니다. 지워도 되고, 그냥 둬도 상관없습니다.
+
+## SEOWONY 앱(APK)을 구글 드라이브에 자동으로 올리기
+
+`run_poller.bat` 은 최신 코드를 받은 뒤 `sync_apk_to_drive.py` 로 저장소의 `app/SEOWONY.apk` 를
+구글 드라이브(safegarden79@gmail.com)의 **`SEOWONY 앱`** 폴더에 복사합니다.
+
+- 이 PC 에 **구글 드라이브 데스크톱**(Google Drive for desktop)을 설치하고 safegarden79@gmail.com 으로 로그인해 두면 됩니다.
+  드라이브가 `G:\내 드라이브` 처럼 보이면 그 안의 `SEOWONY 앱` 폴더를 스스로 찾아 씁니다.
+- 폴더 위치가 다르면 이 폴더에 `drive_folder.txt` 를 만들고 `SEOWONY 앱` 폴더 경로를 한 줄로 적으세요.
+  예) `G:\내 드라이브\SEOWONY 앱`
+- 올라가는 파일: `SEOWONY.apk`(언제나 최신) · `SEOWONY_1.2.apk` 처럼 판마다 한 벌.
+- 드라이브를 못 찾아도 수집기는 그대로 켜집니다(안내 문구만 나옵니다).

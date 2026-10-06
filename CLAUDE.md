@@ -19,7 +19,12 @@ APK 는 `android/build/SEOWONY.apk` 로 나온다.
   `나중에` → 그 판은 12시간 동안 다시 묻지 않는다. 메뉴의 `업데이트 확인` 으로 바로 확인할 수도 있다.
 - 새 판 내는 법: `android/AndroidManifest.xml` 의 `versionCode` 를 1 올리고(versionName 도) →
   `NOTES="바뀐 내용" bash android/build-apk.sh` → 만들어진 `app/SEOWONY.apk`·`app/version.json` 을 커밋·배포.
-  **같은 서명 열쇠(`android/seowon.keystore`)로 서명해야** 덮어 깔린다. 업데이트 묻기는 1.2(versionCode 3)부터 들어 있어,
+  **같은 서명 열쇠(`android/seowon.keystore`)로 서명해야** 덮어 깔린다.
+- **APK 기본 공유 위치 = safegarden79@gmail.com 구글 드라이브의 `SEOWONY 앱` 폴더.** 사무실 PC 의 `run_poller.bat` 이
+  git pull 뒤 `auction_poller/sync_apk_to_drive.py` 를 불러 `app/SEOWONY.apk` 를 PC 의 구글 드라이브 데스크톱 폴더
+  (`G:\내 드라이브\SEOWONY 앱` 등, 못 찾으면 `auction_poller/drive_folder.txt` 에 적은 경로)에 `SEOWONY.apk`(최신) +
+  `SEOWONY_<판>.apk`(판별 보관)로 복사한다 → 드라이브가 올린다. 드라이브 데스크톱이 없으면 안내만 하고 수집기는 그대로 켠다.
+  (Claude 의 드라이브 연결 도구로는 바이너리를 깨지지 않게 올릴 수 없어 이 방식을 쓴다.) 업데이트 묻기는 1.2(versionCode 3)부터 들어 있어,
   그 전 판은 한 번은 손으로 1.2 를 깔아야 한다(`https://서버주소/app/SEOWONY.apk`).
 
 ## 구성

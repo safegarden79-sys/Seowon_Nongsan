@@ -17,6 +17,15 @@ if errorlevel 1 (
 )
 echo.
 
+echo [+] Copying the latest SEOWONY APK to Google Drive (SEOWONY app folder)...
+where python >nul 2>nul
+if %errorlevel%==0 (
+    python sync_apk_to_drive.py
+) else (
+    py sync_apk_to_drive.py
+)
+echo.
+
 if not exist "secrets.json" (
     echo    secrets.json was not found in this folder.
     echo    Copy secrets.example.json to secrets.json, fill in the passwords, then run this again.
