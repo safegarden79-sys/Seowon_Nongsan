@@ -377,6 +377,11 @@ table.xl.prep td.pc{padding:2px}
 table.xl.prep input{width:100%;min-width:38px;padding:6px 2px;text-align:center;font-size:14px;font-weight:700;border-radius:6px;
   background:#FFFFFF;border:1px solid var(--line)}
 table.xl.prep input:not(:placeholder-shown){border-color:#7CA9E0}
+/* 칸 아래 단위 버튼 — 수량 / kg (kg 이면 적은 값을 500g·2.5kg 처럼 보여 준다) */
+table.xl.prep .pu{display:block;width:100%;margin-top:2px;padding:1px 0;border:0;border-radius:4px;background:rgba(0,0,0,.05);
+  color:var(--muted);font-size:10px;font-weight:700;line-height:1.4}
+table.xl.prep .pu.kg{background:#FFE9B8;color:#8A5A00}
+table.xl.prep tfoot td{white-space:nowrap;line-height:1.25}
 table.xl.prep td.pseg-end,table.xl.prep th.pseg,table.xl.prep thead tr:last-child th:last-child{border-right:2px solid #3B7DD8}
 /* 선입선출 준비표 */
 .ffhead0{display:flex;align-items:baseline;gap:8px;margin:0 0 8px}
@@ -1256,6 +1261,10 @@ const PREP_COLS=["box","bagL","bagS","ilil","chorok"];
 /* 저장을 누르면(prepsave op → state.prep[경매일]._saved) 수량을 적은 줄만 남기고, 아래 품목별 재고 카드도
    챙길 품목(준비 양식에 수량이 있는 품목 · 목표/메모를 적은 품목)만 보여준다. '다시 고치기'로 전체 양식에 돌아간다. */
 const prepHas=v=>PREP_COLS.some(c=>(Number((v||{})[c])||0)>0);
+/* 칸 단위: 수량(정수) 또는 kg(소수 첫째 자리). kg 은 1 미만이면 g 으로 보인다 (0.5 → 500g) */
+const prepKg=(v,c)=>((v||{})[c+"U"]==="kg");
+const fmtKg=x=>{ x=Math.round(x*10)/10; return x<1?`${Math.round(x*1000)}g`:`${String(x).replace(/\.0$/,"")}kg`; };
+const fmtPrep=(v,c)=>{ const x=(v||{})[c]; if(x==null||x==="") return ""; return prepKg(v,c)?fmtKg(Number(x)):String(x); };
 const prepSaved=curDay=>!!(((state.prep||{})[curDay]||{})._saved);
 /* 준비 양식 품목 이름 → 재고 카드 품목 이름(normItem)과 맞춰 보기: '빨강 파프리카'→'홍파프리카', '꽈리'→'꽈리고추' */
 const prepBase=item=>normItem(String(item).replace(/\(.*\)/,""));
@@ -1268,15 +1277,20 @@ function prepTable(curDay){
   const day=(state.prep||{})[curDay]||{};
   const saved=prepSaved(curDay);
   const rows=saved?PREP_ROWS.filter(r=>prepHas(day[r.key])):PREP_ROWS;
-  const sum=c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0);
+  /* 합계는 수량과 kg 을 따로 더한다 */
+  const sum=c=>{ let n=0,k=0; PREP_ROWS.forEach(r=>{ const v=day[r.key]||{}, x=Number(v[c])||0; if(prepKg(v,c)) k+=x; else n+=x; });
+    return [n?String(n):"", k?fmtKg(k):""].filter(Boolean).join("<br>"); };
   return `<div class="xwrap"><table class="xl prep${saved?" saved":""}"><thead>
       <tr><th rowspan="2" class="pitem">품목</th><th colspan="3" class="pseg">세계로</th><th rowspan="2" class="c-ilil">일일향</th><th rowspan="2" class="c-chorok">초록</th></tr>
       <tr><th>수량<br>(box)</th><th>봉지<br>(대)</th><th>봉지<br>(소)</th></tr></thead><tbody>
     ${rows.map(r=>{ const v=day[r.key]||{};
       return `<tr data-prow="${esc(r.key)}"><td class="pitem">${esc(r.label)}</td>${PREP_COLS.map(c=>
-        `<td class="pc c-${c}${c==="bagS"?" pseg-end":""}">${saved?`<b class="tnum">${v[c]||""}</b>`
-          :`<input type="number" inputmode="numeric" min="0" data-pc="${c}" value="${v[c]??""}">`}</td>`).join("")}</tr>`; }).join("")}
-    </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r c-${c}">${sum(c)||""}</td>`).join("")}</tr></tfoot></table></div>`;
+        `<td class="pc c-${c}${c==="bagS"?" pseg-end":""}">${saved?`<b class="tnum">${fmtPrep(v,c)}</b>`
+          :prepKg(v,c)?`<input type="number" inputmode="decimal" min="0" step="0.1" data-pc="${c}" value="${v[c]??""}" placeholder="kg">`
+            +`<button class="pu kg" data-pu="${c}" title="눌러서 수량으로">${v[c]!=null&&v[c]!==""?fmtKg(Number(v[c])):"kg"}</button>`
+          :`<input type="number" inputmode="numeric" min="0" step="1" data-pc="${c}" value="${v[c]??""}">`
+            +`<button class="pu" data-pu="${c}" title="눌러서 kg 으로">수량</button>`}</td>`).join("")}</tr>`; }).join("")}
+    </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r c-${c}">${sum(c)}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
 /* 맨 위 '챙길 품목' 구역 = 경매 전 준비 양식 */
@@ -1305,7 +1319,8 @@ function renderFifo(box,curDay){
 /* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("prepview").addEventListener("change",e=>{
   const pc=e.target.closest("[data-pc]");
-  if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value},true); refreshSoon(); return; }
+  if(pc){ pushOp({t:"prep",date:경매일KST(),row:pc.closest("[data-prow]").dataset.prow,col:pc.dataset.pc,value:pc.value,
+    unit:pc.step==="0.1"?"kg":"ea"},true); refreshSoon(); return; }
   const inp=e.target.closest("[data-ff]"); if(!inp) return;
   const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
   pushOp({t:"fifo",date:경매일KST(),item,[k]:inp.value},true); refreshSoon();
@@ -1325,8 +1340,9 @@ function invCSV(prep){
     const day=(state.prep||{})[curDay]||{};
     const rows=prepSaved(curDay)?PREP_ROWS.filter(r=>prepHas(day[r.key])):PREP_ROWS;
     const lines=[[`경매 전 준비 양식 (경매일 ${curDay})`],["품목","세계로","","","일일향","초록"],["","수량(box)","봉지(대)","봉지(소)","",""]];
-    rows.forEach(r=>{ const v=day[r.key]||{}; lines.push([r.label,...PREP_COLS.map(c=>v[c]??"")]); });
-    lines.push(["합계",...PREP_COLS.map(c=>PREP_ROWS.reduce((a,r)=>a+(Number((day[r.key]||{})[c])||0),0))]);
+    rows.forEach(r=>{ const v=day[r.key]||{}; lines.push([r.label,...PREP_COLS.map(c=>fmtPrep(v,c))]); });
+    lines.push(["합계",...PREP_COLS.map(c=>{ let n=0,k=0; PREP_ROWS.forEach(r=>{ const v=day[r.key]||{}, x=Number(v[c])||0; if(prepKg(v,c)) k+=x; else n+=x; });
+      return [n?String(n):"",k?fmtKg(k):""].filter(Boolean).join(" + "); })]);
     const csv="\ufeff"+lines.map(r=>r.map(v=>{const t=String(v??"");return /[",\n]/.test(t)?`"${t.replace(/"/g,'""')}"`:t;}).join(",")).join("\r\n");
     const a=document.createElement("a");
     a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
@@ -1356,6 +1372,14 @@ function invCSV(prep){
 
 const invStat=t=>{const el=document.getElementById("invstat"); if(el)el.textContent=t||"";};
 function onInvClick(e){
+  /* 준비 양식 칸 단위 바꾸기: 수량 ↔ kg. 적힌 숫자는 그대로 두고 단위만 바꾼다(수량으로 바꾸면 반올림) */
+  const pu=e.target.closest("[data-pu]");
+  if(pu){
+    const td=pu.closest("td"), inp=td.querySelector("[data-pc]"), row=pu.closest("[data-prow]").dataset.prow;
+    const toKg=inp.step!=="0.1";
+    pushOp({t:"prep",date:경매일KST(),row,col:pu.dataset.pu,value:inp.value,unit:toKg?"kg":"ea"});
+    return;
+  }
   const b=e.target.closest("[data-iact]"); if(!b)return;
   const act=b.dataset.iact;
   if(act==="csv") return invCSV(!!b.closest("#prepview"));
@@ -1369,8 +1393,9 @@ function onInvClick(e){
       document.querySelectorAll("#prepbody [data-pc]").forEach(inp=>{
         const row=inp.closest("[data-prow]").dataset.prow, c=inp.dataset.pc;
         const cur=((((state.prep||{})[d]||{})[row])||{})[c];
-        const v=inp.value===""?null:Math.max(0,Math.round(Number(inp.value)||0));
-        if((cur??null)!==v) pushOp({t:"prep",date:d,row,col:c,value:inp.value});
+        const kg=inp.step==="0.1", num=Number(inp.value);
+        const v=inp.value===""?null:Math.max(0,kg?Math.round(num*10)/10:Math.round(num));
+        if((cur??null)!==v) pushOp({t:"prep",date:d,row,col:c,value:inp.value,unit:kg?"kg":"ea"});
       });
       document.querySelectorAll("#prepbody [data-ff]").forEach(inp=>{
         const item=inp.closest("[data-item]").dataset.item, k=inp.dataset.ff;
@@ -1791,7 +1816,10 @@ function localEcho(op){
   if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
     if(op.on) d._saved={by:me||"나",at:Date.now()}; else delete d._saved; }
   if(op.t==="prep"){ state.prep=state.prep||{}; const d=state.prep[op.date]=state.prep[op.date]||{};
-    const r=d[op.row]=Object.assign({},d[op.row]||{}); const v=op.value===""?null:Math.max(0,Math.round(Number(op.value)||0));
+    const r=d[op.row]=Object.assign({},d[op.row]||{});
+    if(op.unit==="kg") r[op.col+"U"]="kg"; else if(op.unit==="ea") delete r[op.col+"U"];
+    const kg=r[op.col+"U"]==="kg", num=Number(op.value);
+    const v=(op.value===""||op.value==null||!isFinite(num))?null:Math.max(0,kg?Math.round(num*10)/10:Math.round(num));
     if(v==null) delete r[op.col]; else r[op.col]=v; }
   if(op.t==="fifo"){ state.fifo=state.fifo||{}; const d=state.fifo[op.date]=state.fifo[op.date]||{};
     const c=Object.assign({},d[op.item]||{},{by:me,at:Date.now()});
