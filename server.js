@@ -340,11 +340,17 @@ function applyOp(user, op, meta = {}) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !row || !["box", "bagL", "bagS", "ilil", "chorok"].includes(col)) return;
       const day = state.prep[d] = state.prep[d] || {};
       const r = day[row] = day[row] || {};
-      const v = op.value === "" || op.value == null ? null : Math.max(0, Math.round(Number(op.value) || 0));
+      /* 칸마다 단위를 고른다: 수량(정수) 또는 kg(소수 첫째 자리까지). 단위는 r[col+"U"]="kg" 로 둔다(없으면 수량) */
+      if (op.unit === "kg") r[col + "U"] = "kg"; else if (op.unit === "ea") delete r[col + "U"];
+      const kg = r[col + "U"] === "kg";
+      const num = Number(op.value);
+      const v = op.value === "" || op.value == null || !isFinite(num) ? null
+        : Math.max(0, kg ? Math.round(num * 10) / 10 : Math.round(num));
       if (v == null) delete r[col]; else r[col] = v;
-      if (!Object.keys(r).length) delete day[row];
+      if (!Object.keys(r).length) delete day[row];     // 숫자도 단위(kg) 표시도 없으면 줄째 지운다
       const 칸 = { box: "세계로 박스", bagL: "세계로 봉지(대)", bagS: "세계로 봉지(소)", ilil: "일일향", chorok: "초록" }[col];
-      bump(by, `준비 양식 · ${row.replace("|", " ")} ${칸} ${v ?? "지움"}`);
+      const 보기 = v == null ? "지움" : kg ? (v < 1 ? `${Math.round(v * 1000)}g` : `${v}kg`) : v;
+      bump(by, `준비 양식 · ${row.replace("|", " ")} ${칸} ${보기}`);
       return;
     }
     case "fifo": {                                   // 선입선출 준비표 — 품목별 오늘 목표 수량·메모·준비 확인
