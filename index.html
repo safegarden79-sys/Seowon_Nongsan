@@ -818,7 +818,7 @@ const isPick=l=>!!(state.pickup||{})[l.id];
 function lotRow(l){
   const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
   const note=live?(state.lotnotes||{})[l.id]:null;
-  const stamp=(live&&state.stampGot&&state.stampGot[l.id])?state.stampGot[l.id]:null;
+  /* 누가 챙겼는지는 줄 밑에 적지 않는다 — 아래 기록(히스토리)에만 남는다 */
   const re=isReauc(l);
   return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),re?"reauc":"",isPick(l)?"pick":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
@@ -829,8 +829,7 @@ function lotRow(l){
       <td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
       <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td>
       <td class="pk">${live?`<button class="pkb" data-act="pickup" aria-label="우선 픽업"><i>★</i></button>`:""}</td></tr>
-    ${(note||stamp&&d)?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="7">${note?`✎ ${esc(note.text||note)}`:""}${
-      (stamp&&d)?`<span class="lby">${esc(stamp.by)} · ${ago(stamp.at)}</span>`:""}</td></tr>`:""}
+    ${note?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="7">✎ ${esc(note.text||note)}</td></tr>`:""}
     ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="8">
       <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
       <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn r" data-act="lotdel">이 줄 삭제</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
