@@ -1681,7 +1681,23 @@ const ago=t=>{
 };
 
 /* 서버 상태를 화면 상태로 옮긴다 */
+/* ---------- SEOWONY 알림음 (chime.wav — 안드로이드 앱 알림과 같은 소리) ----------
+   앱을 켜 두고 보고 있을 때 새 낙찰 줄이 들어오면 화면에서도 울린다. 안드로이드 앱에서 알림을 켜 둔 폰은
+   앱 알림이 이미 같은 소리로 울리므로 겹치지 않게 화면 쪽은 울리지 않는다. */
+let chimeAudio=null, knownLots=null;
+function playChime(){
+  try{ if(!chimeAudio){ chimeAudio=new Audio("chime.wav"); chimeAudio.preload="auto"; }
+    chimeAudio.currentTime=0; const p=chimeAudio.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+}
+function chimeOnNewLots(ids){
+  const fresh=knownLots?ids.filter(id=>!knownLots.has(id)):[];
+  knownLots=new Set(ids);
+  if(!fresh.length||document.visibilityState!=="visible") return;
+  if(inApk()&&notifState()==="on") return;           // 안드로이드 앱 알림이 대신 울린다
+  playChime();
+}
 function applyServer(sv){
+  chimeOnNewLots(Object.keys(sv.lots||{}));
   state.lots=Object.values(sv.lots||{});
   state.got={}; Object.keys(sv.got||{}).forEach(k=>state.got[k]=sv.got[k].n);
   state.stampGot=sv.got||{};
@@ -1941,6 +1957,7 @@ function openNotif(){
     msg="새 낙찰이 들어올 때마다 이 휴대폰에 알림을 받으시겠어요? 앱을 닫아 두어도 옵니다.";
     btns=`<button class="bigbtn accent" data-n="on">알림 받기</button><button class="bigbtn" data-n="later">나중에</button>`;
   }
+  btns+=`<button class="bigbtn" data-n="sound">🔊 SEOWONY 알림음 들어보기</button>`;
   t.innerHTML=msg; box.innerHTML=btns;
   document.getElementById("notifsheet").classList.remove("hidden");
 }
@@ -1948,7 +1965,9 @@ document.getElementById("bellbtn").onclick=openNotif;
 document.getElementById("notifclose").onclick=()=>document.getElementById("notifsheet").classList.add("hidden");
 document.getElementById("notifbtns").addEventListener("click",async e=>{
   const b=e.target.closest("[data-n]"); if(!b) return;
-  const a=b.dataset.n; localStorage.setItem(NKEY,"1");
+  const a=b.dataset.n;
+  if(a==="sound"){ playChime(); return; }            // 창은 닫지 않는다
+  localStorage.setItem(NKEY,"1");
   try{
     if(a==="on"){ if(inApk()) window.SeowonApp.requestNotify(); else if(!(await subscribePush())) alert("알림이 허용되지 않았습니다."); }
     if(a==="off"){ if(inApk()) window.SeowonApp.disableNotify(); else await unsubscribePush(); }

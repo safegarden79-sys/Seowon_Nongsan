@@ -26,7 +26,9 @@ import java.net.URL;
  * 끊기면 5초 → 최대 60초 간격으로 다시 붙는다. 서버 주소는 앱에서 넣은 값을 그대로 쓴다.
  */
 public class NotifyService extends Service {
-    static final String CH_WAIT = "wait", CH_LOTS = "lots";
+    /* 새 낙찰 채널에 SEOWONY 알림음(res/raw/seowony_chime.wav)을 붙인다. 안드로이드는 이미 만든 채널의 소리를
+       바꿀 수 없어서 새 이름(lots_chime)으로 만들고 예전 'lots' 채널은 지운다. */
+    static final String CH_WAIT = "wait", CH_LOTS = "lots_chime", CH_LOTS_OLD = "lots";
     static final String PREF_ON = "notify_on";
     private volatile boolean running;
     private Thread worker;
@@ -50,9 +52,17 @@ public class NotifyService extends Service {
             NotificationChannel lots = new NotificationChannel(CH_LOTS, "새 낙찰", NotificationManager.IMPORTANCE_HIGH);
             lots.enableVibration(true);
             lots.setVibrationPattern(new long[]{0, 250, 150, 250});
+            lots.setSound(chime(), new android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+            nm.deleteNotificationChannel(CH_LOTS_OLD);      // 예전(기본 소리) 채널 정리
             nm.createNotificationChannel(wait);
             nm.createNotificationChannel(lots);
         }
+    }
+
+    android.net.Uri chime() {
+        return android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.seowony_chime);
     }
 
     private PendingIntent openApp() {
@@ -140,7 +150,8 @@ public class NotifyService extends Service {
                     .setAutoCancel(true)
                     .setWhen(m.optLong("at", System.currentTimeMillis()))
                     .setShowWhen(true);
-            if (Build.VERSION.SDK_INT < 26) b.setPriority(Notification.PRIORITY_HIGH).setDefaults(Notification.DEFAULT_ALL);
+            if (Build.VERSION.SDK_INT < 26) b.setPriority(Notification.PRIORITY_HIGH)
+                    .setDefaults(Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS).setSound(chime());
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(seq++, b.build());
         } catch (Exception e) {
             // 알 수 없는 내용은 건너뛴다
