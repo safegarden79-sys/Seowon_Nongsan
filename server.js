@@ -441,7 +441,7 @@ function applyOp(user, op, meta = {}) {
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json",
   ".png": "image/png", ".jpg": "image/jpeg", ".css": "text/css; charset=utf-8",
-  ".apk": "application/vnd.android.package-archive" };
+  ".apk": "application/vnd.android.package-archive", ".wav": "audio/wav" };
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");

@@ -36,6 +36,7 @@ APK 는 `android/build/SEOWONY.apk` 로 나온다.
 | `sw.js` | 서비스워커. 화면은 서버 우선·실패 시 캐시, `/api/` 는 건드리지 않는다. 웹 푸시 알림 표시 |
 | `webpush.js` | 웹 푸시 보내기(암호화·VAPID 서명) — 외부 라이브러리 없음 |
 | `android/` | 안드로이드 앱(웹뷰 껍데기 + 새 낙찰 알림 서비스 + 업데이트 묻기) |
+| `chime.wav` | SEOWONY 알림음 (화면·안드로이드 앱 알림 공통) |
 | `app/` | 서버가 내려주는 안드로이드 최신 판 `SEOWONY.apk` + `version.json` (build-apk.sh 가 만든다) |
 | `data.json` | 서버가 자동 생성/갱신. 낙찰·체크·메모·날짜별 기록(history)·재고 관리 재고(inv)·출고 기록(shipped) |
 | `backup/` | 6시간마다 자동 백업 (최근 14개) |
@@ -129,6 +130,11 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
   `GET /api/notify`(새 낙찰 때만 `event: lots` 가 오는 가벼운 SSE)에 붙어 있다가 알림을 띄운다.
   재부팅·업데이트 뒤엔 `BootReceiver` 가 다시 켠다. 밤새 끊기지 않게 배터리 최적화 제외를 한 번 묻는다.
   웹 화면은 `window.SeowonApp`(notifyState/requestNotify/disableNotify)으로 상태를 보이고 켜고 끈다.
+- **SEOWONY 알림음** `chime.wav`(밝게 올라가는 띵-동-띵, 1.25초, 저장소 루트 + `android/res/raw/seowony_chime.wav` 같은 파일).
+  안드로이드 앱 1.3(versionCode 4)부터 새 낙찰 채널 `lots_chime` 이 이 소리를 쓴다(채널 소리는 만든 뒤 못 바꿔서 새 채널, 예전 `lots` 는 지움).
+  화면(index.html)은 앱을 보고 있을 때 새 낙찰 id 가 생기면 `playChime()` 으로 같은 소리를 낸다(`chimeOnNewLots`, 처음 불러올 때는 안 울림,
+  안드로이드 앱 알림을 켠 폰은 앱 알림이 울리므로 화면은 조용). 아이폰 웹 푸시는 iOS 가 소리를 바꿀 수 없어 기본 알림음.
+  `🔔 알림` 창의 `🔊 SEOWONY 알림음 들어보기` 로 들어볼 수 있다.
 - 아래쪽 `🔔 알림` 버튼: 켜기·끄기·`시험 알림 보내기`(`POST /api/push/test`, 모두에게 감).
   `/api/health` 의 `알림` 에 웹 푸시 구독 수·앱 연결 수가 나온다.
 - APK 빌드: `android/build-apk.sh` (ANDROID_HOME 에 build-tools 34 · platforms/android-34 필요).
