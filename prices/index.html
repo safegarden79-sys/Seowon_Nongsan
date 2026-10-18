@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>가격 정보 · SEOWONY</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+  <h1>가격 정보</h1>
+  <p class="lead">도매(경락)·소매·급식 납품 단가를 한곳에서 봅니다. 도매와 소매는 매일 자동으로 갱신됩니다.</p>
+  <div id="banners"></div>
+  <div class="grid kpis">
+    <a class="kpi" href="wholesale.html" style="text-decoration:none;color:inherit"><div class="l">도매 · 경락가</div><div class="v">전국35개 공영도매시장 품목별 가격 추이</div><div class="s" id="s1"></div></a>
+    <a class="kpi" href="retail.html" style="text-decoration:none;color:inherit"><div class="l">소매 · KAMIS</div><div class="v">지역별 소매가격</div><div class="s" id="s2"></div></a>
+    <a class="kpi" href="school.html" style="text-decoration:none;color:inherit"><div class="l">납품 · 급식</div><div class="v">급식 납품 단가</div><div class="s" id="s3"></div></a>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h2>연결 상태</h2>
+    <div id="keys"></div>
+  </div>
+</main>
+<script src="common.js"></script>
+<script>
+const { $, esc, j, ago } = PX;
+PX.nav("index.html");
+(async () => {
+  const st = await j("/api/prices/status");
+  PX.banners(st, $("#banners"));
+  $("#s1").textContent = `${st.wholesale.days}일치 · ${ago(st.wholesale.last)} 갱신`;
+  $("#s2").textContent = `${st.retail.days}일치 · ${ago(st.retail.last)} 갱신`;
+  $("#s3").textContent = `${st.school.rows}줄 · 파일 ${st.school.files.length}개`;
+  const ok = b => b ? `<span class="pill">연결됨</span>` : `<span class="pill warn">인증키 필요</span>`;
+  $("#keys").innerHTML = `<table>
+    <tr><th>자료</th><th>상태</th><th>서버 환경변수</th><th>최근 오류</th></tr>
+    <tr><td>공영도매시장 경락가 (aT, 공공데이터포털)</td><td>${ok(st.keys.dataGoKr)}</td><td>DATA_GO_KR_KEY</td><td style="text-align:left">${esc(st.wholesale.error ? st.wholesale.error.msg : "")}</td></tr>
+    <tr><td>지역별 소매가격 (KAMIS)</td><td>${ok(st.keys.kamis)}</td><td>KAMIS_CERT_KEY, KAMIS_CERT_ID</td><td style="text-align:left">${esc(st.retail.error ? st.retail.error.msg : "")}</td></tr>
+    <tr><td>급식 납품 단가 (CSV)</td><td><span class="pill">파일 올리기</span></td><td>—</td><td></td></tr></table>
+    <p class="note">인증키는 Render 대시보드 → seowon-check → Environment 에 넣고 다시 배포하면 됩니다. 키는 저장소에 올리지 않습니다.</p>`;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>급식 납품 단가</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+  <h1>급식 납품 단가</h1>
+  <p class="lead">공개된 '식당·급식 납품 단가' 가운데 품목별 단가가 있는 자료를 모아, 같은 시기 공영도매시장 경락가와 견줍니다. <b>납품가 ÷ 도매가</b>가 납품 단계에서 붙는 비용의 크기입니다.</p>
+  <div id="banners"></div>
+
+  <div class="card">
+    <h2>CSV 파일 올리기</h2>
+    <p class="note">공공데이터포털에서 내려받은 CSV를 그대로 올리면 됩니다(UTF-8·EUC-KR 모두). 머리글에서 식품명·규격·단가·날짜 열을 찾아 고추·파프리카·피망 줄만 남깁니다. 같은 이름의 파일을 다시 올리면 바꿔 넣습니다.</p>
+    <div class="row"><input type="file" id="file" accept=".csv,text/csv"><button class="btn primary" id="up">올리기</button><span class="note" id="upmsg"></span></div>
+    <div id="files" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2>품목별 요약</h2>
+    <div class="scroll" id="sum"></div>
+  </div>
+
+  <div class="card">
+    <h2>자료 줄</h2>
+    <div class="row" style="margin-bottom:8px"><label class="f">품목<select id="grp"><option value="">전체</option></select></label></div>
+    <div class="scroll" id="rows"></div>
+  </div>
+
+  <div class="card">
+    <h2>확인한 납품 단가 자료</h2>
+    <table>
+      <tr><th>자료</th><th>품목별 단가</th><th>연동 방법</th></tr>
+      <tr><td><a href="https://www.data.go.kr/data/15134964/fileData.do" target="_blank" rel="noopener">충청남도 로컬푸드 연계형 학교급식지원 견적등록 현재 현황</a></td><td>있음 (식품명·단가·금액)</td><td>CSV 올리기</td></tr>
+      <tr><td><a href="https://www.data.go.kr/data/15134971/fileData.do" target="_blank" rel="noopener">충청남도 학교급식지원 쇼핑몰 견적 이력 현황</a></td><td>견적일·공급액·품명 (단가 열은 파일 확인 필요)</td><td>CSV 올리기</td></tr>
+      <tr><td><a href="https://www.data.go.kr/data/15073328/openapi.do" target="_blank" rel="noopener">aT 공공급식 전자조달 서비스 (API)</a></td><td>입찰·계약·낙찰 정보 — 품목 단가 포함 여부 미확인</td><td>명세 확인 후 추가 예정</td></tr>
+      <tr><td><a href="https://www.data.go.kr/data/3055737/fileData.do" target="_blank" rel="noopener">aT 학교급식계약정보</a></td><td>없음 (계약 총액만)</td><td>해당 없음</td></tr>
+    </table>
+    <p class="note">일반 식당 납품가(식자재 유통업체 단가)는 공개 통계·API가 없습니다. 거래처 명세서나 식자재 앱 가격을 같은 CSV 양식(식품명, 규격, 단가, 날짜, 지역)으로 만들어 올리면 같은 표에서 비교됩니다.</p>
+  </div>
+</main>
+<script src="common.js"></script>
+<script>
+const { $, esc, won, j, addDays, ago } = PX;
+PX.nav("school.html");
+let META, SC = { rows: [], files: [] }, WS = {};
+const gname = k => (META.groups.find(g => g.key === k) || {}).name || k;
+function wsAvg(group, from, to) {
+  let q = 0, s = 0;
+  for (const [d, day] of Object.entries(WS)) {
+    if (d < from || d > to) continue;
+    const r = day.agg && day.agg[group] && day.agg[group]["상"]; if (!r) continue;
+    for (const m of Object.values(r)) { q += m.q; s += m.s; }
+  }
+  return q ? s / q : NaN;
+}
+function draw() {
+  $("#files").innerHTML = (SC.files || []).length ? `<table><tr><th>파일</th><th>올린 때</th><th>전체 줄</th><th>고추류 줄</th><th></th></tr>` +
+    SC.files.map(f => `<tr><td>${esc(f.name)}</td><td>${ago(f.at)}</td><td>${f.rows}</td><td>${f.added}</td><td><button class="btn" data-rm="${esc(f.name)}">빼기</button></td></tr>`).join("") + `</table>` : `<p class="note">아직 올린 파일이 없습니다.</p>`;
+  const by = {};
+  for (const r of SC.rows) (by[r.group] ||= []).push(r);
+  const keys = Object.keys(by);
+  if (!keys.length) { $("#sum").innerHTML = `<div class="empty">자료가 없습니다</div>`; $("#rows").innerHTML = ""; return; }
+  $("#sum").innerHTML = `<table><tr><th>품목</th><th>줄 수</th><th>기간</th><th>납품 kg당 (가운데값)</th><th>같은 기간 도매 kg당(상)</th><th>납품 ÷ 도매</th></tr>` + keys.map(k => {
+    const rs = by[k], kg = rs.map(r => r.perKg).filter(Boolean).sort((a, b) => a - b);
+    const dates = rs.map(r => r.date).filter(Boolean).sort();
+    const med = kg.length ? kg[Math.floor(kg.length / 2)] : NaN;
+    const ws = dates.length ? wsAvg(k, dates[0], dates[dates.length - 1]) : NaN;
+    return `<tr><td>${esc(gname(k))}</td><td>${rs.length}</td><td>${dates.length ? dates[0] + " ~ " + dates[dates.length - 1] : "—"}</td><td><b>${won(med)}</b></td><td>${won(ws)}</td><td>${isFinite(med / ws) ? (med / ws).toFixed(2) + "배" : "—"}</td></tr>`;
+  }).join("") + `</table><p class="note">도매 비교는 서버에 쌓인 경락 자료 기간(최근 약 4개월) 안에서만 나옵니다. 오래된 견적 파일은 '—'로 보입니다.</p>`;
+  const sel = $("#grp").value;
+  const rows = SC.rows.filter(r => !sel || r.group === sel).sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 500);
+  $("#rows").innerHTML = `<table><tr><th>날짜</th><th>품목</th><th>식품명</th><th>규격</th><th>단가</th><th>kg당</th><th>지역·기관</th><th>출처</th></tr>` +
+    rows.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(gname(r.group))}</td><td style="text-align:left">${esc(r.name)}</td><td>${esc(r.spec)}</td><td>${won(r.price)}</td><td>${won(r.perKg)}</td><td style="text-align:left">${esc(r.region)}</td><td style="text-align:left">${esc(r.src)}</td></tr>`).join("") + `</table>`;
+}
+async function reload() { SC = await j("/api/prices/school"); draw(); }
+(async () => {
+  try {
+    const [m, st, w] = await Promise.all([j("/api/prices/meta"), j("/api/prices/status"), j("/api/prices/wholesale?days=120")]);
+    META = m; WS = w.days; PX.banners(st, $("#banners"));
+  } catch (e) { $("#upmsg").textContent = e.message; return; }
+  $("#grp").insertAdjacentHTML("beforeend", META.groups.map(g => `<option value="${g.key}">${esc(g.name)}</option>`).join(""));
+  $("#grp").addEventListener("change", draw);
+  $("#up").onclick = async () => {
+    const f = $("#file").files[0]; if (!f) return $("#upmsg").textContent = "파일을 고르세요";
+    $("#upmsg").textContent = "올리는 중…";
+    try {
+      const r = await j("/api/prices/school/import", { method: "POST", headers: { "x-filename": encodeURIComponent(f.name) }, body: f });
+      $("#upmsg").textContent = `전체 ${r.rows}줄 중 고추·파프리카·피망 ${r.added}줄을 넣었습니다`;
+      await reload();
+    } catch (e) { $("#upmsg").textContent = "실패: " + e.message; }
+  };
+  $("#files").addEventListener("click", async e => {
+    const n = e.target.dataset.rm; if (!n || !confirm(n + " 자료를 뺄까요?")) return;
+    await j("/api/prices/school/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n }) });
+    reload();
+  });
+  reload();
+})();
+</script>
+</body>
+</html>
