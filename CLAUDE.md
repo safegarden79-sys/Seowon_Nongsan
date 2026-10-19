@@ -66,10 +66,24 @@ poller 가 그 역할을 대신하게 되어 앱에서 완전히 제거했습니
 
 ## 화면 배치 — 탭 없이 한 화면
 
-탭으로 나누지 않고 한 화면에 위에서부터 **✅ 챙길 품목**(`#prepview`: 경매 전 준비 양식만, `renderPrep`→`renderFifo`)
-→ **📦 낙찰 내역**(`#lotview`, `renderLots`, 필터 칩 `#lotchips`) → **📋 재고 관리**(`#invview`, `renderInv`, 재고/출고 기록 칩 `#invchips`)
+탭으로 나누지 않고 한 화면에 위에서부터 **📦 낙찰 내역**(`#lotview`, `renderLots`, 필터 칩 `#lotchips`)
+→ **✅ 챙길 품목**(`#prepview`: 경매 전 준비 양식만, `renderPrep`→`renderFifo`) → **📋 재고 관리**(`#invview`, `renderInv`, 재고/출고 기록 칩 `#invchips`)
 순서로 이어진다. `render()` 가 세 구역을 모두 그린다. 머리의 세 버튼(`.tabs [data-jump]`)은 탭이 아니라 그 구역으로 내려가는
-바로가기이고, 지금 보이는 구역에 밑줄이 간다(`markJump`). 각 구역 머리(`.sechead`)를 누르면 접고 편다(이 폰에만 기억, `seowon-folds`).
+바로가기이고, 지금 보이는 구역에 밑줄이 간다(`markJump`). 각 구역 머리(`.sechead`)를 누르면 접고 편다. 앱을 새로 열면 챙길 품목·재고 관리는 접힌 채 시작한다
+(`FOLD_DEFAULT`, 열어 둔 동안만 sessionStorage `seowon-folds` 로 유지).
+
+## 🔄 연결 버튼 (오른쪽 위 '오프라인' 왼쪽)
+
+서버 연결이 끊겼거나 서울청과·동화청과 수집기가 초록이 아닐 때만 보인다(`needReconn`). 누르면 SSE 를 새로 붙이고
+`/api/health` 를 확인한 뒤 수집기 신호를 최대 15초 기다린다(`tryReconnect`). 그래도 안 되면 원인 팝업(`#reconnsheet`,
+`failCauses`): 폰 인터넷 없음 / 서버 응답 없음 / PC 수집기 신호 끊김(수집 시간 안) / 수집 시간 밖 / 로그인 만료 / 사이트 확인 오류.
+수집기는 PC 에서 돌기 때문에 앱에서 다시 켤 수는 없다.
+
+## 📷 주문 올리기 (챙길 품목 → 경매 전 준비 양식)
+
+거래처 주문 글을 붙여 넣거나 사진을 고르면 품목·규격·수량을 읽어(`parseOrder`, 별칭 `ORD_ALIAS`) 미리보기 표로 보여주고,
+고른 칸(세계로 box·봉지 대·봉지 소 / 일일향 / 초록)에 `prep` op 로 넣는다. 글 속 거래처 이름으로 칸을 먼저 골라 둔다.
+사진 글자 인식은 서버 환경변수 `GOOGLE_VISION_KEY` 가 있으면 `/api/ocr`(구글 Vision), 없으면 폰에서 Tesseract.js(한글)로 읽는다.
 검색창은 세 구역 모두에 걸린다. 예전 `tab` 변수는 `"all"` 로 고정(옛 상차 체크 `carview` 는 숨김).
 
 ## 낙찰 내역 날짜별 조회 (예전 캘린더 탭)
