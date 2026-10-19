@@ -251,6 +251,26 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .brand{flex:1}
 .who{font-size:12px;font-weight:700;color:#2A2116;background:var(--warn);border-radius:99px;padding:4px 10px;white-space:nowrap}
 .conn{font-size:11px;color:var(--dim);white-space:nowrap;min-width:52px;text-align:right}
+/* 오프라인·수집기 끊김일 때만 보이는 '연결' 버튼 (오프라인 표시 왼쪽) */
+.connrow{display:flex;align-items:center;gap:6px}
+.reconn{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--hot);
+  background:var(--surface);color:var(--hot);white-space:nowrap}
+.reconn:disabled{opacity:.6}
+/* 📷 주문 올리기 — 글자·사진에서 필요 수량을 읽어 준비 양식 칸에 넣는다 */
+.ordcols{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.ordcols .chip{flex:none}
+#ordtext{min-height:110px;padding:10px 12px;resize:vertical}
+.ordtools{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.ordtools label,.ordtools button{padding:9px 12px;border-radius:9px;font-size:13px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.ordprev{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.ordprev td,.ordprev th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}
+.ordprev select{padding:6px 8px;font-size:13px}
+.ordprev input[type=number]{width:72px;padding:6px 8px;font-size:13px}
+.ordprev .src{color:var(--dim);font-size:11px}
+.ordmiss{font-size:12px;color:var(--dim);margin-top:8px;white-space:pre-wrap}
+.failcause{border-radius:12px;background:var(--surface);border:1px solid var(--line);padding:12px 14px;margin-bottom:8px;font-size:13px;line-height:1.6}
+.failcause b{font-size:14px;color:#C62828}
 /* 최상단 오른쪽 툴바 — 서울청과·동화청과 로그인 세션 (녹색 정상 · 빨강 만료 · 회색 수집기 신호 없음) */
 .rtool{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .sessbar{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 8px}
@@ -479,14 +499,17 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
       <button class="sessbar" id="sessbar" aria-label="시장 로그인 상태">
         <span class="sess" data-m="서울청과"><i></i>서울</span><span class="sess" data-m="동화청과"><i></i>동화</span>
       </button>
-      <span class="conn" id="connstat">연결 중</span>
+      <div class="connrow">
+        <button class="reconn hidden" id="reconn" aria-label="다시 연결">🔄 연결</button>
+        <span class="conn" id="connstat">연결 중</span>
+      </div>
     </div>
   </div>
 
-  <!-- 한 화면에 챙길 품목 → 낙찰 내역 → 재고 관리 순서로 이어진다. 아래 버튼은 그 구역으로 바로 내려가는 바로가기 -->
+  <!-- 한 화면에 낙찰 내역 → 챙길 품목 → 재고 관리 순서로 이어진다. 아래 버튼은 그 구역으로 바로 내려가는 바로가기 -->
   <div class="tabs">
-    <button class="tab on" data-jump="prepview">✅ 챙길 품목</button>
-    <button class="tab" data-jump="lotview">📦 낙찰 내역</button>
+    <button class="tab on" data-jump="lotview">📦 낙찰 내역</button>
+    <button class="tab" data-jump="prepview">✅ 챙길 품목</button>
     <button class="tab" data-jump="invview">📋 재고 관리</button>
   </div>
 
@@ -508,14 +531,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div id="carlist"></div>
   </div>
 
-  <section id="prepview" class="sec">
-    <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
-    <div class="secbody">
-      <p class="hint" id="prepstat"></p>
-      <div id="prepbody"></div>
-    </div>
-  </section>
-
   <section id="lotview" class="sec">
     <button class="sechead" data-fold="lot"><b>📦 낙찰 내역</b><span class="secsub" id="lotsub"></span><i class="secarr">▾</i></button>
     <div class="secbody">
@@ -533,6 +548,14 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="addpanel"></div>
     <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
+    </div>
+  </section>
+
+  <section id="prepview" class="sec">
+    <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
+    <div class="secbody">
+      <p class="hint" id="prepstat"></p>
+      <div id="prepbody"></div>
     </div>
   </section>
 
@@ -572,6 +595,32 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
   <div class="sheet">
     <div class="sheethead"><b>경매 사이트 로그인 상태</b><button class="ebtn g" id="sessclose">닫기</button></div>
     <div id="sessbody"></div>
+  </div>
+</div>
+
+<div id="ordsheet" class="modal hidden">
+  <div class="sheet">
+    <div class="sheethead"><b>📷 주문 올리기</b><button class="ebtn g" id="ordclose">닫기</button></div>
+    <p class="hint">거래처 주문 글(카톡 등)을 붙여 넣거나 주문 사진을 고르면, 품목·규격·수량을 읽어 아래 표로 보여줍니다.
+      확인하고 <b>준비 양식에 넣기</b>를 누르면 고른 거래처 칸에 들어갑니다.</p>
+    <div class="ordcols" id="ordcols"></div>
+    <textarea id="ordtext" placeholder="예) 청양 특 5&#10;꽈리 상 3박스&#10;빨강파프리카 L 2"></textarea>
+    <div class="ordtools">
+      <label>📷 사진에서 읽기<input type="file" id="ordfile" accept="image/*" class="hidden"></label>
+      <button id="ordparse">🔍 수량 읽기</button>
+    </div>
+    <p class="hint" id="ordstat"></p>
+    <div id="ordprev"></div>
+    <label class="hint" id="ordaddwrap"><input type="checkbox" id="ordadd"> 이미 적힌 수량에 더하기 (끄면 덮어씀)</label>
+    <div class="ebtns"><button class="ebtn y" id="ordapply">✅ 준비 양식에 넣기</button></div>
+  </div>
+</div>
+
+<div id="reconnsheet" class="modal hidden">
+  <div class="sheet">
+    <div class="sheethead"><b>⚠️ 연결 실패 원인</b><button class="ebtn g" id="reconnclose">닫기</button></div>
+    <div id="reconnbody"></div>
+    <div class="ebtns"><button class="ebtn y" id="reconnagain">🔄 다시 시도</button></div>
   </div>
 </div>
 
@@ -1314,7 +1363,8 @@ function renderFifo(box,curDay){
     ${prepTable(curDay)}
     <div class="invtools">${saved?`<button data-iact="prepedit">✏️ 다시 고치기 (전체 양식)</button>`
       :`<button class="savebtn" data-iact="prepsave">💾 저장 — 챙길 품목만 남기기</button>`}
-      <button data-iact="csv">📥 엑셀로 내려받기</button></div>`;
+      <button data-iact="csv">📥 엑셀로 내려받기</button>
+      <button data-iact="ordopen">📷 주문 올리기 (글자·사진)</button></div>`;
 }
 /* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("prepview").addEventListener("change",e=>{
@@ -1383,6 +1433,7 @@ function onInvClick(e){
   const b=e.target.closest("[data-iact]"); if(!b)return;
   const act=b.dataset.iact;
   if(act==="csv") return invCSV(!!b.closest("#prepview"));
+  if(act==="ordopen") return openOrder();
   if(act==="ffdone"){
     const item=b.closest("[data-item]").dataset.item, cur=(((state.fifo||{})[경매일KST()]||{})[item]||{}).done;
     pushOp({t:"fifo",date:경매일KST(),item,done:!cur}); return;
@@ -1479,16 +1530,19 @@ document.querySelector(".tabs").addEventListener("click",e=>{
 /* 지금 보고 있는 구역에 맞춰 위 버튼에 밑줄 */
 function markJump(){
   const top=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hh"))||0)+40;
-  let cur="prepview";
-  ["prepview","lotview","invview"].forEach(id=>{ if(document.getElementById(id).getBoundingClientRect().top<=top) cur=id; });
+  let cur="lotview";
+  ["lotview","prepview","invview"].forEach(id=>{ if(document.getElementById(id).getBoundingClientRect().top<=top) cur=id; });
   document.querySelectorAll(".tabs .tab").forEach(t=>t.classList.toggle("on",t.dataset.jump===cur));
 }
 window.addEventListener("scroll",()=>requestAnimationFrame(markJump),{passive:true});
-/* 구역 접기·펴기 — 이 폰에만 기억 */
-let folds={}; try{ folds=JSON.parse(localStorage.getItem("seowon-folds")||"{}"); }catch(e){}
+/* 구역 접기·펴기 — 앱을 새로 열면 챙길 품목·재고 관리는 접힌 채로 시작한다(낙찰 내역만 펼침).
+   열어 둔 동안(새 판 자동 적용으로 다시 읽을 때 포함)은 sessionStorage 로 지금 상태를 유지한다. */
+const FOLD_DEFAULT={prep:true,inv:true};
+let folds=Object.assign({},FOLD_DEFAULT);
+try{ const f=sessionStorage.getItem("seowon-folds"); if(f) folds=JSON.parse(f); }catch(e){}
 function toggleFold(k,on){
   folds[k]=on===undefined?!folds[k]:on;
-  try{ localStorage.setItem("seowon-folds",JSON.stringify(folds)); }catch(e){}
+  try{ sessionStorage.setItem("seowon-folds",JSON.stringify(folds)); }catch(e){}
   applyFolds();
 }
 function applyFolds(){
@@ -1672,6 +1726,7 @@ function setConn(ok,txt){
   online=ok;
   const el=document.getElementById("connstat");
   if(el){ el.textContent=txt||(ok?"● 연결됨":"○ 오프라인"); el.className="conn "+(ok?"on":"off"); }
+  if(typeof showReconn==="function") showReconn();
 }
 const ago=t=>{
   const s=Math.floor((Date.now()-t)/1000);
@@ -1721,6 +1776,7 @@ function applyServer(sv){
   save(); render();
   state.workday=sv.workday||state.workday;
   checkBuild(sv.build);
+  serverVision=!!sv.vision;
 }
 
 /* 날짜 줄(낙찰내역조회)을 머리 영역 바로 아래에 붙여 두기 위해 머리 높이를 CSS 변수로 알려준다 */
@@ -1754,6 +1810,7 @@ function renderSess(){
     el.className="sess "+(s.cls==="ok"?"ok":s.cls==="bad"?"bad":"");
     el.title=el.dataset.m+" "+s.txt;
   });
+  showReconn();
   if(!document.getElementById("sesssheet").classList.contains("hidden")) renderSessSheet();
 }
 function renderSessSheet(){
@@ -1772,6 +1829,244 @@ document.getElementById("sessbar").onclick=()=>{ renderSessSheet(); document.get
 document.getElementById("sessclose").onclick=()=>document.getElementById("sesssheet").classList.add("hidden");
 setInterval(renderSess,5000);
 
+/* ---------- 🔄 연결 버튼 — 서버나 서울청과·동화청과 수집기가 끊겼을 때 다시 연결해 본다 ----------
+   앱이 할 수 있는 일: 서버 실시간 연결(SSE)을 새로 붙이고, /api/health 로 서버가 살아 있는지 보고,
+   수집기 신호가 새로 들어오는지 잠시 기다린다. 수집기는 사무실 PC 에서 돌기 때문에 앱에서 PC 프로그램을
+   다시 켤 수는 없다 — 그래도 안 붙으면 왜 안 되는지(서버 응답 없음·PC 신호 끊김·로그인 만료·수집 시간 밖)를 팝업으로 보여준다. */
+var MKTS=["서울청과","동화청과"];
+var reconnBusy=false;
+function needReconn(){ return !online || MKTS.some(m=>sessOf(m).cls!=="ok"); }
+function showReconn(){
+  const b=document.getElementById("reconn"); if(!b) return;
+  b.classList.toggle("hidden",!reconnBusy&&!needReconn());
+}
+/* 수집 시간(common.py 와 같음): 일~금 밤 22:30 ~ 다음날 새벽 1:00, 한국 시간 */
+function inCollectHours(){
+  const k=new Date(Date.now()+clockSkew+9*3600e3), mins=k.getUTCHours()*60+k.getUTCMinutes(), wd=k.getUTCDay();   // 일=0 … 토=6
+  if(mins>=22*60+30) return wd!==6;
+  if(mins<60) return (wd+6)%7!==6;
+  return false;
+}
+async function fetchHealth(ms){
+  const ctl=typeof AbortController!=="undefined"?new AbortController():null;
+  const t=setTimeout(()=>ctl&&ctl.abort(),ms);
+  try{
+    const r=await fetch(serverUrl+"/api/health",{cache:"no-store",signal:ctl?ctl.signal:undefined});
+    if(!r.ok) throw new Error("서버 응답 "+r.status);
+    return await r.json();
+  }catch(e){ throw new Error(e&&e.name==="AbortError"?"응답 없음 ("+Math.round(ms/1000)+"초)":(e&&e.message)||"알 수 없는 오류"); }
+  finally{ clearTimeout(t); }
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function failCauses(serverErr){
+  if(!serverUrl) return [{t:"서버 주소가 설정되지 않음",d:"메뉴에서 서버 주소를 설정해야 합니다."}];
+  if(serverErr){
+    if(navigator.onLine===false) return [{t:"이 폰이 인터넷에 연결되어 있지 않음",d:"와이파이나 모바일 데이터를 켠 뒤 다시 눌러 주세요."}];
+    return [{t:"서원 서버가 응답하지 않음",d:`${esc(serverErr)}<br>서버가 재배포·재시작 중이거나 오래 쉬다가 깨어나는 중이면 1분쯤 걸립니다. 잠시 뒤 다시 눌러 주세요.`}];
+  }
+  const out=[], on=inCollectHours();
+  MKTS.forEach(m=>{
+    const p=pollers[m], s=sessOf(m);
+    if(s.cls==="ok") return;
+    if(s.cls==="none"){
+      const last=p&&p.at?`마지막 신호 ${secAgo(s.age)} (${hhmm(p.at)})`:"신호를 받은 적 없음";
+      out.push(on
+        ?{t:`${m} — 사무실 PC 수집기 신호 끊김`,d:`${last}.<br>PC가 꺼졌거나 인터넷이 끊겼거나, 'Seowon Collector' 수집기 창이 닫혔을 수 있습니다. 수집기는 사무실 PC에서 돌기 때문에 앱에서는 다시 켤 수 없습니다. PC를 확인해 주세요.`}
+        :{t:`${m} — 지금은 수집 시간이 아님`,d:`${last}.<br>수집기는 일~금 밤 22:30부터 새벽 1:00까지만 사이트에 붙습니다. 시간이 되면 PC에서 스스로 다시 연결합니다.`});
+    }else if(p.session==="expired"){
+      out.push({t:`${m} — 사이트 로그인 만료`,d:`${p.msg?esc(p.msg)+"<br>":""}수집기가 자동으로 다시 로그인을 시도합니다. 계속 빨강이면 사이트 점검 중이거나 PC 수집기의 아이디·비밀번호(secrets.json)를 확인해야 합니다.`});
+    }else{
+      out.push({t:`${m} — 사이트 확인 오류`,d:`${p.msg?esc(p.msg)+"<br>":""}경매 사이트가 점검 중이거나 사무실 PC의 인터넷이 불안정할 수 있습니다. 수집기는 계속 다시 시도합니다.`});
+    }
+  });
+  if(!online) out.unshift({t:"실시간 연결이 다시 끊김",d:"서버는 응답했지만 실시간 연결이 유지되지 않습니다. 신호가 약한 곳이면 자리를 옮겨 다시 눌러 주세요."});
+  return out;
+}
+async function tryReconnect(){
+  if(reconnBusy) return;
+  reconnBusy=true;
+  const b=document.getElementById("reconn"); b.disabled=true; b.textContent="연결 중…"; showReconn();
+  document.getElementById("reconnsheet").classList.add("hidden");
+  let serverErr=null;
+  if(serverUrl){
+    clearTimeout(retryTimer); retryTimer=null; retryMs=3000; connect();
+    try{ await fetchHealth(20000); }catch(e){ serverErr=e.message; }
+    if(!serverErr){
+      flush();
+      /* 수집기 신호는 몇 초마다 온다 — 새 신호가 들어올 때까지 최대 15초 기다린다 */
+      for(let i=0;i<15&&needReconn();i++) await sleep(1000);
+    }
+  }
+  reconnBusy=false; b.disabled=false; b.textContent="🔄 연결";
+  renderSess();
+  const causes=(serverErr||!serverUrl||needReconn())?failCauses(serverErr):[];
+  if(!causes.length){ setConn(true); return; }
+  document.getElementById("reconnbody").innerHTML=causes.map(c=>`<div class="failcause"><b>${c.t}</b><br>${c.d}</div>`).join("");
+  document.getElementById("reconnsheet").classList.remove("hidden");
+}
+document.getElementById("reconn").onclick=tryReconnect;
+document.getElementById("reconnagain").onclick=tryReconnect;
+document.getElementById("reconnclose").onclick=()=>document.getElementById("reconnsheet").classList.add("hidden");
+
+/* ---------- 📷 주문 올리기 — 글자·사진(OCR)에서 필요 수량을 읽어 경매 전 준비 양식의 세계로·초록·일일향 칸에 넣는다 ----------
+   사진 글자 인식: 서버에 구글 Vision 열쇠(GOOGLE_VISION_KEY)가 있으면 /api/ocr, 없거나 실패하면 폰에서 Tesseract(한글)로 읽는다.
+   읽은 글은 줄마다 품목 이름(별칭 포함)·규격(XL/L/M, 특/상)·수량(숫자, kg/g)을 찾아 PREP_ROWS 줄로 맞춘다.
+   잘못 읽은 줄은 표에서 품목·수량을 고친 뒤 넣는다. 거래처는 글 속 이름(세계로·초록·일일향)으로 먼저 골라 둔다. */
+let serverVision=false;
+const ORD_COLS=[["box","세계로 수량(box)"],["bagL","세계로 봉지(대)"],["bagS","세계로 봉지(소)"],["ilil","일일향"],["chorok","초록"]];
+/* 품목 별칭 — 긴 이름(홍청양·홍피망·아삭이팩)을 먼저 본다 */
+const ORD_ALIAS=[
+  ["홍청양",["홍청양","빨간청양","적청양"]],
+  ["홍피망",["홍피망","빨간피망","적피망"]],
+  ["홍고추(홍초)",["홍고추","홍초"]],
+  ["빨강 파프리카",["빨강파프리카","빨간파프리카","홍파프리카","적파프리카","레드파프리카","빨파"]],
+  ["노랑 파프리카",["노랑파프리카","노란파프리카","황파프리카","옐로파프리카","옐로우파프리카","노파"]],
+  ["아삭이팩",["아삭이팩","아삭팩"]],
+  ["아삭이벌크",["아삭이벌크","아삭벌크","아삭이"]],
+  ["롱그린",["롱그린"]],
+  ["꽈리",["꽈리고추","꽈리"]],
+  ["청양",["청양고추","청양"]],
+  ["피망",["청피망","피망"]]
+];
+const ordAliasList=ORD_ALIAS.flatMap(([item,as])=>as.map(a=>({item,a}))).sort((x,y)=>y.a.length-x.a.length);
+const ordAliasRe=new RegExp(ordAliasList.map(x=>x.a.split("").join("\\s*")).join("|"),"g");
+const ordItemOf=t=>{ const n=t.replace(/\s+/g,""); const f=ordAliasList.find(x=>n.startsWith(x.a)); return f&&f.item; };
+function ordGrade(item,seg){
+  const gs=PREP_ROWS.filter(r=>r.key.startsWith(item+"|")).map(r=>r.key.split("|")[1]);
+  if(gs.length===1) return {g:gs[0],sure:true};
+  const u=seg.toUpperCase().replace(/KG/g,"");
+  const pap=gs.includes("XL");
+  if(/XL|특대|왕/.test(u)) return pap?{g:"XL",sure:true}:{g:gs[0],sure:false};
+  if(/특|(^|[^A-Z])L([^A-Z]|$)|대/.test(u)) return {g:pap?"L":gs[0],sure:true};
+  if(/상|(^|[^A-Z])M([^A-Z]|$)|중/.test(u)) return {g:pap?"M":gs[1],sure:true};
+  return {g:gs[pap?1:0],sure:false};
+}
+function ordQty(seg){
+  const ms=[...seg.matchAll(/(\d+(?:[.,]\d+)?)\s*(kg|키로|킬로|g|그램)?/gi)];
+  if(!ms.length) return null;
+  const m=ms[ms.length-1], x=Number(m[1].replace(",","."));
+  const u=(m[2]||"").toLowerCase();
+  if(u==="g"||u==="그램") return {v:Math.round(x/100)/10,unit:"kg"};
+  if(u) return {v:Math.round(x*10)/10,unit:"kg"};
+  return {v:Math.round(x),unit:"ea"};
+}
+function parseOrder(text){
+  const rows=[], miss=[];
+  text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const hits=[...line.matchAll(ordAliasRe)];
+    if(!hits.length){ if(/\d/.test(line)) miss.push(line); return; }
+    hits.forEach((h,i)=>{
+      const seg=line.slice(h.index+h[0].length, i+1<hits.length?hits[i+1].index:line.length);
+      const item=ordItemOf(h[0]); if(!item) return;
+      const q=ordQty(seg), gr=ordGrade(item,seg);
+      rows.push({key:item+"|"+gr.g, v:q?q.v:"", unit:q?q.unit:"ea", src:(h[0]+seg).trim(), sure:gr.sure&&!!q});
+    });
+  });
+  /* 같은 줄(품목·규격·단위)은 합친다 */
+  const out=[];
+  rows.forEach(r=>{ const o=out.find(x=>x.key===r.key&&x.unit===r.unit&&r.v!==""&&x.v!=="");
+    if(o){ o.v=Math.round((o.v+r.v)*10)/10; o.src+=" + "+r.src; o.sure=o.sure&&r.sure; } else out.push(r); });
+  return {rows:out,miss};
+}
+function ordGuessCol(text){
+  const n=text.replace(/\s+/g,"");
+  if(/일일향|일일/.test(n)) return "ilil";
+  if(/초록/.test(n)) return "chorok";
+  if(/봉지\(?소|소봉지/.test(n)) return "bagS";
+  if(/봉지\(?대|대봉지/.test(n)) return "bagL";
+  if(/세계로/.test(n)) return "box";
+  return null;
+}
+let ordCol="box", ordRows=[];
+function renderOrdCols(){
+  document.getElementById("ordcols").innerHTML=ORD_COLS.map(([c,t])=>`<button class="chip${c===ordCol?" on":""}" data-oc="${c}">${t}</button>`).join("");
+}
+function renderOrdPrev(miss){
+  const box=document.getElementById("ordprev");
+  if(!ordRows.length){ box.innerHTML=miss&&miss.length?`<p class="ordmiss">품목을 못 찾은 줄:\n${esc(miss.join("\n"))}</p>`:""; return; }
+  const day=(state.prep||{})[경매일KST()]||{};
+  box.innerHTML=`<table class="ordprev"><thead><tr><th>품목·규격</th><th>수량</th><th>지금 칸</th></tr></thead><tbody>
+    ${ordRows.map((r,i)=>`<tr data-or="${i}"><td><select data-of="key">${PREP_ROWS.map(p=>`<option value="${esc(p.key)}"${p.key===r.key?" selected":""}>${esc(p.label)}</option>`).join("")}<option value="">(빼기)</option></select>
+        <div class="src">${r.sure?"":"⚠️ 확인 · "}${esc(r.src)}</div></td>
+      <td><input type="number" min="0" step="${r.unit==="kg"?"0.1":"1"}" data-of="v" value="${r.v}"> ${r.unit==="kg"?"kg":""}</td>
+      <td class="src">${esc(fmtPrep(day[r.key],ordCol)||"-")}</td></tr>`).join("")}
+    </tbody></table>${miss&&miss.length?`<p class="ordmiss">품목을 못 찾은 줄 (필요하면 위 글을 고쳐 다시 읽기):\n${esc(miss.join("\n"))}</p>`:""}`;
+}
+function runParse(){
+  const text=document.getElementById("ordtext").value;
+  const g=ordGuessCol(text); if(g){ ordCol=g; renderOrdCols(); }
+  const {rows,miss}=parseOrder(text);
+  ordRows=rows;
+  document.getElementById("ordstat").textContent=rows.length?`${rows.length}줄을 읽었습니다. 거래처 칸과 수량을 확인하세요.`:"읽은 품목이 없습니다.";
+  renderOrdPrev(miss);
+}
+function openOrder(){
+  ordRows=[]; renderOrdCols(); renderOrdPrev();
+  document.getElementById("ordstat").textContent="";
+  document.getElementById("ordsheet").classList.remove("hidden");
+}
+/* 사진을 줄여서(긴 변 1800px) JPEG 로 */
+function ordShrink(file){
+  return new Promise((ok,bad)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{ const k=Math.min(1,1800/Math.max(img.width,img.height));
+      const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); ok(c.toDataURL("image/jpeg",0.9)); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); bad(new Error("사진을 열지 못했습니다")); };
+    img.src=url;
+  });
+}
+let tessLoading=null;
+function loadTesseract(){
+  if(typeof Tesseract!=="undefined") return Promise.resolve();
+  return tessLoading=tessLoading||new Promise((ok,bad)=>{ const sc=document.createElement("script");
+    sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"; sc.onload=ok;
+    sc.onerror=()=>{ tessLoading=null; bad(new Error("글자 인식 프로그램을 받지 못했습니다 (인터넷 확인)")); }; document.head.appendChild(sc); });
+}
+async function ocrImage(dataUrl,say){
+  if(serverVision&&serverUrl){
+    try{ say("서버에서 글자를 읽는 중…");
+      const r=await fetch(serverUrl+"/api/ocr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:dataUrl})});
+      const j=await r.json(); if(j.ok) return j.text; }catch(e){}
+  }
+  say("폰에서 글자를 읽는 중… (처음 한 번은 한글 사전을 받느라 오래 걸립니다)");
+  await loadTesseract();
+  const w=await Tesseract.createWorker("kor+eng",1,{logger:m=>{ if(m.progress!=null&&/recogniz|load/.test(m.status||"")) say(`글자 읽는 중… ${Math.round(m.progress*100)}%`); }});
+  try{ const {data}=await w.recognize(dataUrl); return data.text||""; } finally{ w.terminate(); }
+}
+document.getElementById("ordfile").onchange=async e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+  const st=document.getElementById("ordstat"), say=t=>st.textContent=t;
+  try{
+    const text=await ocrImage(await ordShrink(f),say);
+    const ta=document.getElementById("ordtext");
+    ta.value=(ta.value.trim()?ta.value.trim()+"\n":"")+text.trim();
+    runParse();
+  }catch(err){ say("사진을 읽지 못했습니다: "+((err&&err.message)||err)); }
+};
+document.getElementById("ordparse").onclick=runParse;
+document.getElementById("ordcols").onclick=e=>{ const b=e.target.closest("[data-oc]"); if(!b) return; ordCol=b.dataset.oc; renderOrdCols(); renderOrdPrev(); };
+document.getElementById("ordprev").addEventListener("change",e=>{
+  const f=e.target.closest("[data-of]"), tr=e.target.closest("[data-or]"); if(!f||!tr) return;
+  const r=ordRows[+tr.dataset.or]; r[f.dataset.of]=f.dataset.of==="v"?(f.value===""?"":Number(f.value)):f.value; r.sure=true;
+});
+document.getElementById("ordapply").onclick=()=>{
+  const d=경매일KST(), day=(state.prep||{})[d]||{}, add=document.getElementById("ordadd").checked;
+  const ok=ordRows.filter(r=>r.key&&r.v!==""&&r.v!=null);
+  if(!ok.length){ document.getElementById("ordstat").textContent="넣을 줄이 없습니다. 먼저 수량을 읽어 주세요."; return; }
+  ok.forEach(r=>{
+    const old=day[r.key]||{}, sameUnit=(old[ordCol+"U"]==="kg")===(r.unit==="kg");
+    const v=add&&sameUnit&&old[ordCol]!=null?Math.round((Number(old[ordCol])+Number(r.v))*10)/10:r.v;
+    pushOp({t:"prep",date:d,row:r.key,col:ordCol,value:v,unit:r.unit},true);
+  });
+  render();
+  const name=(ORD_COLS.find(c=>c[0]===ordCol)||[])[1];
+  document.getElementById("ordsheet").classList.add("hidden");
+  const ps=document.getElementById("prepstat"); if(ps) ps.textContent=`📷 주문에서 ${ok.length}줄을 ${name} 칸에 넣었습니다.`;
+  if(folds.prep) toggleFold("prep",false);
+};
+document.getElementById("ordclose").onclick=()=>document.getElementById("ordsheet").classList.add("hidden");
+
 /* ---------- 새 판 자동 적용 ----------
    서버가 화면 파일이 바뀔 때마다 다른 판 번호를 함께 내려보낸다.
    내가 켤 때 받은 번호와 달라지면 새로 올라온 것이니 스스로 받아 적용한다.
@@ -1782,7 +2077,7 @@ let myBuild=null, waitingBuild=null, buildTimer=null, lastSvVersion=null;
 function busyNow(){
   if(pending.length) return true;                       // 아직 못 보낸 조작이 있다
   const open=id=>{const el=document.getElementById(id); return !!el&&!el.classList.contains("hidden");};
-  if(open("pick")||open("dpick")) return true;
+  if(open("pick")||open("dpick")||open("ordsheet")) return true;
   const a=document.activeElement;
   return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }

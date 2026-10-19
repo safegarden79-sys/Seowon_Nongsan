@@ -16,6 +16,8 @@ const DIR    = path.resolve(process.env.DATA_DIR || ROOT);   // 상대 경로로
 const DATA   = path.join(DIR, "data.json");
 const BACKUP = path.join(DIR, "backup");
 const PORT   = process.env.PORT || 3000;
+/* 주문 사진 글자 인식(챙길 품목 → 📷 주문 올리기)을 구글 Vision 에 맡길 때 쓰는 열쇠. 없으면 폰에서 직접 읽는다(Tesseract). */
+const VISION_KEY = process.env.GOOGLE_VISION_KEY || "";
 /* 날짜별 낙찰 기록(history)을 며칠까지 보관할지. 캘린더에서 "최근 한 달"을 보여주려는
    용도라 여유 있게 40일로 둔다. */
 const HISTORY_DAYS = 40;
@@ -184,7 +186,7 @@ const clients = new Set();
    필요할 때만 따로 받아간다. */
 const payload = () => {
   const { history, shipped, pushSubs, ...rest } = state;
-  return Object.assign({ build: BUILD, now: Date.now() }, rest);   // 판 번호·서버 시각을 얹어 보낸다
+  return Object.assign({ build: BUILD, now: Date.now(), vision: !!VISION_KEY }, rest);   // 판 번호·서버 시각·글자 인식기 유무를 얹어 보낸다
 };
 function broadcast() {
   const msg = "data: " + JSON.stringify(payload()) + "\n\n";
@@ -582,6 +584,40 @@ const server = http.createServer((req, res) => {
     clients.add(res);
     const ping = setInterval(() => { try { res.write(": ping\n\n"); } catch (e) {} }, 25000);
     req.on("close", () => { clearInterval(ping); clients.delete(res); });
+    return;
+  }
+
+  /* 주문 사진 → 글자. 구글 Vision 열쇠(GOOGLE_VISION_KEY)가 있을 때만. 없으면 503 → 폰이 직접 읽는다.
+     글자만 돌려준다. 품목·수량 해석은 화면 쪽(parseOrder)이 한다. */
+  if (u.pathname === "/api/ocr" && req.method === "POST") {
+    if (!VISION_KEY) {
+      res.writeHead(503, { "Content-Type": TYPES[".json"] });
+      return res.end(JSON.stringify({ ok: false, error: "서버에 글자 인식 열쇠가 없습니다" }));
+    }
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 1.6e7) req.destroy(); });
+    req.on("end", async () => {
+      try {
+        const m = /^data:image\/(jpeg|png|webp);base64,(.+)$/.exec(JSON.parse(body).data || "");
+        if (!m) throw new Error("사진을 읽지 못했습니다");
+        const r = await fetch("https://vision.googleapis.com/v1/images:annotate?key=" + encodeURIComponent(VISION_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requests: [{ image: { content: m[2] },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }], imageContext: { languageHints: ["ko", "en"] } }] })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error((j.error && j.error.message) || ("구글이 거절했습니다 (" + r.status + ")"));
+        const one = (j.responses || [])[0] || {};
+        if (one.error) throw new Error(one.error.message || "구글이 사진을 읽지 못했습니다");
+        res.writeHead(200, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: true, text: (one.fullTextAnnotation || {}).text || "" }));
+      } catch (e) {
+        console.error("글자 인식 실패:", e.message);
+        res.writeHead(502, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
     return;
   }
 
