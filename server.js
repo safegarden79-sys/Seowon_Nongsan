@@ -130,7 +130,8 @@ function pruneHistory() {
   for (const d of Object.keys(state.orders || {})) {          // 주문 원본도 같은 기간만 두고, 사진 파일도 지운다
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (!isNaN(t) && t >= cutoff) continue;
-    for (const im of ((state.orders[d].segyero || {}).imgs || [])) { try { fs.unlinkSync(path.join(ORD_DIR, im.f)); } catch (e) {} }
+    for (const w of Object.keys(state.orders[d] || {}))
+      for (const im of ((state.orders[d][w] || {}).imgs || [])) { try { fs.unlinkSync(path.join(ORD_DIR, im.f)); } catch (e) {} }
     delete state.orders[d];
   }
   /* 재경매 표시도 그 날짜 기록과 함께 정리한다 (id = K|시장|날짜|번호|수량|단가) */
@@ -374,14 +375,16 @@ function applyOp(user, op, meta = {}) {
       bump(by, `${ORD_WHO[who]} 주문 글 ${text ? "저장" : "지움"} (${d.slice(5)})`);
       return;
     }
-    case "ordimgdel": {                              // 세계로 주문서 사진 한 장 지우기
-      const d = String(op.date || ""), f = String(op.f || "");
-      const s = ((state.orders[d] || {}).segyero) || {};
+    case "ordimgdel": {                              // 거래처 주문서 사진 한 장 지우기 (who 없으면 세계로)
+      const d = String(op.date || ""), f = String(op.f || ""), who = ORD_WHO[op.who] ? op.who : "segyero";
+      const s = ((state.orders[d] || {})[who]) || {};
       const before = (s.imgs || []).length;
       s.imgs = (s.imgs || []).filter(im => im.f !== f);
       if (s.imgs.length === before) return;
       if (/^[\w.-]+\.jpg$/.test(f)) { try { fs.unlinkSync(path.join(ORD_DIR, f)); } catch (e) {} }
-      bump(by, `세계로 주문서 사진 지움 (${d.slice(5)})`);
+      if (!s.imgs.length) delete s.imgs;
+      if (state.orders[d] && state.orders[d][who] && !Object.keys(state.orders[d][who]).length) delete state.orders[d][who];
+      bump(by, `${ORD_WHO[who]} 주문서 사진 지움 (${d.slice(5)})`);
       return;
     }
     case "prepsave": {                               // 준비 양식 저장 — 수량을 적은 품목만 남겨 보여준다 (on:false 면 다시 전체 양식)
@@ -656,9 +659,10 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(path.join(ORD_DIR, f), Buffer.from(m[1], "base64"));
         const by = String(j.user || "?").slice(0, 12);
         const day = state.orders[d] = state.orders[d] || {};
-        const s = day.segyero = day.segyero || {};
+        const who = ORD_WHO[j.who] ? j.who : "segyero";
+        const s = day[who] = day[who] || {};
         (s.imgs = s.imgs || []).push({ f, by, at: Date.now() });
-        bump(by, `세계로 주문서 사진 올림 (${d.slice(5)})`);
+        bump(by, `${ORD_WHO[who]} 주문서 사진 올림 (${d.slice(5)})`);
         res.writeHead(200, { "Content-Type": TYPES[".json"] });
         res.end(JSON.stringify({ ok: true, f }));
       } catch (e) {

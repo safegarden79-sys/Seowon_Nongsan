@@ -270,7 +270,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .ordprev .src{color:var(--dim);font-size:11px}
 .ordmiss{font-size:12px;color:var(--dim);margin-top:8px;white-space:pre-wrap}
 /* 📝 거래처 주문 보기 — 낙찰 내역 필터 칩과 품목 표 사이. 세계로 = 주문서 사진, 초록·일일향 = 받은 글 */
-.ordview{margin:2px 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.ordview{margin:2px 0 10px;display:grid;gap:10px}
 .ordhead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:11px 12px;text-align:left;color:var(--text)}
 .ordhead b{font-size:14px;font-weight:800;white-space:nowrap}
 .ordhead .ordsum{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -283,11 +283,11 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .ordcard .oh b{font-size:13px;font-weight:800}
 .ordcard .oh .ometa{flex:1;font-size:11px;color:var(--dim);text-align:right}
 .ordcard.c-seg{border-left:4px solid #3B7DD8}.ordcard.c-cho{border-left:4px solid #3E9B4F}.ordcard.c-ili{border-left:4px solid #E58DB0}
-.ordimgs{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
-.ordimgs figure{position:relative;margin:0;flex:0 0 auto}
-.ordimgs img{display:block;height:120px;width:auto;max-width:200px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface2)}
-.ordimgs .odel{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:26px;padding:0}
-.ordtxt{white-space:pre-wrap;font-size:13px;line-height:1.55;margin:0;max-height:220px;overflow:auto}
+.ordimgs{display:grid;gap:8px;margin-bottom:6px}
+.ordimgs figure{position:relative;margin:0}
+.ordimgs img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);background:var(--surface2)}
+.ordimgs .odel{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:30px;padding:0}
+.ordtxt{white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.6;margin:0;padding:8px 10px;background:var(--surface2);border-radius:8px}
 .ordempty{font-size:12px;color:var(--dim)}
 .ordact{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
 .ordact button,.ordact label{padding:7px 11px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--text)}
@@ -579,7 +579,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div class="chips mktchips" id="mktchips"></div>
     <p class="hint" id="pollstat"></p>
     <div class="chips" id="lotchips"></div>
-    <div id="ordview" class="ordview"></div>
     <p class="hint" id="lotstat"></p>
     <div id="lotlist"></div>
 
@@ -595,6 +594,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div class="secbody">
       <p class="hint" id="prepstat"></p>
       <div id="prepbody"></div>
+      <div id="ordview" class="ordview"></div>
     </div>
   </section>
 
@@ -1105,7 +1105,6 @@ function renderLots(chips){
     <button class="chip mode mk-s ${lotMkt==="서울"?"on":""}" data-mk="서울">서울청과 ${nM("서울")}</button>
     <button class="chip mode mk-d ${lotMkt==="동화"?"on":""}" data-mk="동화">동화청과 ${nM("동화")}</button>`;
   renderFeed();
-  renderOrdView();
   const kw=query.trim().toLowerCase();
   const rows=all.filter(l=>{
     if(lotMkt!=="all" && !String(l.mkt||"").startsWith(lotMkt)) return false;
@@ -1418,29 +1417,14 @@ function prepTable(curDay){
     </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r c-${c}">${sum(c)}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
-/* 맨 위 '챙길 품목' 구역 = 경매 전 준비 양식 */
+/* '챙길 품목' 구역 = 거래처 주문 원본(사진·붙여 넣은 글)을 그대로 보여준다.
+   예전 경매 전 준비 양식 표(prepTable)는 요청으로 화면에서 뺐다 — 코드·prep op 는 남아 있다. */
 function renderPrep(){
-  const box=document.getElementById("prepbody"); if(!box) return;
-  /* 칸에 적는 중이면 다시 그리지 않는다 (다른 사람이 바꿀 때마다 쓰던 글자가 날아가지 않게) */
-  const a=document.activeElement;
-  if(a&&a.tagName==="INPUT"&&box.contains(a)) return;
-  const curDay=경매일KST();
-  const day=(state.prep||{})[curDay]||{};
-  const n=PREP_ROWS.filter(r=>prepHas(day[r.key])).length;
-  document.getElementById("prepsub").textContent=`경매일 ${mmdd(curDay)} · ${prepSaved(curDay)?"💾 저장됨 · ":""}${n}품목`;
-  renderFifo(box,curDay);
-}
-/* 챙길 품목 구역 = 경매 전 준비 양식만 (예전 '선입선출 — 품목별 재고' 카드는 요청으로 뺐다. 재고는 재고 관리 구역에서 본다) */
-function renderFifo(box,curDay){
-  const saved=prepSaved(curDay), sv=((state.prep||{})[curDay]||{})._saved||{};
-  box.innerHTML=`<div class="ffhead0"><b>경매 전 준비 양식</b><span>경매일 ${mmdd(curDay)}</span></div>
-    ${saved?`<p class="hint savedhint">💾 저장됨 — 챙길 품목만 남겼습니다 (${esc(sv.by||"")} · ${ago(sv.at)}). 고치려면 '다시 고치기'를 누르세요.</p>`
-      :`<p class="hint">칸에 수량을 적으면 바로 다섯 명이 같이 봅니다. 다 적고 <b>저장</b>을 누르면 수량을 적은 품목만 남습니다. 경매일이 바뀌면(오후 3시) 새 양식이 됩니다.</p>`}
-    ${prepTable(curDay)}
-    <div class="invtools">${saved?`<button data-iact="prepedit">✏️ 다시 고치기 (전체 양식)</button>`
-      :`<button class="savebtn" data-iact="prepsave">💾 저장 — 챙길 품목만 남기기</button>`}
-      <button data-iact="csv">📥 엑셀로 내려받기</button>
-      <button data-iact="ordopen">📷 주문 올리기 (글자·사진)</button></div>`;
+  const curDay=경매일KST(), o=(state.orders||{})[curDay]||{};
+  const part=c=>{ const v=o[c.k]||{}, n=(v.imgs||[]).length; return `${c.n} ${n?n+"장":""}${n&&v.text?"+":""}${v.text?"글":""}${!n&&!v.text?"—":""}`; };
+  document.getElementById("prepsub").textContent=`경매일 ${mmdd(curDay)} · ${ORD_CUST.map(part).join(" · ")}`;
+  const pb=document.getElementById("prepbody"); if(pb) pb.innerHTML="";
+  renderOrdView();
 }
 /* 목표·메모·준비 양식 칸은 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("prepview").addEventListener("change",e=>{
@@ -2143,66 +2127,69 @@ document.getElementById("ordapply").onclick=()=>{
 };
 document.getElementById("ordclose").onclick=()=>document.getElementById("ordsheet").classList.add("hidden");
 
-/* ---------- 📝 거래처 주문 보기 — 낙찰 내역의 필터 칩과 품목 표 사이 ----------
-   보고 있는 낙찰 날짜(lotDate)의 주문 원본을 보여준다. 세계로 = 주문서 사진(여러 장), 초록·일일향 = 받은 글.
-   다섯 명 공통(state.orders[날짜]). 접힘은 이 폰에만 기억(seowon-ordfold). 글을 고치는 동안에는 다시 그리지 않는다. */
-var ORD_CUST=[{k:"segyero",n:"세계로",c:"c-seg",img:true},{k:"chorok",n:"초록",c:"c-cho"},{k:"ilil",n:"일일향",c:"c-ili"}];
-var ordEdit=null, ordUploading=false, ordFolded=false;
-try{ ordFolded=localStorage.getItem("seowon-ordfold")==="1"; }catch(e){}
-function ordDay(){ return lotDate||경매일KST(); }
+/* ---------- ✅ 챙길 품목 = 거래처 주문 원본 ----------
+   경매일(경매일KST)의 세계로·일일향·초록 주문을 받은 그대로 보여준다 — 사진은 원본 비율 그대로(누르면 크게), 글은 줄바꿈 그대로.
+   세 거래처 모두 사진 여러 장 + 붙여 넣은 글을 둘 수 있다. 다섯 명 공통(state.orders[날짜][거래처] = {imgs:[{f,by,at}], text, by, at}).
+   글을 고치는 동안·사진을 올리는 동안에는 다시 그리지 않는다. */
+var ORD_CUST=[{k:"segyero",n:"세계로",c:"c-seg"},{k:"ilil",n:"일일향",c:"c-ili"},{k:"chorok",n:"초록",c:"c-cho"}];
+var ordEdit=null, ordUploading=null;
+function ordDay(){ return 경매일KST(); }
 function ordWhen(t){ if(!t) return ""; const d=new Date(t+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`; }
 function renderOrdView(force){
   const box=document.getElementById("ordview"); if(!box) return;
-  if(ordEdit&&!force) return;                                // 글 고치는 중 — 손가락·키보드가 튀지 않게
+  if((ordEdit||ordUploading)&&!force) return;               // 글 고치는 중 — 손가락·키보드가 튀지 않게
   const d=ordDay(), o=(state.orders||{})[d]||{};
-  const imgs=((o.segyero||{}).imgs)||[];
-  const sum=[`세계로 ${imgs.length?imgs.length+"장":"—"}`,`초록 ${(o.chorok||{}).text?"✓":"—"}`,`일일향 ${(o.ilil||{}).text?"✓":"—"}`].join(" · ");
-  box.classList.toggle("folded",ordFolded);
-  box.innerHTML=`<button class="ordhead" data-oa="fold"><b>📝 거래처 주문</b><span class="ordsum">${sum}</span><i>▾</i></button>
-  <div class="ordbody">${ORD_CUST.map(c=>{
-    const v=o[c.k]||{};
-    if(c.img){
-      const last=imgs[imgs.length-1];
-      return `<div class="ordcard ${c.c}"><div class="oh"><b>${c.n}</b><span class="ometa">${last?`${esc(last.by)} · ${ordWhen(last.at)}`:""}</span></div>
-        ${imgs.length?`<div class="ordimgs">${imgs.map(im=>`<figure><img src="${serverUrl}/ordimg/${encodeURIComponent(im.f)}" alt="세계로 주문서" loading="lazy" data-oa="view" data-f="${esc(im.f)}"><button class="odel" data-oa="del" data-f="${esc(im.f)}" aria-label="사진 지우기">✕</button></figure>`).join("")}</div>`:`<p class="ordempty">주문서 사진이 없습니다</p>`}
-        <div class="ordact"><label>📷 사진 올리기<input type="file" accept="image/*" multiple hidden data-oa="up"></label>${ordUploading?`<span class="ordempty">올리는 중…</span>`:""}</div></div>`;
-    }
-    if(ordEdit===c.k) return `<div class="ordcard ${c.c}"><div class="oh"><b>${c.n}</b></div>
-      <textarea id="ordedit" placeholder="${c.n}에서 받은 주문 글을 붙여 넣으세요">${esc(v.text||"")}</textarea>
-      <div class="ordact"><button class="pri" data-oa="save" data-w="${c.k}">저장</button><button data-oa="cancel">취소</button></div></div>`;
-    return `<div class="ordcard ${c.c}"><div class="oh"><b>${c.n}</b><span class="ometa">${v.text?`${esc(v.by||"")} · ${ordWhen(v.at)}`:""}</span></div>
-      ${v.text?`<p class="ordtxt">${esc(v.text)}</p>`:`<p class="ordempty">받은 주문 글이 없습니다</p>`}
-      <div class="ordact"><button data-oa="edit" data-w="${c.k}">${v.text?"✏️ 고치기":"✏️ 글 넣기"}</button>${v.text?`<button data-oa="copy" data-w="${c.k}">복사</button>`:""}</div></div>`;
-  }).join("")}</div>`;
+  box.innerHTML=ORD_CUST.map(c=>{
+    const v=o[c.k]||{}, imgs=v.imgs||[];
+    const lastImg=imgs[imgs.length-1];
+    const meta=[v.text?`글 ${esc(v.by||"")} ${ordWhen(v.at)}`:"", lastImg?`사진 ${esc(lastImg.by)} ${ordWhen(lastImg.at)}`:""].filter(Boolean).join(" · ");
+    const pics=imgs.length?`<div class="ordimgs">${imgs.map(im=>`<figure><img src="${serverUrl}/ordimg/${encodeURIComponent(im.f)}" alt="${c.n} 주문서" loading="lazy" data-oa="view"><button class="odel" data-oa="del" data-w="${c.k}" data-f="${esc(im.f)}" aria-label="사진 지우기">✕</button></figure>`).join("")}</div>`:"";
+    const txt=ordEdit===c.k
+      ? `<textarea id="ordedit" placeholder="${c.n}에서 받은 주문 글을 그대로 붙여 넣으세요">${esc(v.text||"")}</textarea>
+         <div class="ordact"><button class="pri" data-oa="save" data-w="${c.k}">저장</button><button data-oa="cancel">취소</button>${v.text?`<button data-oa="clear" data-w="${c.k}">글 지우기</button>`:""}</div>`
+      : (v.text?`<p class="ordtxt">${esc(v.text)}</p>`:"");
+    const empty=!imgs.length&&!v.text&&ordEdit!==c.k?`<p class="ordempty">받은 주문이 없습니다</p>`:"";
+    return `<div class="ordcard ${c.c}"><div class="oh"><b>${c.n}</b><span class="ometa">${meta}</span></div>
+      ${pics}${txt}${empty}
+      ${ordEdit===c.k?"":`<div class="ordact">
+        <label>📷 사진 올리기<input type="file" accept="image/*" multiple hidden data-oa="up" data-w="${c.k}"></label>
+        <button data-oa="edit" data-w="${c.k}">${v.text?"✏️ 글 고치기":"📋 글 붙여넣기"}</button>
+        ${v.text?`<button data-oa="copy" data-w="${c.k}">복사</button>`:""}
+        ${ordUploading===c.k?`<span class="ordempty">올리는 중…</span>`:""}</div>`}</div>`;
+  }).join("");
 }
 document.getElementById("ordview").addEventListener("click",async e=>{
   const t=e.target.closest("[data-oa]"); if(!t||t.dataset.oa==="up") return;
-  const a=t.dataset.oa, d=ordDay();
-  if(a==="fold"){ ordFolded=!ordFolded; try{ localStorage.setItem("seowon-ordfold",ordFolded?"1":"0"); }catch(_){} return renderOrdView(true); }
-  if(a==="edit"){ ordEdit=t.dataset.w; renderOrdView(true); const ta=document.getElementById("ordedit"); if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); } return; }
+  const a=t.dataset.oa, d=ordDay(), w=t.dataset.w, name=(ORD_CUST.find(c=>c.k===w)||{}).n||"";
+  if(a==="edit"){ ordEdit=w; renderOrdView(true); const ta=document.getElementById("ordedit");
+    if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length);
+      if(!ta.value&&navigator.clipboard&&navigator.clipboard.readText){ try{ const c=await navigator.clipboard.readText(); if(c&&ordEdit===w&&!ta.value) ta.value=c; }catch(_){} } }
+    return; }
   if(a==="cancel"){ ordEdit=null; return renderOrdView(true); }
-  if(a==="save"){ const text=(document.getElementById("ordedit")||{}).value||""; ordEdit=null;
-    pushOp({t:"ordtext",date:d,who:t.dataset.w,text:text.trim()}); return renderOrdView(true); }
-  if(a==="copy"){ const s=(((state.orders||{})[d]||{})[t.dataset.w]||{}).text||"";
+  if(a==="save"||a==="clear"){ if(a==="clear"&&!confirm(`${name} 주문 글을 지울까요?`)) return;
+    const text=a==="clear"?"":((document.getElementById("ordedit")||{}).value||""); ordEdit=null;
+    pushOp({t:"ordtext",date:d,who:w,text:text.replace(/\s+$/,"")}); return renderOrdView(true); }
+  if(a==="copy"){ const s=(((state.orders||{})[d]||{})[w]||{}).text||"";
     try{ await navigator.clipboard.writeText(s); stat("주문 글을 복사했습니다."); }catch(_){ stat("복사하지 못했습니다. 글을 길게 눌러 복사하세요."); } return; }
-  if(a==="del"){ if(!confirm("이 주문서 사진을 지울까요? 모두의 화면에서 사라집니다.")) return;
-    pushOp({t:"ordimgdel",date:d,f:t.dataset.f}); return renderOrdView(true); }
+  if(a==="del"){ if(!confirm(`이 ${name} 주문서 사진을 지울까요? 모두의 화면에서 사라집니다.`)) return;
+    pushOp({t:"ordimgdel",date:d,who:w,f:t.dataset.f}); return renderOrdView(true); }
   if(a==="view"){ const v=document.createElement("div"); v.id="ordphoto";
-    v.innerHTML=`<button>닫기</button><img src="${t.src}" alt="세계로 주문서">`; v.onclick=()=>v.remove(); document.body.appendChild(v); }
+    v.innerHTML=`<button>닫기</button><img src="${t.src}" alt="주문서">`; v.onclick=()=>v.remove(); document.body.appendChild(v); }
 });
 document.getElementById("ordview").addEventListener("change",async e=>{
   const inp=e.target; if(inp.dataset.oa!=="up"||!inp.files.length) return;
   if(!serverUrl){ alert("서버에 연결된 뒤에 사진을 올릴 수 있습니다."); return; }
-  const files=[...inp.files], d=ordDay(); ordUploading=true; renderOrdView(true);
+  const files=[...inp.files], d=ordDay(), w=inp.dataset.w, name=(ORD_CUST.find(c=>c.k===w)||{}).n||"";
+  ordUploading=w; renderOrdView(true);
   let okN=0, err="";
   for(const f of files){
     try{ const data=await ordShrink(f);
-      const r=await fetch(serverUrl+"/api/ordimg",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,user:me,data})});
+      const r=await fetch(serverUrl+"/api/ordimg",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,who:w,user:me,data})});
       const j=await r.json(); if(!j.ok) throw new Error(j.error||r.status); okN++; }
     catch(x){ err=x.message||String(x); }
   }
-  ordUploading=false; renderOrdView(true);
-  stat(err?`사진 ${okN}장 올림 · 실패: ${err}`:`세계로 주문서 사진 ${okN}장을 올렸습니다.`);
+  ordUploading=null; renderOrdView(true);
+  stat(err?`사진 ${okN}장 올림 · 실패: ${err}`:`${name} 주문서 사진 ${okN}장을 올렸습니다.`);
 });
 
 /* ---------- 새 판 자동 적용 ----------
@@ -2276,7 +2263,7 @@ function localEcho(op){
     if("memo" in op) c.memo=op.memo; if("done" in op) c.done=!!op.done; d[op.item]=c; }
   if(op.t==="ordtext"){ state.orders=state.orders||{}; const d=state.orders[op.date]=state.orders[op.date]||{};
     if(op.text) d[op.who]=Object.assign({},d[op.who]||{},{text:op.text,by:me,at:Date.now()}); else if(d[op.who]) delete d[op.who].text; }
-  if(op.t==="ordimgdel"){ const s=((state.orders||{})[op.date]||{}).segyero; if(s) s.imgs=(s.imgs||[]).filter(im=>im.f!==op.f); }
+  if(op.t==="ordimgdel"){ const s=((state.orders||{})[op.date]||{})[op.who||"segyero"]; if(s) s.imgs=(s.imgs||[]).filter(im=>im.f!==op.f); }
   if(op.t==="reauc"){ state.reauc=state.reauc||{}; if(op.on) state.reauc[op.id]={by:me,at:Date.now()}; else delete state.reauc[op.id]; }
   state.inv=state.inv||{};
   if(op.t==="invlock"&&state.inv[op.id]){ const it=Object.assign({},state.inv[op.id]);
