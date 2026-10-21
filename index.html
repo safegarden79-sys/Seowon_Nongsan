@@ -363,6 +363,14 @@ table.xl tr.reauc td:not(.ck):not(.nb):not(.pk){text-decoration:line-through;tex
 table.xl tr.reauc .price{color:var(--dim)}
 .gonetag{background:#E07B00!important}
 .chktag{background:#B8860B!important}
+.fixtag{background:#C62828!important}
+/* 단가 정정 짝 — 줄 + 적요 줄을 빨간 네모로 감싼다 */
+table.xl tr.fixbox td{border-top:0;border-bottom:0}
+table.xl tr.fixbox:not(.memorow) td{border-top:2px solid #D32F2F}
+table.xl tr.fixbox td:first-child{border-left:2px solid #D32F2F}
+table.xl tr.fixbox td:last-child{border-right:2px solid #D32F2F}
+table.xl tr.memorow td{border-bottom:2px solid #D32F2F;font-size:12px;color:#B71C1C;background:#FFF5F5;padding:4px 6px;text-decoration:none!important;white-space:normal;line-height:1.4}
+table.xl tr.memorow b{display:inline-block;background:#D32F2F;color:#fff;border-radius:4px;padding:0 5px;margin-right:4px;font-size:11px}
 .ltime{font-family:inherit;letter-spacing:0}
 .retag{display:inline-block;margin-left:4px;font-size:10px;font-weight:800;color:#FFFFFF;background:#C0392B;
   border-radius:5px;padding:1px 5px;text-decoration:none;vertical-align:middle;white-space:nowrap}
@@ -887,7 +895,10 @@ function buildLotPairs(rows){
     const prices=new Set(g.map(l=>l.price)); if(prices.size<2) return;
     const live=g.filter(l=>!isGone(l)).sort((a,b)=>(Number(b.seenAt||b.addedAt)||0)-(Number(a.seenAt||a.addedAt)||0));
     const newest=live[0];
-    g.forEach(l=>{ if(newest&&l.id!==newest.id) lotPair[l.id]={to:newest.price, gone:isGone(l)}; });
+    if(!newest) return;
+    const olds=g.filter(l=>l.id!==newest.id);
+    olds.forEach(l=>{ lotPair[l.id]={to:newest.price, gone:isGone(l)}; });
+    lotPair[newest.id]={isNew:true, from:[...new Set(olds.map(l=>l.price))]};
   });
 }
 const isPick=l=>!!(state.pickup||{})[l.id];
@@ -896,9 +907,17 @@ function lotRow(l){
   const note=live?(state.lotnotes||{})[l.id]:null;
   /* 누가 챙겼는지는 줄 밑에 적지 않는다 — 아래 기록(히스토리)에만 남는다 */
   const re=isReauc(l), gone=isGone(l), pair=lotPair[l.id];
-  const tag=gone?`<span class="retag gonetag">사이트 정정${pair?` → ${won(pair.to)}`:""}</span>`
-    :pair?`<span class="retag chktag">단가 확인 · 사이트 ${won(pair.to)}</span>`:"";
-  return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),(re||gone)?"reauc":"",isPick(l)?"pick":""].join(" ")}">
+  const old_=pair&&!pair.isNew;
+  const tag=gone?`<span class="retag gonetag">사이트 정정${old_?` → ${won(pair.to)}`:""}</span>`
+    :old_?`<span class="retag chktag">단가 확인 · 사이트 ${won(pair.to)}</span>`
+    :pair?`<span class="retag fixtag">정정 단가</span>`:"";
+  /* 적요 — 같은 번호·생산자·수량에 단가가 바뀐 낙찰은 네모로 감싸고 사유를 자동으로 적는다 */
+  const hhmm=t=>{ const v=lotTime({seenAt:t}); return v?` ${v}`:""; };
+  const memo=!pair?"":pair.isNew
+    ? `${pair.from.map(won).join("·")} → ${won(l.price)} 정정 · 지금 사이트 단가 (${(hhmm(l.seenAt||l.addedAt)).trim()} 확인)`
+    : gone ? `${won(l.price)} → ${won(pair.to)} 정정 · 예전 단가 (${(hhmm(l.gone)).trim()} 사이트에서 사라짐) · 합계 제외`
+    : `${won(l.price)} → ${won(pair.to)} 정정 의심 · 사이트에 새 단가 줄 있음 (예전 줄이면 + 에서 삭제)`;
+  return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),(re||gone)?"reauc":"",isPick(l)?"pick":"",pair?"fixbox":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
       <td class="c no mono">${esc(l.no||"")}${lotTime(l)?`<span class="sm ltime">${lotTime(l)}</span>`:""}</td>
       <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}${tag}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
@@ -907,6 +926,7 @@ function lotRow(l){
       <td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
       <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td>
       <td class="pk">${live?`<button class="pkb" data-act="pickup" aria-label="우선 픽업"><i>★</i></button>`:""}</td></tr>
+    ${memo?`<tr class="memorow fixbox" data-id="${esc(l.id)}"><td></td><td colspan="7"><b>적요</b> ${esc(memo)}</td></tr>`:""}
     ${note?`<tr class="noterow" data-id="${esc(l.id)}"><td></td><td colspan="7">✎ ${esc(note.text||note)}</td></tr>`:""}
     ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="8">
       <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
