@@ -136,6 +136,7 @@ function addToHistory(rows) {
     if (!r || !r.id || !r.date) return;
     state.history[r.date] = state.history[r.date] || {};
     state.history[r.date][r.id] = Object.assign({}, state.history[r.date][r.id] || {}, r);
+    if (!r.gone) delete state.history[r.date][r.id].gone;   // 다시 보낸 줄 = 사이트에 있음
   });
 }
 
@@ -149,7 +150,7 @@ function addToHistory(rows) {
 function addToInv(rows, now) {
   let n = 0;
   (rows || []).forEach(r => {
-    if (!r || !r.id || state.shipped[r.id]) return;
+    if (!r || !r.id || state.shipped[r.id] || r.gone) return;   // 사이트에서 사라진(정정된) 줄은 재고로 넘기지 않는다
     const old = state.inv[r.id];
     const qty = Number(r.qty) || 0;
     if (old) {
@@ -231,7 +232,7 @@ function applyOp(user, op, meta = {}) {
 
   switch (op.t) {
     case "lots": {                                   // 실시간 수집기(또는 직접 추가)가 넣은 낙찰 줄 반영
-      let added = 0, updated = 0; const fresh = [];
+      let added = 0, updated = 0; const fresh = [], revived = [];
       (op.rows || []).forEach(r => {
         if (!r.id) return;
         const old = state.lots[r.id];
@@ -240,6 +241,8 @@ function applyOp(user, op, meta = {}) {
           addedAt: old ? old.addedAt : now,
           updatedBy: by, updatedAt: now
         });
+        /* 사이트에서 사라졌다고 표시했던 줄이 다시 보이면 표시를 푼다 */
+        if (old && old.gone && !r.gone) { delete state.lots[r.id].gone; revived.push(r); }
         if (old) updated++; else { added++; fresh.push(r); }
         if (state.got[r.id] && state.got[r.id].n > r.qty) state.got[r.id].n = r.qty;
       });
@@ -257,7 +260,26 @@ function applyOp(user, op, meta = {}) {
       (op.rows || []).forEach(r => { if (r && r.mkt) 시장[r.mkt] = (시장[r.mkt] || 0) + 1; });
       const 내역 = Object.keys(시장).map(m => `${m} ${시장[m]}`).join(" · ");
       if (!op.quiet) notifyNewLots(fresh);            // 새로 생긴 줄만 알림 (같은 줄 갱신은 알리지 않는다). quiet = 되살리기용, 알림 없음
-      bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${내역 ? ` (${내역})` : ""}`);
+      bump(by, `낙찰 ${added}줄 추가${updated ? `, ${updated}줄 갱신` : ""}${revived.length ? `, ${revived.length}줄 사이트에 다시 보임` : ""}${내역 ? ` (${내역})` : ""}`);
+      return;
+    }
+    case "lotgone": {                                // 수집기: 전에 보낸 줄이 사이트에서 사라짐(경락가 정정·취소 등)
+      /* 지우지 않고 gone 표시만 한다 — 챙김 기록은 남기고, 화면의 소계·합계와 재고에서는 뺀다.
+         같은 줄이 사이트에 다시 보이면 lots op 가 표시를 푼다. */
+      const names = [];
+      for (const id of (op.ids || []).map(String).slice(0, 200)) {
+        const d = id.split("|")[2];
+        const l = state.lots[id], h = (state.history[d] || {})[id];
+        if (!l && !h) continue;
+        if ((l && l.gone) || (!l && h && h.gone)) continue;
+        if (l) l.gone = now;
+        if (h) h.gone = now;
+        const iv = state.inv[id];
+        if (iv && !iv.lock) delete state.inv[id];      // 실제로 받지 않은 물건이므로 재고에서 뺀다 (고정한 줄은 그대로)
+        const r = l || h;
+        names.push(`${r.no} · ${r.who || "-"} · ${r.qty}박스 · ${Number(r.price || 0).toLocaleString("ko-KR")}원`);
+      }
+      if (names.length) bump(by, `${String(op.mkt || "")} 사이트에서 사라진 낙찰 ${names.length}줄 — 정정 표시 (${names.slice(0, 3).join(" / ")}${names.length > 3 ? " 외" : ""})`);
       return;
     }
     case "poll": {                                   // 수집기 신호 — 시장별 로그인 세션 상태 (몇 초마다 온다)

@@ -361,6 +361,9 @@ table.xl tbody tr{-webkit-user-select:none;user-select:none;touch-action:manipul
 table.xl tr.reauc td{color:var(--dim)}
 table.xl tr.reauc td:not(.ck):not(.nb):not(.pk){text-decoration:line-through;text-decoration-thickness:2px}
 table.xl tr.reauc .price{color:var(--dim)}
+.gonetag{background:#E07B00!important}
+.chktag{background:#B8860B!important}
+.ltime{font-family:inherit;letter-spacing:0}
 .retag{display:inline-block;margin-left:4px;font-size:10px;font-weight:800;color:#FFFFFF;background:#C0392B;
   border-radius:5px;padding:1px 5px;text-decoration:none;vertical-align:middle;white-space:nowrap}
 /* 우선 픽업 칸 (맨 오른쪽) */
@@ -868,16 +871,37 @@ function visibleLots(){
    지난 날짜 기록(history)에서만 온 줄은 보기 전용이다. */
 const mkCls=l=>String(l.mkt||"").startsWith("서울")?"mk-seoul":String(l.mkt||"").startsWith("동화")?"mk-dong":"";
 const isReauc=l=>!!(state.reauc||{})[l.id];
+/* 사이트에서 사라진 줄(경락가 정정·취소) — 수집기가 lotgone 으로 알려 온다. 재경매처럼 합계에서 뺀다 */
+const isGone=l=>!!l.gone;
+const isOut=l=>isReauc(l)||isGone(l);
+/* 경락 시각 = 수집기가 사이트에서 그 줄을 처음 본 때(seenAt, 2초 간격 확인) — 없으면 서버가 받은 때 */
+const lotTime=l=>{ const t=Number(l.seenAt||l.addedAt); if(!t) return ""; const d=new Date(t+9*3600e3);
+  return [d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()].map(x=>String(x).padStart(2,"0")).join(":"); };
+/* 같은 시장·날짜·번호·생산자·수량인데 단가만 다른 줄 — 정정 전후로 보이는 짝을 찾는다 */
+let lotPair={};
+function buildLotPairs(rows){
+  lotPair={}; const by={};
+  rows.forEach(l=>{ const k=[l.mkt,l.date,l.no,l.who,l.qty].join("|"); (by[k]=by[k]||[]).push(l); });
+  Object.values(by).forEach(g=>{
+    if(g.length<2) return;
+    const prices=new Set(g.map(l=>l.price)); if(prices.size<2) return;
+    const live=g.filter(l=>!isGone(l)).sort((a,b)=>(Number(b.seenAt||b.addedAt)||0)-(Number(a.seenAt||a.addedAt)||0));
+    const newest=live[0];
+    g.forEach(l=>{ if(newest&&l.id!==newest.id) lotPair[l.id]={to:newest.price, gone:isGone(l)}; });
+  });
+}
 const isPick=l=>!!(state.pickup||{})[l.id];
 function lotRow(l){
   const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
   const note=live?(state.lotnotes||{})[l.id]:null;
   /* 누가 챙겼는지는 줄 밑에 적지 않는다 — 아래 기록(히스토리)에만 남는다 */
-  const re=isReauc(l);
-  return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),re?"reauc":"",isPick(l)?"pick":""].join(" ")}">
+  const re=isReauc(l), gone=isGone(l), pair=lotPair[l.id];
+  const tag=gone?`<span class="retag gonetag">사이트 정정${pair?` → ${won(pair.to)}`:""}</span>`
+    :pair?`<span class="retag chktag">단가 확인 · 사이트 ${won(pair.to)}</span>`:"";
+  return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),(re||gone)?"reauc":"",isPick(l)?"pick":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
-      <td class="c no mono">${esc(l.no||"")}</td>
-      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
+      <td class="c no mono">${esc(l.no||"")}${lotTime(l)?`<span class="sm ltime">${lotTime(l)}</span>`:""}</td>
+      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}${tag}<span class="sm">${esc(mktShort(l.mkt))}</span></td>
       <td class="c">${esc(unitTxt(l.unit))}<span class="sm">${esc(l.grade||"")}</span></td>
       <td class="r qn">${l.qty}</td>
       <td class="r"><b class="price">${won(l.price)}</b><span class="sm">${won(lotAmt(l))}</span></td>
@@ -1016,14 +1040,16 @@ function renderLots(chips){
   const all=dayRows(lotDate);
   const isDone=l=>l._live&&(state.got[l.id]||0)>=l.qty;
   const doneRows=all.filter(isDone).length;
-  const pickRows=all.filter(isPick).length, reRows=all.filter(isReauc).length;
+  const pickRows=all.filter(isPick).length, reRows=all.filter(isReauc).length, goneRows=all.filter(isGone).length;
+  buildLotPairs(all);
   document.getElementById("lotsub").textContent=`${dateKo(lotDate)} · ${all.length}줄${all.length?` · 챙김 ${doneRows}`:""}`;
   chips.innerHTML=`
     <button class="chip ${filter==="all"?"on":""}" data-f="all">전체 ${all.length}</button>
     <button class="chip ${filter==="todo"?"on":""}" data-f="todo">미완료 ${all.length-doneRows}</button>
     <button class="chip ${filter==="done"?"on":""}" data-f="done">완료 ${doneRows}</button>
     <button class="chip ${filter==="pick"?"on":""}" data-f="pick">우선 픽업 ${pickRows}</button>
-    <button class="chip ${filter==="re"?"on":""}" data-f="re">재경매 ${reRows}</button>`;
+    <button class="chip ${filter==="re"?"on":""}" data-f="re">재경매 ${reRows}</button>${goneRows||filter==="gone"?`
+    <button class="chip ${filter==="gone"?"on":""}" data-f="gone">사이트 정정 ${goneRows}</button>`:""}`;
   /* 시장 고르기는 날짜 바로 아래 줄 */
   const nM=m=>all.filter(l=>String(l.mkt||"").startsWith(m)).length;
   document.getElementById("mktchips").innerHTML=`
@@ -1038,6 +1064,7 @@ function renderLots(chips){
     if(filter==="done"&&!isDone(l)) return false;
     if(filter==="pick"&&!isPick(l)) return false;
     if(filter==="re"&&!isReauc(l)) return false;
+    if(filter==="gone"&&!isGone(l)) return false;
     if(!kw) return true;
     return [l.item,normItem(l.item),l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
   });
@@ -1049,19 +1076,19 @@ function renderLots(chips){
     bindEmpty(); return;
   }
   const groups=invGroups(rows);
-  const buy=rows.filter(l=>!isReauc(l));     // 재경매 줄은 합계에서 뺀다
+  const buy=rows.filter(l=>!isOut(l));       // 재경매·사이트 정정 줄은 합계에서 뺀다
   const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
   list.innerHTML=groups.map(g=>{
     const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
     <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원${
-      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.qty}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}</span></div>
+      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.qty}`:""}${g.re?` · 재경매·정정 ${g.re}줄 제외`:""}</span></div>
     <div class="xwrap"><table class="xl"><thead><tr>
-      <th></th><th>번호</th><th class="xw">생산자</th><th>단량<br>등급</th><th>수량</th><th>경락단가 ▲<br>거래금액</th><th></th><th class="pkh">우선<br>픽업</th>
+      <th></th><th>번호<br><small>경락 시각</small></th><th class="xw">생산자</th><th>단량<br>등급</th><th>수량</th><th>경락단가 ▲<br>거래금액</th><th></th><th class="pkh">우선<br>픽업</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
     <tfoot><tr><td></td><td class="c">소계</td><td></td><td></td><td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td></td><td></td></tr></tfoot>
     </table></div></div>`;}).join("")
-    +`<div class="grand"><span>합계 ${buy.length}줄${rows.length>buy.length?`<small>재경매 ${rows.length-buy.length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
+    +`<div class="grand"><span>합계 ${buy.length}줄${rows.length>buy.length?`<small>재경매·정정 ${rows.length-buy.length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
 
 /* 실시간 수집기(poller)가 마지막으로 낙찰을 올린 때. 사무실 PC 의 poller 가 살아 있는지
@@ -1149,10 +1176,10 @@ function invGroups(rows){
     .map(k=>({ title:k,
       rows:by[k].slice().sort((a,b)=>(a.price-b.price)||(lotAmt(a)-lotAmt(b))||(a.who||"").localeCompare(b.who||"","ko")),
       /* 재경매로 분류한 줄은 실제로 산 게 아니므로 수량·금액 합에서 뺀다 */
-      qty:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0),
-      left:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.left)||0),0),
-      amt:by[k].filter(l=>!isReauc(l)).reduce((a,l)=>a+lotAmt(l),0),
-      re:by[k].filter(isReauc).length }));
+      qty:by[k].filter(l=>!isOut(l)).reduce((a,l)=>a+(Number(l.qty)||0),0),
+      left:by[k].filter(l=>!isOut(l)).reduce((a,l)=>a+(Number(l.left)||0),0),
+      amt:by[k].filter(l=>!isOut(l)).reduce((a,l)=>a+lotAmt(l),0),
+      re:by[k].filter(isOut).length }));
 }
 function invMatch(l){
   const kw=query.trim().toLowerCase();
@@ -1224,7 +1251,7 @@ function renderInv(){
 
   const rows=inv.filter(invMatch);
   const groups=invGroups(rows);
-  const invBuy=inv.filter(l=>!isReauc(l));     // 재경매 줄은 산 게 아니므로 합계에서 뺀다
+  const invBuy=inv.filter(l=>!isOut(l));     // 재경매 줄은 산 게 아니므로 합계에서 뺀다
   const total=invBuy.reduce((a,l)=>a+lotAmt(l),0);
   const leftAmt=invBuy.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
   const leftQty=invBuy.reduce((a,l)=>a+(Number(l.left)||0),0);
@@ -1284,7 +1311,7 @@ function fifoData(curDay,inv){
   stats.forEach(r=>{ const it=get(normItem(r.item)); it.total+=r.qty;
     if(dates.includes(r.date)) it.sum7+=r.qty; if(!it.last||r.date>it.last) it.last=r.date; });
   (shippedRows||[]).forEach(l=>get(normItem(l.item)));
-  inv.filter(l=>!isReauc(l)&&(Number(l.left)||0)>0).forEach(l=>get(normItem(l.item)).lots.push(l));
+  inv.filter(l=>!isOut(l)&&(Number(l.left)||0)>0).forEach(l=>get(normItem(l.item)).lots.push(l));
   const list=Object.values(items).map(it=>{
     it.lots.sort((a,b)=>(a.date||"").localeCompare(b.date||"")||String(a.no||"").localeCompare(String(b.no||"")));
     it.stock=it.lots.reduce((a,l)=>a+(Number(l.left)||0),0);

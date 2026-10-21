@@ -86,7 +86,8 @@ class Bridge:
         self.user = user
         self.timeout = timeout
         self._seen = {}                 # 줄 id → 처음 본 시각(ms)
-        self._lots = queue.Queue()      # 보낼 낙찰 묶음 (잃으면 안 됨)
+        self._lots = queue.Queue()      # 보낼 조작(낙찰 묶음·사라진 줄 알림) — 잃으면 안 됨
+        self._known = {}                # 시장 → {줄 id: {"row", "miss", "gone"}} — 사이트에서 사라진 줄 찾기용
         self._beat = {}                 # 시장 → 가장 최근 신호 (최신 것만 보내면 됨)
         self._lock = threading.Lock()
         self._wake = threading.Event()
@@ -118,8 +119,49 @@ class Bridge:
         if len(self._seen) > 5000:      # 하루 넘게 켜 둬도 메모리가 늘지 않게
             self._seen = dict(list(self._seen.items())[-2000:])
         if out:
-            self._lots.put(out)
+            self._lots.put({"t": "lots", "rows": out})
             self._wake.set()
+
+    def track(self, mkt, rows, dates, misses=3):
+        """매번 사이트에서 읽은 전체 목록(rows)을 넘긴다. 전에 본 줄이 같은 경매일(dates) 목록에서
+        misses 번 연속 보이지 않으면 사이트에서 사라진 것(경락가 정정·취소)으로 보고 서버에 'lotgone' 을 보낸다.
+        단가가 바뀌면 id 가 달라져 옛 줄이 남던 문제를 막는다. 사라졌던 줄이 다시 보이면 다시 보낸다."""
+        dates = set(dates)
+        kn = self._known.setdefault(mkt, {})
+        present = set()
+        back = []
+        for r in rows:
+            rid = r.get("id")
+            if not rid:
+                continue
+            present.add(rid)
+            k = kn.get(rid)
+            if k is None:
+                kn[rid] = {"row": dict(r), "miss": 0, "gone": False}
+            else:
+                k["miss"] = 0
+                if k["gone"]:
+                    k["gone"] = False
+                    back.append(r)
+        if back:
+            self.send_lots(back)
+        if not rows:                    # 빈 화면은 사이트 쪽 일시 오류일 수 있어 판단하지 않는다
+            return []
+        gone = []
+        for rid, k in kn.items():
+            if rid in present or k["gone"] or k["row"].get("date") not in dates:
+                continue
+            k["miss"] += 1
+            if k["miss"] >= misses:
+                k["gone"] = True
+                gone.append(rid)
+        if gone:
+            self._lots.put({"t": "lotgone", "mkt": mkt, "ids": gone})
+            self._wake.set()
+        if len(kn) > 3000:              # 지난 경매일 줄은 정리
+            for rid in [i for i, k in kn.items() if k["row"].get("date") not in dates]:
+                del kn[rid]
+        return gone
 
     # ---- 보내는 스레드 ----
     def _post(self, ops):
@@ -139,7 +181,7 @@ class Bridge:
             if pending is None and not self._lots.empty():
                 pending = self._lots.get()
             if pending:
-                ops.append({"t": "lots", "rows": pending})
+                ops.append(pending)
             with self._lock:
                 beats, self._beat = list(self._beat.values()), {}
             ops.extend(beats)

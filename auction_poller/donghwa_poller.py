@@ -179,6 +179,8 @@ def run(cfg, bridge):
                         r["date"] = ad
                         r["id"] = lot_key(r["mkt"], r["date"], r["no"], r["qty"], r["price"])
                     bridge.heartbeat(MKT, "ok", rows=len(rows), interval=interval)
+                    for gid in bridge.track(MKT, rows, [ad]):   # 사이트에서 사라진 줄(경락가 정정 등)
+                        L(f"사이트에서 사라진 줄 — 정정 표시 전송: {gid}")
                     new_rows = mark_and_filter_new(rows)
                     if new_rows:
                         L(f"새 낙찰 {len(new_rows)}줄 발견 — 전송: " +

@@ -100,6 +100,8 @@ def run(cfg, bridge):
                 L(f"로그인이 풀린 것으로 보입니다 — {pace.fail():.0f}초 뒤 다시 로그인합니다")
                 continue
             bridge.heartbeat(MKT, "ok", rows=len(rows), interval=interval)
+            for gid in bridge.track(MKT, rows, [auction_date(MKT, qd) for qd in query_dates(MKT)]):
+                L(f"사이트에서 사라진 줄 — 정정 표시 전송: {gid}")
             new_rows = mark_and_filter_new(rows)
             if new_rows:
                 L(f"새 낙찰 {len(new_rows)}줄 발견 — 전송: " +
