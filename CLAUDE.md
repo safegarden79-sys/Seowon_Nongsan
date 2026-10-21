@@ -86,6 +86,17 @@ poller 가 그 역할을 대신하게 되어 앱에서 완전히 제거했습니
 사진 글자 인식은 서버 환경변수 `GOOGLE_VISION_KEY` 가 있으면 `/api/ocr`(구글 Vision), 없으면 폰에서 Tesseract.js(한글)로 읽는다.
 검색창은 세 구역 모두에 걸린다. 예전 `tab` 변수는 `"all"` 로 고정(옛 상차 체크 `carview` 는 숨김).
 
+## 📝 거래처 주문 보기 (낙찰 내역 안, 필터 칩과 품목 표 사이)
+
+`#ordview`(`renderOrdView`) — 보고 있는 낙찰 날짜(`lotDate`)의 거래처 주문 원본을 보여준다. 다섯 명 공통.
+- **세계로** = 주문서 사진(여러 장). `📷 사진 올리기` → 폰에서 긴 변 1800px JPEG 로 줄여(`ordShrink`) `POST /api/ordimg {date,user,data}` →
+  파일은 `DATA_DIR/orders/<날짜>_<시각>_<난수>.jpg`, 목록은 `state.orders[날짜].segyero.imgs[{f,by,at}]`. 보기는 `GET /ordimg/<파일>`.
+  사진을 누르면 크게 보기(`#ordphoto`), ✕ 로 지우기(`ordimgdel` op, 파일도 지움).
+- **초록 · 일일향** = 받은 주문 글. `✏️ 글 넣기/고치기` → `ordtext` op `{date, who:"chorok"|"ilil", text}`(빈 글이면 지움). `복사` 버튼.
+- 머리(`📝 거래처 주문 · 세계로 N장 · 초록 ✓ · 일일향 —`)를 누르면 접고 편다. 이 폰에만 기억(`seowon-ordfold`).
+- 글을 고치는 동안(`ordEdit`)·사진을 올리는 동안은 다시 그리지 않고 새 판 자동 적용도 미룬다(`busyNow`).
+- `HISTORY_DAYS` 지난 날짜는 `pruneHistory` 가 글·사진 파일까지 정리한다. `📷 주문 올리기`(준비 양식 칸 채우기)와는 따로 동작한다.
+
 ## 낙찰 내역 날짜별 조회 (예전 캘린더 탭)
 
 예전 `📅 캘린더` 탭은 `📦 낙찰 내역` 탭 안으로 합쳤습니다. 낙찰 내역 맨 위의 날짜를 누르면
@@ -265,6 +276,7 @@ curl localhost:3000/api/health
 - `newday` 전체 초기화 (캘린더 기록·재고 관리 재고/출고 기록은 남는다)
 - `poll` 수집기 신호(시장별 로그인 세션 상태, 툴바용)
 - `lotgone` 사이트에서 사라진 낙찰 줄(단가 정정 등) 정정 표시 — 합계에서 빠짐
+- `ordtext` 거래처 주문 글(초록·일일향), `ordimgdel` 세계로 주문서 사진 지우기 (사진 올리기는 `POST /api/ordimg`)
 - `prep` 준비 양식 한 칸, `prepsave` 준비 양식 저장/다시 고치기, `fifo` 선입선출 목표·메모·확인
 - `invlock` 재고 줄 고정/풀기, `invleft` 재고 관리 잔여 수량, `ship` 전량 출고, `unship` 출고 되돌리기, `invimport` 캘린더 기록에서 불러오기
 
