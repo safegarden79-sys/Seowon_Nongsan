@@ -506,7 +506,7 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     </div>
   </div>
 
-  <!-- 한 화면에 낙찰 내역 → 챙길 품목 → 재고 관리 순서로 이어진다. 아래 버튼은 그 구역으로 바로 내려가는 바로가기 -->
+  <!-- 한 화면에 낙찰 내역(그 안에 챙길 품목) → 재고 관리 순서로 이어진다. 아래 버튼은 그 구역으로 바로 내려가는 바로가기 -->
   <div class="tabs">
     <button class="tab on" data-jump="lotview">📦 낙찰 내역</button>
     <button class="tab" data-jump="prepview">✅ 챙길 품목</button>
@@ -541,6 +541,14 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div class="chips mktchips" id="mktchips"></div>
     <p class="hint" id="pollstat"></p>
     <div class="chips" id="lotchips"></div>
+    <!-- 챙길 품목(세계로·일일향·초록 준비 양식, 📷 주문 올리기)은 낙찰 내역 칩(전체·미완료·완료·우선 픽업·재경매)과 낙찰 품목 표 사이에 둔다 -->
+    <section id="prepview" class="sec">
+      <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
+      <div class="secbody">
+        <p class="hint" id="prepstat"></p>
+        <div id="prepbody"></div>
+      </div>
+    </section>
     <p class="hint" id="lotstat"></p>
     <div id="lotlist"></div>
 
@@ -548,14 +556,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <button class="panelbtn" id="addbtn">➕ 낙찰 품목 직접 추가 <span class="arrow">▸</span></button>
     <div class="panel hidden" id="addpanel"></div>
     <button class="bigbtn" id="clearlots">🗑 낙찰 내역 전체 삭제</button>
-    </div>
-  </section>
-
-  <section id="prepview" class="sec">
-    <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
-    <div class="secbody">
-      <p class="hint" id="prepstat"></p>
-      <div id="prepbody"></div>
     </div>
   </section>
 
@@ -1524,7 +1524,9 @@ function renderFooter(){
 document.querySelector(".tabs").addEventListener("click",e=>{
   const b=e.target.closest(".tab"); if(!b)return;
   const sec=document.getElementById(b.dataset.jump);
-  if(sec.classList.contains("folded")) toggleFold(sec.querySelector(".sechead").dataset.fold,false);
+  /* 챙길 품목은 낙찰 내역 안에 있으니 바깥 구역이 접혀 있으면 같이 편다 */
+  for(let p=sec;p;p=p.parentElement.closest(".sec"))
+    if(p.classList.contains("folded")) toggleFold(p.querySelector(".sechead").dataset.fold,false);
   sec.querySelector(".sechead").scrollIntoView({behavior:"smooth",block:"start"});
 });
 /* 지금 보고 있는 구역에 맞춰 위 버튼에 밑줄 */
