@@ -296,6 +296,12 @@ function applyOp(user, op, meta = {}) {
       bump(by, `재고 관리로 ${n}줄 불러옴 (${from}~${op.to || "오늘"})`);
       return;
     }
+    case "invclear": {                               // 재고 관리 목록만 전부 비운다 (캘린더 기록·출고 기록은 남는다)
+      const n = Object.keys(state.inv).length;
+      state.inv = {};
+      bump(by, `재고 관리 목록 ${n}줄 전부 삭제`);
+      return;
+    }
     case "invlock": {                                // 재고 관리 — 체크(고정). 풀기 전에는 잔여 수량·출고·삭제가 안 된다
       const it = state.inv[op.id];
       if (!it) return;
