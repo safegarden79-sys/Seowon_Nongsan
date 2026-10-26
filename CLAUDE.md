@@ -223,6 +223,26 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
   하나로 맞춘다(`auction_date`) — 하룻밤 경매가 앱에서 한 날짜에 모이고, 서울청과가 자정 전후로
   조회 날짜가 바뀌어도 같은 낙찰이 다른 id 로 쪼개지지 않게 하기 위함.
 
+## 가격 정보 — 도·소매·경락 단가 연동 (`prices/`)
+
+앱 아래쪽 `📈 가격 정보` 버튼 → `/prices/index.html`. 화면 세 개:
+
+| 화면 | 파일 | 자료 |
+|---|---|---|
+| 전국35개 공영도매시장 품목별 가격 추이 | `prices/wholesale.html` | aT 전국 공영도매시장 실시간 경매정보 `https://apis.data.go.kr/B552845/katRealTime2/trades2` (공공데이터포털 15141808) |
+| 지역별 소매가격 | `prices/retail.html` | KAMIS Open API `dailyPriceByCategoryList` (채소류 200, 지역별) |
+| 급식 납품 단가 | `prices/school.html` | 공공데이터포털 파일데이터 CSV 를 화면에서 올림(충남 학교급식 견적 등) |
+
+- 서버 쪽은 `prices/prices.js`(Node 기본 모듈만). 자료는 `DATA_DIR/prices.json`. 30분마다 깨어나 오늘(3시간마다)·어제(확정본)·지난 28일 중 빠진 날(한 번에 3~4일)을 받는다.
+- **인증키는 환경변수로만** — `DATA_GO_KR_KEY`(공공데이터포털 일반 인증키, Decoding 값 권장), `KAMIS_CERT_KEY`·`KAMIS_CERT_ID`. 저장소에 적지 않는다. 키가 없으면 그 수집만 꺼진다.
+- 경락 응답의 필드 이름은 명세 파일에만 있어 **키 이름을 정규식으로 찾는다**(`normWs`: `*_nm` 품목명, `grd_nm` 등급, `scsbd_prc` 경락가, `unit_qty`·`unit_nm` 중량). 실제 응답 첫 줄은 `/api/prices/debug` 에 남는다 — 품목이 안 잡히면 여기부터 본다.
+- 처음 하루는 전국 전체를 훑고(최대 250쪽×1,000줄), 우리 품목이 나온 중분류 코드(`gds_mclsf_cd`)를 배워 7일 동안은 그 코드로만 조회한다(`S.ws.learned`). 개발계정 호출 한도(1만)를 아끼기 위함.
+- 품목 판별은 `matchGroup`(청양·홍청양·녹광·홍초·꽈리·아삭이·파프리카 빨강/노랑·피망·홍피망). 등급은 특·상만 쓴다. 아삭이 10kg·팩(3.6kg)은 같은 시세(`asak`)를 박스 무게만 달리 쓴다(`SKUS`).
+- 소매 조사에 없는 품목은 가까운 품목으로 대신한다(`RETAIL_PROXY`: 홍청양→붉은고추, 파프리카 색 구분 없음, 홍피망→피망). 화면에 표시된다.
+- **상·하한 추천**: 하한 = (최근 7일 도매 kg당[가장 비싼 날 또는 평균] × 박스kg + 택배비 + 포장비) ÷ (1−수수료율) × (1+최소 마진), 상한 = 지역 소매 kg당 가운데값 × 박스kg × (1−마트 대비 할인), 권장 = 가운데. 입력값은 `/api/prices/settings` 로 다섯 명 공통.
+- 시험: `PRICES_MOCK=1 node server.js` → 가짜 자료로 화면 확인(빨간 띠). 끄고 다시 켜면 가짜 자료는 지워진다.
+- API: `GET /api/prices/status|meta|wholesale?days=|retail?days=|school|settings|debug`, `POST /api/prices/settings|sync|school/import(본문=CSV, 머리 x-filename)|school/remove`.
+
 ## 상태 점검
 
 ```bash

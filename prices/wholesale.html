@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>전국35개 공영도매시장 품목별 가격 추이</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<main>
+  <h1>전국35개 공영도매시장 품목별 가격 추이</h1>
+  <p class="lead">공영도매시장 경락가를 매일 자동으로 받아 kg당 평균(거래량 가중)으로 정리합니다. 시장별 주간 평균을 비교하고, 그 시세로 판매가 상·하한을 추천합니다.</p>
+  <div id="banners"></div>
+
+  <div class="card">
+    <div class="row">
+      <label class="f">품목<select id="sku"></select></label>
+      <label class="f">등급<span class="seg" id="grade"><button data-v="특" class="on">특</button><button data-v="상">상</button></span></label>
+      <label class="f">기간<span class="seg" id="weeks"><button data-v="4">4주</button><button data-v="8" class="on">8주</button><button data-v="12">12주</button></span></label>
+      <label class="f">단위<span class="seg" id="unit"><button data-v="kg" class="on">kg당</button><button data-v="box">박스당</button></span></label>
+    </div>
+    <p class="note" id="status" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="grid kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>전국 일평균 추이 <span class="note">특 · 상 함께</span></h2>
+    <div id="chartDaily"></div>
+  </div>
+
+  <div class="card">
+    <h2>시장별 주간 평균 비교 <span class="note">색이 진할수록 비쌈 · 맨 오른쪽은 지난주 대비</span></h2>
+    <div class="scroll" id="heat"></div>
+  </div>
+
+  <div class="card">
+    <h2>판매가격 상·하한 추천 <span class="note">스마트스토어 1박스 기준</span></h2>
+    <p class="note">하한 = (도매 원가 + 택배비 + 포장비) ÷ (1 − 수수료율) × (1 + 최소 마진). 상한 = 마트(소매) 가격을 박스로 환산한 값 × (1 − 마트 대비 할인). 권장 = 둘의 가운데. 값을 바꾸면 모두가 같이 봅니다.</p>
+    <div class="row" id="settings" style="margin:10px 0 14px"></div>
+    <div class="scroll"><table class="rec" id="rec"></table></div>
+    <p class="note" id="recNote"></p>
+  </div>
+</main>
+<script src="common.js"></script>
+<script>
+const { $, esc, won, r100, j, kstToday, addDays, weekStart, md, ago, lineChart, heat, COLORS } = PX;
+PX.nav("wholesale.html");
+let META, WS = {}, RT = {}, SET = {}, ST;
+const ui = { sku: "cheongyang", grade: "특", weeks: 8, unit: "kg" };
+
+function seg(id, key) {
+  $("#" + id).addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...$("#" + id).children].forEach(x => x.classList.toggle("on", x === b));
+    ui[key] = key === "weeks" ? +b.dataset.v : b.dataset.v; draw();
+  });
+}
+const skuOf = k => META.skus.find(s => s.key === k);
+
+/* 날짜별 전국 가중평균(kg당) */
+function nationalDaily(group, grade) {
+  const out = [];
+  for (const [d, day] of Object.entries(WS)) {
+    const r = day.agg && day.agg[group] && day.agg[group][grade]; if (!r) continue;
+    let q = 0, s = 0; for (const m of Object.values(r)) { q += m.q; s += m.s; }
+    if (q) out.push([d, s / q, q]);
+  }
+  return out.sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+function window7(group, grade) {
+  const end = kstToday(), cut = addDays(end, -7), cut2 = addDays(end, -14);
+  let q = 0, s = 0, mx = 0, q2 = 0, s2 = 0; const mk = {};
+  for (const [d, day] of Object.entries(WS)) {
+    const r = day.agg && day.agg[group] && day.agg[group][grade]; if (!r) continue;
+    let dq = 0, ds = 0;
+    for (const [name, m] of Object.entries(r)) {
+      dq += m.q; ds += m.s;
+      if (d > cut) { const a = (mk[name] ||= { q: 0, s: 0 }); a.q += m.q; a.s += m.s; }
+    }
+    if (d > cut) { q += dq; s += ds; if (dq) mx = Math.max(mx, ds / dq); }
+    else if (d > cut2) { q2 += dq; s2 += ds; }
+  }
+  const markets = Object.entries(mk).map(([n, a]) => [n, a.s / a.q]).sort((a, b) => a[1] - b[1]);
+  return { avg: q ? s / q : NaN, max: mx || NaN, prev: q2 ? s2 / q2 : NaN, markets, qty: q };
+}
+
+function drawKpis() {
+  const sku = skuOf(ui.sku), f = ui.unit === "box" ? sku.box : 1, unit = ui.unit === "box" ? `원/박스(${sku.box}kg)` : "원/kg";
+  const w = window7(sku.group, ui.grade);
+  const ch = isFinite(w.prev) && w.prev ? (w.avg / w.prev - 1) * 100 : NaN;
+  const lo = w.markets[0], hi = w.markets[w.markets.length - 1];
+  $("#kpis").innerHTML = [
+    ["최근 7일 전국 평균", won(w.avg * f), unit],
+    ["지난주 대비", isFinite(ch) ? `<span class="${ch > 0 ? "up" : "down"}">${ch > 0 ? "▲" : "▼"} ${Math.abs(ch).toFixed(1)}%</span>` : "—", "전국 가중평균"],
+    ["가장 싼 시장 (7일)", lo ? won(lo[1] * f) : "—", lo ? esc(lo[0]) : ""],
+    ["가장 비싼 시장 (7일)", hi ? won(hi[1] * f) : "—", hi ? esc(hi[0]) : ""],
+  ].map(([l, v, s]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+}
+
+function drawDaily() {
+  const sku = skuOf(ui.sku), f = ui.unit === "box" ? sku.box : 1;
+  const start = addDays(kstToday(), -ui.weeks * 7);
+  const xs = Object.keys(WS).filter(d => d >= start).sort();
+  const series = ["특", "상"].map((g, i) => ({ name: `${sku.name} ${g}`, color: i ? "#1F6FB2" : "#2F7A34", w: g === ui.grade ? 3 : 1.6,
+    points: nationalDaily(sku.group, g).filter(p => p[0] >= start).map(p => [p[0], p[1] * f]) }));
+  lineChart($("#chartDaily"), { series, xs });
+}
+
+function drawHeat() {
+  const sku = skuOf(ui.sku), f = ui.unit === "box" ? sku.box : 1;
+  const start = weekStart(addDays(kstToday(), -(ui.weeks - 1) * 7));
+  const weeks = []; for (let w = start; w <= kstToday(); w = addDays(w, 7)) weeks.push(w);
+  const cells = {}, tot = {}, nat = {};
+  for (const [d, day] of Object.entries(WS)) {
+    if (d < start) continue;
+    const r = day.agg && day.agg[sku.group] && day.agg[sku.group][ui.grade]; if (!r) continue;
+    const wk = weekStart(d);
+    for (const [m, a] of Object.entries(r)) {
+      const c = ((cells[m] ||= {})[wk] ||= { q: 0, s: 0 }); c.q += a.q; c.s += a.s;
+      tot[m] = (tot[m] || 0) + a.q;
+      const n = (nat[wk] ||= { q: 0, s: 0 }); n.q += a.q; n.s += a.s;
+    }
+  }
+  const markets = Object.keys(cells).sort((a, b) => tot[b] - tot[a]).slice(0, 35);
+  if (!markets.length) { $("#heat").innerHTML = `<div class="empty">이 품목·등급의 경락 자료가 아직 없습니다</div>`; return; }
+  const v = (c) => c && c.q ? c.s / c.q * f : NaN;
+  const all = markets.flatMap(m => weeks.map(w => v(cells[m][w]))).filter(isFinite);
+  const mn = Math.min(...all), mx = Math.max(...all);
+  const last = weeks[weeks.length - 1], prev = weeks[weeks.length - 2];
+  const delta = (a, b) => isFinite(a) && isFinite(b) && b ? ((a / b - 1) * 100) : NaN;
+  const dcell = d => isFinite(d) ? `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}${Math.abs(d).toFixed(1)}%</span>` : "—";
+  let h = `<table class="heat"><tr><th>시장 (거래량순)</th>${weeks.map(w => `<th>${md(w)}주</th>`).join("")}<th>지난주 대비</th></tr>`;
+  const natRow = weeks.map(w => v(nat[w]));
+  h += `<tr class="nat"><td>전국 평균</td>${natRow.map(x => `<td>${won(x)}</td>`).join("")}<td>${dcell(delta(natRow[natRow.length - 1], natRow[natRow.length - 2]))}</td></tr>`;
+  for (const m of markets) {
+    const row = weeks.map(w => v(cells[m][w]));
+    h += `<tr><td>${esc(m)}</td>${row.map(x => `<td class="c" style="background:${heat(x, mn, mx)}">${won(x)}</td>`).join("")}<td>${dcell(delta(row[row.length - 1], row[row.length - 2]))}</td></tr>`;
+  }
+  $("#heat").innerHTML = h + `</table><p class="note">단위: ${ui.unit === "box" ? `원/박스(${sku.box}kg 환산)` : "원/kg"} · 주는 월요일 시작 · 이번 주는 아직 진행 중</p>`;
+}
+
+/* ---------- 상·하한 추천 ---------- */
+const FIELDS = [["shipping", "택배비 (원/박스)"], ["packing", "포장비 (원/박스)"], ["feeRate", "판매 수수료율 (%)"], ["minMargin", "최소 마진 (%)"], ["retailGap", "마트 대비 할인 (%)"]];
+function drawSettings() {
+  $("#settings").innerHTML = FIELDS.map(([k, l]) => `<label class="f">${l}<input type="number" step="any" data-k="${k}" value="${SET[k] ?? 0}"></label>`).join("") +
+    `<label class="f">원가 기준<select id="basis"><option value="max7">최근 7일 중 가장 비싼 날</option><option value="avg7">최근 7일 평균</option></select></label>`;
+  $("#basis").value = SET.costBasis || "max7";
+  let t;
+  const push = () => { clearTimeout(t); t = setTimeout(() => j("/api/prices/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(SET) }).catch(() => {}), 600); };
+  $("#settings").addEventListener("input", e => { const k = e.target.dataset.k; if (k) { SET[k] = +e.target.value || 0; drawRec(); push(); } });
+  $("#basis").addEventListener("change", e => { SET.costBasis = e.target.value; drawRec(); push(); });
+}
+/* 최신 소매 kg당 가격(지역 가운데값) — 소매 등급은 상품/중품이라 특↔상품, 상↔중품(없으면 상품)으로 맞춘다 */
+function retailPerKg(group, grade) {
+  const days = Object.keys(RT).sort().reverse();
+  for (const d of days) {
+    const vals = [];
+    for (const reg of Object.values(RT[d].regions || {})) {
+      const rows = (reg.items || {})[group] || [];
+      const want = grade === "특" ? /상품/ : /중품/;
+      const row = rows.find(r => want.test(r.rank) && r.perKg) || rows.find(r => /상품/.test(r.rank) && r.perKg) || rows.find(r => r.perKg);
+      if (row) vals.push(row.perKg);
+    }
+    if (vals.length) { vals.sort((a, b) => a - b); return { v: vals[Math.floor(vals.length / 2)], d, n: vals.length }; }
+  }
+  return null;
+}
+function drawRec() {
+  const fee = (SET.feeRate || 0) / 100, mg = (SET.minMargin || 0) / 100, gap = (SET.retailGap || 0) / 100;
+  let h = `<tr><th>품목</th><th>등급</th><th>도매 원가/박스</th><th>하한</th><th>권장</th><th>상한</th><th>마트가 환산/박스</th><th></th></tr>`;
+  const notes = new Set();
+  for (const sku of META.skus) for (const g of ["특", "상"]) {
+    const w = window7(sku.group, g);
+    const perKg = SET.costBasis === "avg7" ? w.avg : w.max;
+    const cost = perKg * sku.box;
+    const floor = isFinite(cost) ? r100((cost + (SET.shipping || 0) + (SET.packing || 0)) / (1 - fee) * (1 + mg)) : NaN;
+    const rt = retailPerKg(sku.group, g);
+    const mart = rt ? rt.v * sku.box : NaN;
+    const ceil = isFinite(mart) ? Math.floor(mart * (1 - gap) / 100) * 100 : NaN;
+    let mid = NaN, flag = "";
+    if (isFinite(floor) && isFinite(ceil)) {
+      if (ceil < floor) flag = `<span class="pill warn">마트가보다 원가가 높음</span>`;
+      else mid = r100((floor + ceil) / 2);
+    } else if (isFinite(floor)) { mid = floor; flag = `<span class="pill warn">소매가 없음</span>`; }
+    const proxy = META.retailProxy[sku.group];
+    if (proxy) notes.add(`${sku.name}: 소매 조사에 없어 '${proxy}' 가격으로 대신 계산`);
+    if (!isFinite(cost)) flag = `<span class="pill warn">경락 자료 없음</span>`;
+    h += `<tr><td>${esc(sku.name)}<div class="note">${sku.box}kg</div></td><td>${g}</td><td>${won(cost)}</td><td class="floor">${won(floor)}</td><td class="mid">${won(mid)}</td><td class="ceil">${won(ceil)}</td><td>${won(mart)}</td><td>${flag}</td></tr>`;
+  }
+  $("#rec").innerHTML = h;
+  const unset = FIELDS.filter(([k]) => ["shipping", "packing", "feeRate"].includes(k) && !SET[k]).map(([, l]) => l.replace(/ \(.*/, ""));
+  $("#recNote").innerHTML = (unset.length ? `<span class="pill warn">아직 0원·0%</span> ${unset.join(", ")} 값을 넣어야 하한이 실제 원가를 반영합니다.<br>` : "") + [...notes].map(esc).join("<br>");
+}
+
+function draw() { drawKpis(); drawDaily(); drawHeat(); drawRec(); }
+
+(async () => {
+  try {
+    [META, ST] = await Promise.all([j("/api/prices/meta"), j("/api/prices/status")]);
+    const [w, r, s] = await Promise.all([j("/api/prices/wholesale?days=100"), j("/api/prices/retail?days=40"), j("/api/prices/settings")]);
+    WS = w.days; RT = r.days; SET = s;
+  } catch (e) { $("#status").textContent = "자료를 불러오지 못했습니다: " + e.message; return; }
+  PX.banners(ST, $("#banners"));
+  if (!ST.keys.dataGoKr && !ST.mock) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">경락가 인증키(DATA_GO_KR_KEY)가 서버에 없어 자동 수집이 꺼져 있습니다. 공공데이터포털에서 '전국 공영도매시장 실시간 경매정보' 활용신청 후 Render 환경변수에 넣어 주세요.</div>`);
+  if (ST.wholesale.error) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">최근 수집 오류: ${esc(ST.wholesale.error.msg)}</div>`);
+  $("#sku").innerHTML = META.skus.map(s => `<option value="${s.key}">${esc(s.name)}</option>`).join("");
+  $("#sku").addEventListener("change", e => { ui.sku = e.target.value; draw(); });
+  seg("grade", "grade"); seg("weeks", "weeks"); seg("unit", "unit");
+  $("#status").innerHTML = `경락 자료 ${ST.wholesale.days}일치 · 마지막 수집 ${ago(ST.wholesale.last)} · 매일 자동 갱신(30분마다 확인) · 오늘 API 호출 ${ST.wholesale.callsToday}회 ` +
+    (ST.keys.dataGoKr ? `<button class="btn" id="syncNow">지금 받아오기</button>` : "");
+  const sb = $("#syncNow");
+  if (sb) sb.onclick = async () => { sb.disabled = true; sb.textContent = "받는 중… (몇 분 걸릴 수 있음)"; try { const r = await j("/api/prices/sync", { method: "POST" }); alert((r.done || []).join("\n") || "새로 받을 자료가 없습니다"); location.reload(); } catch (e) { alert(e.message); sb.disabled = false; } };
+  drawSettings(); draw();
+  addEventListener("resize", () => drawDaily());
+})();
+</script>
+</body>
+</html>

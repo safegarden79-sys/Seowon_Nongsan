@@ -18,3 +18,7 @@ vapid.json
 
 # 안드로이드 빌드 결과물
 android/build/
+
+# 가격 정보 자동 수집 자료 (DATA_DIR 에 생성)
+prices.json
+prices.json.tmp

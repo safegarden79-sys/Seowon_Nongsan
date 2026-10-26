@@ -1,0 +1,54 @@
+:root{
+  --bg:#F6FAF3; --card:#FFFFFF; --text:#183A22; --sub:#4F5C53; --muted:#7A857D; --line:#DDE7D7;
+  --accent:#2F7A34; --accent2:#3E9B4F; --tint:#E2F1D6; --warn:#A85A00; --warnbg:#FFF4E0; --bad:#B4301C; --badbg:#FCEDE9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;font-size:15px;line-height:1.55}
+a{color:var(--accent)}
+header.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header.top .home{font-weight:800;text-decoration:none;color:var(--text);margin-right:6px}
+header.top nav{display:flex;gap:6px;flex-wrap:wrap}
+header.top nav a{padding:7px 12px;border-radius:999px;text-decoration:none;font-size:14px;color:var(--sub);background:var(--bg);min-height:36px;display:inline-flex;align-items:center}
+header.top nav a.on{background:var(--accent);color:#fff;font-weight:700}
+main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+h1{font-size:24px;margin:6px 0 4px;letter-spacing:-.3px}
+h2{font-size:18px;margin:0 0 10px}
+.lead{color:var(--sub);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpi .l{font-size:13px;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:13px;color:var(--sub)}
+.up{color:var(--bad)} .down{color:#1F6FB2}
+label.f{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+select,input[type=number],input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text);min-height:40px}
+input[type=number]{width:120px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{font:inherit;border:0;background:#fff;color:var(--sub);padding:8px 14px;min-height:40px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff;font-weight:700}
+button.btn{font:inherit;border:1px solid var(--accent);background:#fff;color:var(--accent);padding:8px 14px;border-radius:10px;min-height:40px;cursor:pointer}
+button.btn.primary{background:var(--accent);color:#fff}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:14px}
+th{background:#F2F8EC;color:var(--sub);font-weight:700;position:sticky;top:0}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+td:first-child{background:#fff;font-weight:600}
+tr.nat td{background:#F2F8EC;font-weight:800}
+.heat td.c{border-left:2px solid #fff}
+.note{font-size:13px;color:var(--muted)}
+.banner{border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px}
+.banner.mock{background:var(--badbg);color:var(--bad);font-weight:700}
+.banner.warn{background:var(--warnbg);color:var(--warn)}
+.banner.ok{background:var(--tint);color:var(--accent)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:var(--tint);color:var(--accent);font-weight:700}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+.chart{width:100%;overflow:visible}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.empty{padding:30px 10px;text-align:center;color:var(--muted)}
+.rec td.floor{color:#1F6FB2;font-weight:700}.rec td.ceil{color:var(--bad);font-weight:700}.rec td.mid{font-weight:800;font-size:15px}
+@media (max-width:640px){ h1{font-size:20px} .kpi .v{font-size:19px} input[type=number]{width:100%} label.f{flex:1 1 45%} }

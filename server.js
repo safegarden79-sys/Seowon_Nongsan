@@ -7,6 +7,7 @@ const fs     = require("fs");
 const path   = require("path");
 const crypto = require("crypto");
 const webpush = require("./webpush");
+const createPrices = require("./prices/prices");
 
 const ROOT   = __dirname;
 /* 자료를 어디에 둘지. Render 에 유료 디스크를 붙이면 그 경로를 DATA_DIR 로 준다.
@@ -26,6 +27,9 @@ const HISTORY_DAYS = 40;
 const SHIPPED_DAYS = 400;
 
 if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
+
+/* 도·소매·경락 단가 연동 (prices/prices.js). 자료는 DATA_DIR/prices.json */
+const prices = createPrices({ dir: DIR });
 
 /* 자료를 정말 붙여둔 디스크에 쓰고 있는지 한눈에 보이게 한다.
    디스크를 붙이고도 DATA_DIR 를 안 주면 프로그램 폴더에 쓰게 되는데,
@@ -462,6 +466,9 @@ const server = http.createServer((req, res) => {
   cors(res);
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
+  if (u.pathname.startsWith("/api/prices/")) return prices.handle(req, res, u);
+  if (u.pathname === "/prices" || u.pathname === "/prices/") { res.writeHead(302, { Location: "/prices/index.html" }); return res.end(); }
+
   if (u.pathname === "/api/health") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify({ ok: true, version: state.version, 판: BUILD, 자료위치, 접속자: clients.size,
@@ -474,6 +481,8 @@ const server = http.createServer((req, res) => {
       마지막낙찰: state.lastLots ? { 지연ms: state.lastLots.lag, 시계차와전송ms: state.lastLots.net ?? null } : null,
       알림: { 웹푸시: Object.keys(state.pushSubs).length, 앱: notifyClients.size },
       재고: Object.keys(state.inv).length, 출고기록: Object.keys(state.shipped).length,
+      가격연동: (s => ({ 경락가키: s.keys.dataGoKr, KAMIS키: s.keys.kamis, 도매일수: s.wholesale.days, 소매일수: s.retail.days,
+        급식단가줄: s.school.rows, 오류: (s.wholesale.error || s.retail.error) ? [s.wholesale.error && s.wholesale.error.msg, s.retail.error && s.retail.error.msg].filter(Boolean) : undefined }))(prices.status()),
       가동초: Math.round(process.uptime()) }));
   }
 
@@ -716,6 +725,8 @@ setInterval(rollover, 60 * 1000);
 /* 예기치 못한 오류로 서버가 죽지 않게 막는다 */
 process.on("uncaughtException", e => { console.error("오류:", e.message); persist(); });
 process.on("unhandledRejection", e => console.error("오류:", e));
+
+prices.start();
 
 server.listen(PORT, () => {
   console.log(`서원농산 공유 서버 실행 중 — 포트 ${PORT} · 화면 판 ${BUILD}`);
