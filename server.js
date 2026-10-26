@@ -8,6 +8,7 @@ const path   = require("path");
 const crypto = require("crypto");
 const webpush = require("./webpush");
 const createPrices = require("./prices/prices");
+const createMargin = require("./margin/margin");
 
 const ROOT   = __dirname;
 /* 자료를 어디에 둘지. Render 에 유료 디스크를 붙이면 그 경로를 DATA_DIR 로 준다.
@@ -30,6 +31,8 @@ if (!fs.existsSync(DIR))    fs.mkdirSync(DIR, { recursive: true });
 
 /* 도·소매·경락 단가 연동 (prices/prices.js). 자료는 DATA_DIR/prices.json */
 const prices = createPrices({ dir: DIR });
+/* 최대 마진 계산 (margin/margin.js) — 서원 낙찰 기록 × 시세. 설정은 DATA_DIR/margin.json */
+const margin = createMargin({ dir: DIR, prices, getState: () => state });
 
 /* 자료를 정말 붙여둔 디스크에 쓰고 있는지 한눈에 보이게 한다.
    디스크를 붙이고도 DATA_DIR 를 안 주면 프로그램 폴더에 쓰게 되는데,
@@ -467,6 +470,8 @@ const server = http.createServer((req, res) => {
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
   if (u.pathname.startsWith("/api/prices/")) return prices.handle(req, res, u);
+  if (u.pathname.startsWith("/api/margin/")) return margin.handle(req, res, u);
+  if (u.pathname === "/margin" || u.pathname === "/margin/") { res.writeHead(302, { Location: "/margin/index.html" }); return res.end(); }
   if (u.pathname === "/prices" || u.pathname === "/prices/") { res.writeHead(302, { Location: "/prices/index.html" }); return res.end(); }
 
   if (u.pathname === "/api/health") {

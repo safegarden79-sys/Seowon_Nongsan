@@ -12,7 +12,8 @@ const PX = (() => {
   const ago = t => { if (!t) return "없음"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "방금" : m < 60 ? m + "분 전" : m < 1440 ? Math.round(m / 60) + "시간 전" : Math.round(m / 1440) + "일 전"; };
 
   function nav(on) {
-    const links = [["index.html", "가격 정보"], ["wholesale.html", "공영도매시장 추이"], ["retail.html", "지역별 소매가격"], ["school.html", "급식 납품 단가"]];
+    const links = [["/prices/index.html", "가격 정보"], ["/prices/wholesale.html", "공영도매시장 추이"], ["/prices/retail.html", "지역별 소매가격"], ["/prices/school.html", "급식 납품 단가"], ["/margin/index.html", "최대 마진 계산"]];
+    if (!on.startsWith("/")) on = "/prices/" + on;
     document.body.insertAdjacentHTML("afterbegin",
       `<header class="top"><a class="home" href="/">← SEOWONY</a><nav>${links.map(([h, t]) => `<a href="${h}" class="${h === on ? "on" : ""}">${t}</a>`).join("")}</nav></header>`);
   }

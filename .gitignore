@@ -22,3 +22,11 @@ android/build/
 # 가격 정보 자동 수집 자료 (DATA_DIR 에 생성)
 prices.json
 prices.json.tmp
+
+# 마진 계산 설정·품목 DB·가락 경락가 DB (DATA_DIR 에 생성)
+/margin.json
+/margin.json.tmp
+/margin_db.json
+/margin_db.json.tmp
+/garak.json
+/garak.json.tmp

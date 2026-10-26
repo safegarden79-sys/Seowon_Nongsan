@@ -243,6 +243,35 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
 - 시험: `PRICES_MOCK=1 node server.js` → 가짜 자료로 화면 확인(빨간 띠). 끄고 다시 켜면 가짜 자료는 지워진다.
 - API: `GET /api/prices/status|meta|wholesale?days=|retail?days=|school|settings|debug`, `POST /api/prices/settings|sync|school/import(본문=CSV, 머리 x-filename)|school/remove`.
 
+## 최대 마진 계산 (`margin/`)
+
+앱 아래쪽 `💰 마진 계산` 버튼(가격 정보 화면 메뉴에도 있음) → `/margin/index.html`. 서원 낙찰 단가(원가) × 가락시장 경락가·지역 소매가(판매 상한)로
+품목·판매 채널별 손익분기가·하한·상한·**최대 마진**·권장가를 계산한다. 화면 = 계산기 + 가격별 마진 그래프 + 날짜별 추이 + 품목 비교 + 품목 DB + 채널 비용 설정.
+
+| 파일 | 역할 |
+|---|---|
+| `margin/margin.js` | API·집계·계산(`calc`). 품목 DB(`DATA_DIR/margin_db.json`), 채널 설정(`DATA_DIR/margin.json`) |
+| `margin/garak.js` | 가락시장 공식 경락가 수집(서울시농수산식품공사 Open API) → `DATA_DIR/garak.json` |
+| `margin/index.html` | 화면 (`/prices/common.css`·`common.js` 를 같이 씀) |
+| `margin/build_template.py` → `template.xlsx`·`template.json` | 엑셀 틀(수식·그래프·서식). **수식이나 시트를 바꾸면 이걸 고치고 다시 돌려 둘 다 커밋** |
+| `margin/xlsx.js` | 틀에 자료를 채워 xlsx 로 내려줌 (외부 라이브러리 없음, zlib 로 zip 읽고 씀) |
+
+- **품목 DB = 서울청과·동화청과 누적 낙찰 품목.** `refreshDB()` 가 `state.history`(40일) + `state.lots` 를 날짜·품목키(`품목군|등급|박스kg`)별로 묶어
+  `margin_db.json` 의 `daily` 에 400일 보관하고(기록에 남은 날은 늘 다시 계산 → 삭제·재경매·정정 반영), `items`(기준키 `품목군|등급`)를 만든다.
+  재경매(`state.reauc`)·사이트 정정(`gone`) 줄은 뺀다. 품목군은 `prices.js` 의 `matchGroup`(청양 → `청양`만 와도 '고추' 붙여 다시 봄), 등급은 `matchGrade`(특·상, 나머지는 글자 그대로).
+  박스kg 는 `unit`(서울청과) — 비면(동화청과) 품목 기본(10kg, 아삭이 팩 3.6).
+- **가락 경락가 = 서울시농수산식품공사 공식 Open API** (서울 열린데이터광장 OA-2664 '품목별등급별가격(도매시장법인거래)').
+  환경변수 `GARAK_API_KEY`(인증키), `GARAK_SERVICE`(그 데이터 'Open API' 탭의 서비스 이름), 필요하면 `GARAK_URL`(주소 틀 — `{KEY}{SERVICE}{START}{END}{YMD}{DATE}`).
+  30분마다 깨어 오늘(3시간마다)·어제·빠진 날을 받고, **품목 DB 에 있는 품목·등급만** 남긴다(`matchKey`). 응답 필드 이름은 정규식으로 찾으므로
+  처음 연결하면 `GET /api/margin/garak/debug` 의 `first`·`keys` 를 보고 맞는지 확인한다. 키가 없으면 aT 전국 자료(`prices`)의 서울가락 줄로 대신한다(화면에 출처 표시).
+  `temp.garak.co.kr/price/OZViewer.do` 와 garak.co.kr 안내 페이지는 사이트가 robots.txt 로 자동 접근을 막아 두어 읽지 않는다.
+- 계산식(서버 `calc`·화면 `calc`·엑셀 수식 세 곳이 같아야 함): 원가 C(최근|7일평균|7일최고) · 부대비 F=택배+포장+기타 · 수수료 r →
+  손익분기 (C+F)/(1−r), 하한 = 손익분기×(1+최소 마진%), 상한 = 소매 kg×박스kg×(1−할인%) 또는 가락 7일 kg×박스kg×(1+가산%)(없으면 다른 기준),
+  최대 마진 = 상한×(1−r)−C−F, 권장가 = (하한+상한)/2. 채널 기본값(스마트스토어·식당 직납·도매 재판매)은 **예시값** — 화면에서 고쳐 저장(다섯 명 공통).
+- 엑셀(`GET /api/margin/export.xlsx?days=`): 시트 계산기(품목·채널 고르기 → 결과, 가격별 마진 표) · 그래프(추이·싸게 산 금액·가격별 마진·품목별 최대 마진·서원 vs 가락)
+  · 품목요약 · 추이 · 설정 · 일별데이터 · 낙찰원장 · 품목DB. 수식은 값 없이 넣고 `fullCalcOnLoad` 로 열 때 계산된다.
+- API: `GET /api/margin/data?days=`(최대 400) · `items` · `settings`(POST 로 저장, `{reset:true}` 기본값) · `export.xlsx` · `garak/status` · `garak/debug` · `POST garak/sync`.
+
 ## 상태 점검
 
 ```bash

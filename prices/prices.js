@@ -495,5 +495,6 @@ module.exports = function createPrices({ dir }) {
     }
   }
 
-  return { start, handle, status, _test: { matchGroup, matchGrade, normWs, parseCsv, importSchool, parseUnit, findItems, S: () => S } };
+  /* 마진 계산(margin/margin.js)이 도매·소매 집계를 읽어 간다 */
+  return { start, handle, status, raw: () => S, groups: GROUPS, skus: SKUS, matchGroup, matchGrade, _test: { matchGroup, matchGrade, normWs, parseCsv, importSchool, parseUnit, findItems, S: () => S } };
 };

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>최대 마진 계산 · SEOWONY</title>
+<link rel="stylesheet" href="/prices/common.css">
+<style>
+  div.f{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+  .ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
+  .ctl select,.ctl input{width:100%}
+  .seg{flex-wrap:wrap}
+  .kpi.key{border-color:#E8A302;background:#FFF8E1}
+  .kpi.key .v{color:#8A5A00}
+  .neg{color:var(--bad)}
+  .formula{font-size:13px;color:var(--sub);line-height:1.7;margin:0;padding-left:18px}
+  table.cmp td,table.cmp th{font-size:13px}
+  table.cmp tr{cursor:pointer}
+  table.cmp tr.on td{background:#FFF8E1}
+  table.cmp td.bar{min-width:120px;text-align:left}
+  .hbar{height:10px;border-radius:5px;background:var(--accent2);display:inline-block;vertical-align:middle}
+  .hbar.neg{background:var(--bad)}
+  table.set input,table.set select{width:100%;min-width:70px;min-height:36px;padding:6px 8px}
+  table.set td:first-child input{min-width:130px}
+  table.set td{padding:4px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .mk{font-size:11px;fill:#4F5C53}
+  .sub2{font-size:13px;color:var(--muted);margin:-4px 0 10px}
+  .why{font-size:13px;color:var(--sub);margin:8px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>최대 마진 계산</h1>
+  <p class="lead">서원농산이 실제로 낙찰받은 단가(앱에 쌓인 기록)를 원가로, 가락시장 경락가·지역 소매가를 판매 상한으로 놓고 품목·판매 채널별로 낼 수 있는 가장 큰 마진을 계산합니다.</p>
+  <div id="banners"></div>
+
+  <div class="card">
+    <div class="ctl">
+      <label class="f">품목 (등급·박스)<select id="item"></select></label>
+      <div class="f">판매 채널<span class="seg" id="ch"></span></div>
+      <div class="f">원가 기준<span class="seg" id="basis"><button data-v="최근">최근 경매일</button><button data-v="7일평균">7일 평균</button><button data-v="7일최고">7일 최고</button></span></div>
+      <label class="f">내 판매가 (원/박스, 비우면 권장가)<input type="number" id="price" inputmode="numeric" placeholder="권장가"></label>
+      <label class="f">판매 수량 (박스)<input type="number" id="qty" inputmode="numeric" value="10" min="0"></label>
+      <div class="f">기간<span class="seg" id="days"><button data-v="14">2주</button><button data-v="28">4주</button><button data-v="40" class="on">40일</button><button data-v="90">90일</button><button data-v="365">1년</button></span></div>
+    </div>
+    <div class="tools">
+      <button class="btn primary" id="xlsx">📥 엑셀 내려받기 (계산기·그래프 시트)</button>
+      <a class="btn" href="#settings" style="text-decoration:none;display:inline-flex;align-items:center">⚙️ 채널 비용 설정</a>
+    </div>
+    <p class="note" id="status" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="grid kpis" id="kpis"></div>
+  <p class="why" id="why"></p>
+
+  <div class="card">
+    <h2>가격별 마진</h2>
+    <p class="sub2">판매가를 올릴수록 마진이 커지지만 상한가를 넘으면 손님이 마트·시장을 고릅니다. 상한가에서의 마진이 최대 마진입니다.</p>
+    <div id="curve"></div>
+  </div>
+
+  <div class="card">
+    <h2>날짜별 추이 <span class="note" id="trendNote"></span></h2>
+    <p class="sub2">서원 낙찰 단가(박스당 가중평균)와 같은 무게로 환산한 가락시장·전국 경락가, 이 채널의 상한가.</p>
+    <div id="trend"></div>
+  </div>
+
+  <div class="card">
+    <h2>품목 비교 <span class="note" id="cmpNote"></span></h2>
+    <p class="sub2">줄을 누르면 그 품목으로 계산합니다. 막대 = 선택한 채널의 최대 마진(박스당).</p>
+    <div class="scroll"><table class="cmp" id="cmp"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>품목 DB <span class="note" id="dbNote">서울청과·동화청과 누적 낙찰 품목</span></h2>
+    <p class="sub2">가락시장 경락가는 이 목록에 있는 품목·등급만 모읍니다. 낙찰 기록이 들어올 때마다 늘어나고 400일 보관합니다.</p>
+    <div class="scroll"><table id="itemdb"></table></div>
+  </div>
+
+  <div class="card" id="settings">
+    <h2>채널 비용 설정 <span class="note">다섯 명 공통 · 서버에 저장</span></h2>
+    <div class="scroll"><table class="set" id="set"></table></div>
+    <div class="tools">
+      <button class="btn" id="addch">+ 채널 추가</button>
+      <button class="btn primary" id="save">💾 설정 저장</button>
+      <button class="btn" id="reset">기본값으로</button>
+      <span class="note" id="saved"></span>
+    </div>
+    <p class="note" style="margin-top:10px">기본값(수수료·택배비 등)은 예시입니다. 실제 계약 조건으로 고쳐 저장하세요. 상한 기준 '소매'는 지역 소매 kg당 가운데값에서 할인율만큼 뺀 값, '가락'은 가락시장 7일 kg당 평균에 가산율만큼 더한 값입니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>계산식</h2>
+    <ol class="formula">
+      <li>원가 C = 서원 낙찰 단가(박스당) — 최근 경매일 가중평균 · 최근 7일 가중평균 · 최근 7일 중 가장 비싼 날</li>
+      <li>부대비 F = 택배비 + 포장비 + 기타 비용, 수수료율 r</li>
+      <li>손익분기가 = (C + F) ÷ (1 − r), 최소 마진가 = 손익분기가 × (1 + 최소 마진%)</li>
+      <li>상한가 = 소매 기준: 소매 kg당 × 박스kg × (1 − 할인%) / 가락 기준: 가락 7일 kg당 × 박스kg × (1 + 가산%) — 그 자료가 없으면 다른 기준으로 대신</li>
+      <li>최대 마진 = 상한가 × (1 − r) − C − F, 권장가 = (최소 마진가 + 상한가) ÷ 2</li>
+    </ol>
+    <p class="note">재경매·사이트 정정 줄은 뺍니다. 가락시장 시세는 서울시농수산식품공사 공식 경락가(품목별·등급별)를 쓰고, 그 자료가 없는 날은 aT 공영도매시장 실시간 경매정보 중 서울가락 줄(특·상)로 대신합니다. 모으는 품목은 서울청과·동화청과에서 낙찰받은 적이 있는 품목(품목 DB)뿐입니다. 낙찰 기록은 최근 40일치만 서버에 남습니다.</p>
+  </div>
+</main>
+<script src="/prices/common.js"></script>
+<script>
+const { $, esc, won, j, md, lineChart } = PX;
+PX.nav("/margin/index.html");
+let D = null, SET = null, sel = { item: null, ch: 0, basis: "7일평균", days: 40 };
+try { Object.assign(sel, JSON.parse(localStorage.getItem("seowon-margin") || "{}")); } catch (e) {}
+const keep = () => { try { localStorage.setItem("seowon-margin", JSON.stringify(sel)); } catch (e) {} };
+const pct = v => v == null || !isFinite(v) ? "—" : (v * 100).toFixed(1) + "%";
+
+/* 서버 margin.js 의 calc 와 같은 계산 */
+function calc(sm, ch, basis) {
+  if (!sm || !ch) return null;
+  const C = basis === "최근" ? sm.lastBox : basis === "7일최고" ? sm.max7Box : sm.avg7Box;
+  if (C == null || !isFinite(C)) return null;
+  const r = (+ch.feeRate || 0) / 100, F = (+ch.shipping || 0) + (+ch.packing || 0) + (+ch.other || 0);
+  const breakeven = (C + F) / (1 - r), minPrice = breakeven * (1 + (+ch.minMargin || 0) / 100);
+  const retailCeil = sm.retailKg ? sm.retailKg * sm.kg * (1 - (+ch.retailGap || 0) / 100) : null;
+  const garakCeil = sm.garakKg7 ? sm.garakKg7 * sm.kg * (1 + (+ch.garakUp || 0) / 100) : null;
+  let ceil, ceilSrc;
+  if (ch.ceilBasis === "소매") { ceil = retailCeil ?? garakCeil; ceilSrc = retailCeil != null ? "소매" : garakCeil != null ? "가락(대신)" : null; }
+  else { ceil = garakCeil ?? retailCeil; ceilSrc = garakCeil != null ? "가락" : retailCeil != null ? "소매(대신)" : null; }
+  const margin = P => P * (1 - r) - C - F;
+  const o = { cost: C, fixed: F, fee: r, breakeven, minPrice, ceil: ceil ?? null, ceilSrc, margin };
+  if (ceil != null) { o.maxMargin = margin(ceil); o.maxRate = o.maxMargin / ceil; o.rec = ceil > minPrice ? (minPrice + ceil) / 2 : minPrice; o.recMargin = margin(o.rec); }
+  else o.rec = minPrice, o.recMargin = margin(minPrice);
+  return o;
+}
+
+async function load() {
+  $("#status").textContent = "불러오는 중…";
+  D = await j("/api/margin/data?days=" + sel.days);
+  SET = JSON.parse(JSON.stringify(D.settings));
+  if (!sel.basisSet) sel.basis = SET.costBasis;
+  PX.banners({ mock: D.mock }, $("#banners"));
+  if (!D.source.keys.dataGoKr && !D.mock) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">공영도매시장 인증키(DATA_GO_KR_KEY)가 없어 가락 시세가 비어 있습니다. 소매 기준이나 직접 판매가로 계산합니다.</div>`);
+  if (!D.items.length) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">이 기간에 쌓인 낙찰 기록이 없습니다.</div>`);
+  $("#status").textContent = `${D.xs[0].slice(5).replace("-", "/")} ~ ${md(D.today)} · 낙찰 ${D.lotCount.toLocaleString()}줄 · 품목 ${D.items.length}개 · 가락 공식 경락가 ${D.source.garak.ready ? D.source.garak.days + "일" : "연결 전"} · aT 도매 ${D.source.wholesaleDays}일 · 소매 ${D.source.retailDays}일 · 품목 DB ${D.itemCount}개 (${D.source.archiveDays}일치)`;
+  if (D.source.garak.error) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">가락시장 공식 경락가 받기 오류: ${esc(D.source.garak.error.msg)}</div>`);
+  else if (!D.source.garak.ready) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">가락시장 공식 경락가(서울시농수산식품공사 Open API)가 아직 연결되지 않아 aT 자료의 서울가락 줄로 대신합니다. 서버 환경변수 GARAK_API_KEY · GARAK_SERVICE 를 넣으면 바뀝니다.</div>`);
+  if (!D.items.some(i => i.key === sel.item)) sel.item = (D.items.find(i => i.garakKg7 || i.retailKg) || D.items[0] || {}).key;
+  if (sel.ch >= SET.channels.length) sel.ch = 0;
+  $("#item").innerHTML = D.items.map(i => `<option value="${esc(i.key)}">${esc(i.label)}${i.market ? "" : " · 시세 없음"}</option>`).join("");
+  $("#item").value = sel.item || "";
+  drawSet(); draw();
+}
+
+function cur() { return D.items.find(i => i.key === sel.item); }
+
+function draw() {
+  $("#ch").innerHTML = SET.channels.map((c, i) => `<button data-v="${i}" class="${i === sel.ch ? "on" : ""}">${esc(c.name)}</button>`).join("");
+  document.querySelectorAll("#basis button").forEach(b => b.classList.toggle("on", b.dataset.v === sel.basis));
+  document.querySelectorAll("#days button").forEach(b => b.classList.toggle("on", +b.dataset.v === sel.days));
+  const sm = cur(), ch = SET.channels[sel.ch], c = calc(sm, ch, sel.basis);
+  if (!sm || !c) { $("#kpis").innerHTML = `<div class="kpi"><div class="l">계산할 품목이 없습니다</div></div>`; $("#curve").innerHTML = $("#trend").innerHTML = ""; drawCmp(); return; }
+  const P = +$("#price").value > 0 ? +$("#price").value : c.rec;
+  const m = c.margin(P), qty = +$("#qty").value || 0;
+  const k = (l, v, s, cls = "") => `<div class="kpi ${cls}"><div class="l">${l}</div><div class="v ${typeof v === "number" && v < 0 ? "neg" : ""}">${typeof v === "number" ? won(v) : v}</div><div class="s">${s || ""}</div></div>`;
+  $("#kpis").innerHTML = [
+    k("원가 (박스당 낙찰 단가)", c.cost, `${sel.basis === "최근" ? "최근 " + md(sm.lastDate) : sel.basis} · ${sm.kg}kg · kg당 ${won(c.cost / sm.kg)}`),
+    k("손익분기가", c.breakeven, `부대비 ${won(c.fixed)} · 수수료 ${pct(c.fee)}`),
+    k("최소 마진가 (하한)", c.minPrice, `최소 마진 ${ch.minMargin}%`),
+    k("상한가", c.ceil ?? "자료 없음", c.ceil != null ? `${c.ceilSrc} 기준` : "가락·소매 시세가 없어 직접 판매가를 넣으세요"),
+    k("최대 마진 (박스당)", c.maxMargin ?? "—", c.maxMargin != null ? `마진율 ${pct(c.maxRate)} · ${qty}박스 ${won(c.maxMargin * qty)}` : "", "key"),
+    k("권장가", c.rec, `박스당 마진 ${won(c.recMargin)}`),
+    k(+$("#price").value > 0 ? "내 판매가 마진" : "권장가로 팔면", m, `${won(P)}원 · 마진율 ${pct(m / P)}${c.ceil != null && P > c.ceil ? ` · <b class="neg">상한가보다 ${won(P - c.ceil)}원 비쌈</b>` : P < c.breakeven ? ` · <b class="neg">손익분기 아래</b>` : ""}`),
+    k(`총 마진 (${qty}박스)`, m * qty, c.maxMargin != null ? `최대 대비 ${won((m - c.maxMargin) * qty)}` : ""),
+  ].join("");
+  const gb = sm.garakKg7 ? sm.garakKg7 * sm.kg : null;
+  const srcTxt = sm.garakSrc ? ` <span class="pill">${sm.garakSrc.replace("가락공사", "가락시장 공식").replace("aT", "aT 서울가락")}</span>` : "";
+  $("#why").innerHTML = gb ? `가락시장 7일 평균${srcTxt}은 ${sm.kg}kg 박스로 <b>${won(gb)}원</b>, 서원 7일 평균 낙찰은 <b>${won(sm.avg7Box)}원</b> — ${sm.avg7Box <= gb ? `시장 평균보다 박스당 <b>${won(gb - sm.avg7Box)}원 싸게</b> 샀습니다.` : `시장 평균보다 박스당 <b class="neg">${won(sm.avg7Box - gb)}원 비싸게</b> 샀습니다.`}` : (sm.market ? "가락시장 시세 자료가 아직 없습니다." : "이 품목은 시세 비교 대상(고추·파프리카·피망 특/상)이 아니어서 원가만 계산합니다.");
+  drawCurve(c, P);
+  drawTrend(sm, ch);
+  drawCmp();
+}
+
+/* 가격별 마진 곡선 (직선이지만 손익분기·하한·권장·상한·내 가격 표시가 핵심) */
+function drawCurve(c, P) {
+  const el = $("#curve"), W = Math.max(320, el.clientWidth || 600), H = 230, L = 62, R = 14, T = 16, B = 34;
+  const lo = c.breakeven * 0.9, hi = Math.max(c.ceil || c.breakeven * 1.5, P, c.minPrice) * 1.08;
+  const m = c.margin, mlo = m(lo), mhi = m(hi);
+  const X = p => L + (W - L - R) * (p - lo) / (hi - lo), Y = v => T + (H - T - B) * (1 - (v - mlo) / (mhi - mlo));
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = mlo + (mhi - mlo) * i / 4; g += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#E7EEE3"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#7A857D">${won(v)}</text>`; }
+  for (let i = 0; i <= 4; i++) { const p = lo + (hi - lo) * i / 4; g += `<text x="${X(p)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="#7A857D">${won(p)}</text>`; }
+  g += `<line x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}" stroke="#B4301C" stroke-dasharray="4 3"/>`;
+  if (c.ceil != null) g += `<rect x="${X(c.ceil)}" y="${T}" width="${Math.max(0, W - R - X(c.ceil))}" height="${H - T - B}" fill="#FCEDE9" opacity=".7"/>`;
+  g += `<line x1="${X(lo)}" y1="${Y(mlo)}" x2="${X(hi)}" y2="${Y(mhi)}" stroke="#2F7A34" stroke-width="2.6"/>`;
+  const mark = (p, label, color, up) => { if (p == null || p < lo || p > hi) return ""; const y = Y(m(p)); return `<line x1="${X(p)}" x2="${X(p)}" y1="${T}" y2="${H - B}" stroke="${color}" stroke-dasharray="3 3"/><circle cx="${X(p)}" cy="${y}" r="5" fill="${color}"/><text class="mk" x="${X(p) > W * 0.55 ? X(p) - 6 : X(p) + 6}" text-anchor="${X(p) > W * 0.55 ? "end" : "start"}" y="${up ? y - 8 : y + 16}" fill="${color}" font-weight="700">${label} ${won(p)} → ${won(m(p))}</text>`; };
+  g += mark(c.breakeven, "손익분기", "#B4301C", false) + mark(c.ceil, "상한", "#A85A00", true) + mark(P, +$("#price").value > 0 ? "내 가격" : "권장", "#1F6FB2", true);
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="가격별 마진 그래프">${g}</svg>
+    <div class="legend"><span><i style="background:#2F7A34"></i>박스당 마진</span><span><i style="background:#FCEDE9;height:10px"></i>상한가 넘는 구간</span><span><i style="background:#B4301C"></i>0원(손익분기)</span></div>`;
+}
+
+function drawTrend(sm, ch) {
+  const rows = D.daily.filter(d => d.key === sm.key);
+  const pts = f => rows.filter(d => f(d) != null && isFinite(f(d))).map(d => [d.date, f(d)]);
+  const series = [
+    { name: "서원 낙찰 (박스당)", color: "#2F7A34", points: pts(d => d.avgBox), w: 2.8 },
+    { name: "가락시장 (박스 환산)", color: "#D9472B", points: pts(d => d.garakKg ? d.garakKg * sm.kg : null) },
+    { name: "전국 평균 (박스 환산)", color: "#1F6FB2", dash: "5 4", points: pts(d => d.natKg ? d.natKg * sm.kg : null) },
+  ];
+  const rc = d => !d.retailKg ? null : ch.ceilBasis === "소매" ? d.retailKg * sm.kg * (1 - ch.retailGap / 100) : null;
+  const gc = d => !d.garakKg ? null : ch.ceilBasis === "가락" ? d.garakKg * sm.kg * (1 + ch.garakUp / 100) : null;
+  series.push({ name: `${ch.name} 상한가`, color: "#A87700", dash: "2 4", points: pts(d => rc(d) ?? gc(d)) });
+  lineChart($("#trend"), { series: series.filter(s => s.points.length), xs: D.xs });
+  $("#trendNote").textContent = sm.label;
+}
+
+function drawCmp() {
+  const ch = SET.channels[sel.ch];
+  const list = D.items.map(sm => ({ sm, c: calc(sm, ch, sel.basis) })).filter(x => x.c);
+  const mx = Math.max(1, ...list.map(x => Math.abs(x.c.maxMargin || 0)));
+  $("#cmpNote").textContent = `${ch.name} · 원가 ${sel.basis}`;
+  $("#cmp").innerHTML = `<tr><th>품목</th><th>원가</th><th>가락 박스</th><th>싸게 산 금액</th><th>상한가</th><th>최대 마진</th><th>마진율</th><th>권장가</th><th>7일 수량</th><th>최대 마진</th></tr>` +
+    list.sort((a, b) => (b.c.maxMargin ?? -1e9) - (a.c.maxMargin ?? -1e9)).map(({ sm, c }) => {
+      const gb = sm.garakKg7 ? sm.garakKg7 * sm.kg : null, mm = c.maxMargin;
+      return `<tr data-k="${esc(sm.key)}" class="${sm.key === sel.item ? "on" : ""}"><td>${esc(sm.label)}</td><td>${won(c.cost)}</td><td>${won(gb)}</td>
+        <td class="${gb && gb < c.cost ? "neg" : ""}">${gb ? won(gb - sm.avg7Box) : "—"}</td><td>${won(c.ceil)}</td><td class="${mm < 0 ? "neg" : ""}"><b>${won(mm)}</b></td><td>${pct(c.maxRate)}</td><td>${won(c.rec)}</td><td>${sm.qty.toLocaleString()}</td>
+        <td class="bar">${mm != null ? `<span class="hbar ${mm < 0 ? "neg" : ""}" style="width:${Math.round(110 * Math.abs(mm) / mx)}px"></span>` : ""}</td></tr>`;
+    }).join("");
+}
+
+/* ---------- 설정 ---------- */
+const FIELDS = [["name", "채널", "text"], ["feeRate", "수수료율 %"], ["shipping", "택배비"], ["packing", "포장비"], ["other", "기타 비용"], ["ceilBasis", "상한 기준", "sel"], ["retailGap", "소매 대비 할인 %"], ["garakUp", "가락 대비 가산 %"], ["minMargin", "최소 마진 %"]];
+function drawSet() {
+  $("#set").innerHTML = `<tr>${FIELDS.map(f => `<th>${f[1]}</th>`).join("")}<th></th></tr>` + SET.channels.map((c, i) => `<tr>${FIELDS.map(([k, , t]) =>
+    `<td>${t === "sel" ? `<select data-i="${i}" data-k="${k}"><option${c[k] === "소매" ? " selected" : ""}>소매</option><option${c[k] === "가락" ? " selected" : ""}>가락</option></select>`
+      : `<input data-i="${i}" data-k="${k}" type="${t === "text" ? "text" : "number"}" inputmode="${t === "text" ? "text" : "decimal"}" value="${esc(c[k])}">`}</td>`).join("")}
+    <td><button class="btn" data-del="${i}" ${SET.channels.length < 2 ? "disabled" : ""}>빼기</button></td></tr>`).join("") +
+    `<tr><td>원가 기준 기본</td><td colspan="3"><select id="defBasis">${["최근", "7일평균", "7일최고"].map(b => `<option${b === SET.costBasis ? " selected" : ""}>${b}</option>`).join("")}</select></td><td colspan="6"></td></tr>`;
+}
+$("#set").addEventListener("input", e => {
+  const t = e.target; if (t.id === "defBasis") { SET.costBasis = t.value; return; }
+  const c = SET.channels[+t.dataset.i]; if (!c) return;
+  c[t.dataset.k] = t.dataset.k === "name" || t.dataset.k === "ceilBasis" ? t.value : +t.value;
+  $("#saved").textContent = "저장 안 됨"; draw();
+});
+$("#set").addEventListener("click", e => { const d = e.target.dataset.del; if (d == null) return; SET.channels.splice(+d, 1); if (sel.ch >= SET.channels.length) sel.ch = 0; drawSet(); draw(); $("#saved").textContent = "저장 안 됨"; });
+$("#addch").onclick = () => { SET.channels.push({ key: "ch" + Date.now().toString(36), name: "새 채널", feeRate: 0, shipping: 0, packing: 0, other: 0, ceilBasis: "가락", retailGap: 10, garakUp: 10, minMargin: 5 }); drawSet(); draw(); };
+$("#save").onclick = async () => {
+  try { SET = await j("/api/margin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(SET) }); D.settings = JSON.parse(JSON.stringify(SET)); $("#saved").textContent = "저장했습니다 ✓"; drawSet(); draw(); }
+  catch (e) { $("#saved").textContent = "저장 실패: " + e.message; }
+};
+$("#reset").onclick = async () => {
+  if (!confirm("채널 설정을 기본값으로 되돌릴까요? (다섯 명 모두에게 바뀝니다)")) return;
+  SET = await j("/api/margin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reset: true }) });
+  D.settings = JSON.parse(JSON.stringify(SET)); sel.ch = 0; drawSet(); draw(); $("#saved").textContent = "기본값으로 되돌렸습니다";
+};
+
+/* ---------- 조작 ---------- */
+$("#item").onchange = e => { sel.item = e.target.value; $("#price").value = ""; keep(); draw(); };
+$("#ch").onclick = e => { const v = e.target.dataset.v; if (v == null) return; sel.ch = +v; keep(); draw(); };
+$("#basis").onclick = e => { const v = e.target.dataset.v; if (!v) return; sel.basis = v; sel.basisSet = true; keep(); draw(); };
+$("#days").onclick = e => { const v = +e.target.dataset.v; if (!v) return; sel.days = v; keep(); load(); };
+$("#price").oninput = $("#qty").oninput = () => draw();
+$("#cmp").onclick = e => { const tr = e.target.closest("tr[data-k]"); if (!tr) return; sel.item = tr.dataset.k; $("#item").value = sel.item; $("#price").value = ""; keep(); draw(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+$("#xlsx").onclick = () => {
+  const dirty = JSON.stringify(SET) !== JSON.stringify(D.settings);
+  if (dirty && !confirm("저장하지 않은 설정이 있습니다. 엑셀은 서버에 저장된 설정으로 만들어집니다. 그대로 내려받을까요?")) return;
+  location.href = "/api/margin/export.xlsx?days=" + sel.days;
+};
+async function loadDB() {
+  const r = await j("/api/margin/items");
+  const list = r.items.slice().sort((a, b) => b.qty - a.qty);
+  const mq = (it, re) => Object.entries(it.mkt || {}).filter(([m]) => re.test(m)).reduce((a, [, q]) => a + q, 0);
+  $("#dbNote").textContent = `${list.length}개 품목 · ${r.days}일치 낙찰`;
+  $("#itemdb").innerHTML = `<tr><th>품목</th><th>등급</th><th>박스</th><th>처음</th><th>마지막</th><th>낙찰일</th><th>총 수량</th><th>평균 단가</th><th>서울청과</th><th>동화청과</th></tr>` +
+    list.map(it => `<tr><td>${esc(it.name)}${it.group ? "" : ` <span class="pill warn">이름으로 맞춤</span>`}</td><td>${esc(it.grade)}</td><td>${Object.keys(it.kgs).map(k => k + "kg").join("·")}</td><td>${md(it.first)}</td><td>${md(it.last)}</td>
+      <td>${it.days}</td><td>${it.qty.toLocaleString()}</td><td>${won(it.amt / it.qty)}</td><td>${mq(it, /서울/).toLocaleString()}</td><td>${mq(it, /동화/).toLocaleString()}</td></tr>`).join("");
+}
+loadDB().catch(() => {});
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => D && draw(), 200); });
+load().catch(e => { $("#status").textContent = "불러오지 못했습니다: " + e.message; });
+</script>
+</body>
+</html>
