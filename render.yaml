@@ -20,7 +20,7 @@ services:
     #     - key: DATA_DIR
     #       value: /var/data
     # 가격 정보(도·소매·경락 단가) 자동 수집 — 대시보드 Environment 에 직접 넣는다(값은 저장소에 적지 않음)
-    #   DATA_GO_KR_KEY   공공데이터포털 '전국 공영도매시장 실시간 경매정보' 인증키
+    #   DATA_GO_KR_KEY   공공데이터포털 '전국 공영도매시장 정산정보'(15141809) 인증키 — 같은 계정 키라 활용신청만 하면 됨
     #   KAMIS_CERT_KEY   KAMIS Open-API 인증키
     #   KAMIS_CERT_ID    KAMIS Open-API 신청 아이디
     #   GARAK_API_KEY    서울 열린데이터광장 인증키 (가락시장 품목별등급별가격 OA-2664, 마진 계산)

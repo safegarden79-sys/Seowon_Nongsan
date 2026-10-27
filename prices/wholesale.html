@@ -202,7 +202,7 @@ function draw() { drawKpis(); drawDaily(); drawHeat(); drawRec(); }
     WS = w.days; RT = r.days; SET = s;
   } catch (e) { $("#status").textContent = "자료를 불러오지 못했습니다: " + e.message; return; }
   PX.banners(ST, $("#banners"));
-  if (!ST.keys.dataGoKr && !ST.mock) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">경락가 인증키(DATA_GO_KR_KEY)가 서버에 없어 자동 수집이 꺼져 있습니다. 공공데이터포털에서 '전국 공영도매시장 실시간 경매정보' 활용신청 후 Render 환경변수에 넣어 주세요.</div>`);
+  if (!ST.keys.dataGoKr && !ST.mock) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">경락가 인증키(DATA_GO_KR_KEY)가 서버에 없어 자동 수집이 꺼져 있습니다. 공공데이터포털에서 '전국 공영도매시장 정산정보'(15141809) 활용신청 후 Render 환경변수에 넣어 주세요.</div>`);
   if (ST.wholesale.error) $("#banners").insertAdjacentHTML("beforeend", `<div class="banner warn">최근 수집 오류: ${esc(ST.wholesale.error.msg)}</div>`);
   $("#sku").innerHTML = META.skus.map(s => `<option value="${s.key}">${esc(s.name)}</option>`).join("");
   $("#sku").addEventListener("change", e => { ui.sku = e.target.value; draw(); });

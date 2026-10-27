@@ -1,7 +1,7 @@
 /* 서원농산 — 도·소매·경락 단가 연동 (외부 라이브러리 없음)
 
-   ① 도매(경락가)  aT '전국 공영도매시장 실시간 경매정보' (data.go.kr 15141808)
-                   https://apis.data.go.kr/B552845/katRealTime2/trades2
+   ① 도매(경락가)  aT '전국 공영도매시장 정산정보' (data.go.kr 15141809) — 등급(특·상)·최저·최고가 있고 1년 넘게 지난 날도 조회됨
+                   https://apis.data.go.kr/B552845/katSale/trades  (시장 코드 필수 → WS_MARKETS 32곳 × 대분류 12·13)
                    환경변수 DATA_GO_KR_KEY  (공공데이터포털 '일반 인증키' — Decoding 값 권장, Encoding 값도 받음)
    ② 소매          KAMIS Open API  dailyPriceByCategoryList (채소류 200, 지역별)
                    환경변수 KAMIS_CERT_KEY, KAMIS_CERT_ID
@@ -37,8 +37,8 @@ const SKUS = [
   { key: "kkwari",         name: "꽈리고추",        group: "kkwari",         box: 10 },
   { key: "asak10",         name: "아삭이고추 10kg", group: "asak",           box: 10 },
   { key: "asakpack",       name: "아삭이고추 팩",   group: "asak",           box: 3.6 },
-  { key: "paprikaRed",     name: "빨강 파프리카",   group: "paprikaRed",     box: 10 },
-  { key: "paprikaYellow",  name: "노랑 파프리카",   group: "paprikaYellow",  box: 10 },
+  { key: "paprikaRed",     name: "빨강 파프리카",   group: "paprikaRed",     box: 5 },
+  { key: "paprikaYellow",  name: "노랑 파프리카",   group: "paprikaYellow",  box: 5 },
   { key: "pimang",         name: "피망",            group: "pimang",         box: 10 },
   { key: "hongpimang",     name: "홍피망",          group: "hongpimang",     box: 10 },
 ];
@@ -89,11 +89,22 @@ const DEFAULT_REGIONS = [
   ["3511", "전주"], ["3711", "포항"], ["3814", "창원"], ["3613", "순천"], ["3714", "안동"], ["3911", "제주"],
 ];
 
-const WS_URL = "https://apis.data.go.kr/B552845/katRealTime2/trades2";
+/* 도매 경락가 = aT 전국 공영도매시장 '정산정보'(공공데이터포털 15141809, katSale). 실시간 경매정보(katRealTime2)는
+   한 달치만 남고 등급 칸이 없어 특·상을 가를 수 없다. 정산정보는 시장 코드가 필수라 시장마다 부르고,
+   우리 품목이 든 대분류(12 조미채소류 = 고추류, 13 양채류 = 피망·파프리카)만 받는다. */
+const WS_URL = "https://apis.data.go.kr/B552845/katSale/trades";
+const WS_CLASSES = ["12", "13"];
+const WS_MARKETS = {
+  "110001": "서울가락", "110008": "서울강서", "210001": "부산엄궁", "210009": "부산반여", "220001": "대구북부", "230001": "인천남촌",
+  "230003": "인천삼산", "240001": "광주각화", "240004": "광주서부", "250001": "대전오정", "250003": "대전노은", "310101": "수원",
+  "310401": "안양", "310901": "안산", "311201": "구리", "320101": "춘천", "320201": "원주", "320301": "강릉", "330101": "청주",
+  "330201": "충주", "340101": "천안", "350101": "전주", "350301": "익산", "350402": "정읍", "360301": "순천", "370101": "포항",
+  "370401": "안동", "371501": "구미", "380101": "창원팔용", "380201": "울산", "380303": "창원내서", "380401": "진주",
+};
 const KAMIS_URL = "http://www.kamis.or.kr/service/price/xml.do";
 const KEEP_DAYS = 120;          // 날짜별 집계 보관 일수
 const BACKFILL_DAYS = 28;       // 처음 켰을 때 거슬러 받는 일수
-const MAX_PAGES = 250;          // 하루 경락 자료를 1,000줄씩 몇 쪽까지 받을지 (전국 전체를 훑을 때)
+const MAX_PAGES = 20;           // 한 시장·한 대분류의 하루 정산 자료를 1,000줄씩 몇 쪽까지 받을지
 
 /* ---------- 날짜 ---------- */
 const kst = (t = Date.now()) => new Date(t + 9 * 3600e3);
@@ -174,6 +185,20 @@ module.exports = function createPrices({ dir }) {
     const gk = pickKey(it, /grd_nm|grade_nm|^grd$|grade$/i);
     const grade = matchGrade(gk ? it[gk] : "");
     if (!grade) return { group, grade: null };
+    const mk0 = pickKey(it, /whsl_mrkt_nm|mrkt_nm|market/i), mc0 = pickKey(it, /whsl_mrkt_cd/i);
+    const mcd0 = it[pickKey(it, /gds_mclsf_cd/i)] || null, mnm0 = it[pickKey(it, /gds_mclsf_nm/i)] || null;
+    /* 정산정보: 한 줄 = 그날 그 시장·품목·등급·규격의 합계. kg당 = 총가격 ÷ 단위총물량(kg), 거래량 = 단위총물량 */
+    if (it.totprc != null && it.unit_tot_qty != null) {
+      let f = 1; const u = String(it.unit_nm || "kg").trim();
+      if (/^g$|그램/i.test(u)) f = 1 / 1000; else if (!/kg|키로|킬로/i.test(u)) return { group, grade, bad: true, mcd: mcd0, mnm: mnm0 };
+      const kgTot = num(it.unit_tot_qty) * f, tot = num(it.totprc), uq = num(it.unit_qty) * f;
+      const market = String((mk0 && it[mk0]) || (mc0 && it[mc0]) || "미상").trim();
+      if (!(kgTot > 0) || !(tot > 0)) return { group, grade, bad: true, mcd: mcd0, mnm: mnm0 };
+      const perKg = tot / kgTot;
+      if (perKg < 50 || perKg > 200000) return { group, grade, bad: true, mcd: mcd0, mnm: mnm0 };
+      const lo = uq > 0 ? num(it.lwprc) / uq : NaN, hi = uq > 0 ? num(it.hgprc) / uq : NaN;
+      return { group, grade, market, perKg, qty: kgTot, lo: lo > 0 ? lo : perKg, hi: hi > 0 ? hi : perKg, mcd: mcd0, mnm: mnm0 };
+    }
     const pk = pickKey(it, /scsbd_prc|scsbd_amt/i) || pickKey(it, /_prc$|price|_pr$/i, /unit|avg/i);
     const price = num(it[pk]);
     const uq = pickKey(it, /unit_qty|unit_wght|wght|weight/i);
@@ -196,7 +221,7 @@ module.exports = function createPrices({ dir }) {
   }
   function addAgg(agg, n) {
     const g = (agg[n.group] ||= {}), r = (g[n.grade] ||= {}), m = (r[n.market] ||= { q: 0, s: 0, mn: Infinity, mx: 0, n: 0 });
-    m.q += n.qty; m.s += n.perKg * n.qty; m.n++; m.mn = Math.min(m.mn, n.perKg); m.mx = Math.max(m.mx, n.perKg);
+    m.q += n.qty; m.s += n.perKg * n.qty; m.n++; m.mn = Math.min(m.mn, n.lo ?? n.perKg); m.mx = Math.max(m.mx, n.hi ?? n.perKg);
   }
   function roundAgg(agg) {
     for (const g of Object.values(agg)) for (const r of Object.values(g)) for (const m of Object.values(r)) {
@@ -204,41 +229,51 @@ module.exports = function createPrices({ dir }) {
     }
     return agg;
   }
+  async function getRetry(url, tries = 4) {
+    let last;
+    for (let t = 0; t < tries; t++) {
+      try { return await get(url, 60000); } catch (e) { last = e; await new Promise(r => setTimeout(r, 1500 * (t + 1))); }
+    }
+    throw last;
+  }
   async function fetchWsDay(date) {
     const key = process.env.DATA_GO_KR_KEY;
     if (!key) throw new Error("DATA_GO_KR_KEY 가 없습니다");
-    const L = S.ws.learned;
-    const useCodes = L && L.codes && L.codes.length && Date.now() - L.at < 7 * 864e5;
-    const codes = useCodes ? L.codes : [null];
-    const agg = {}, seen = {};
-    let rows = 0, matched = 0, calls = 0;
-    for (const code of codes) {
-      for (let page = 1; page <= MAX_PAGES; page++) {
-        const q = new URLSearchParams({ pageNo: String(page), numOfRows: "1000", returnType: "json" });
-        q.set("cond[trd_clcln_ymd::EQ]", date);
-        if (code) q.set("cond[gds_mclsf_cd::EQ]", code);
-        const r = await get(WS_URL + "?serviceKey=" + encKey(key) + "&" + q.toString());
-        calls++; countCall();
-        if (r.status >= 400) throw new Error("경락가 API HTTP " + r.status + " " + r.body.slice(0, 120));
-        const j = parseJson(r.body, "경락가 API");
-        const rc = findKey(j, /^resultCode$/i);
-        if (rc != null && !/^0+$|^INFO-0+$/.test(String(rc))) throw new Error("경락가 API 오류 " + rc + " " + (findKey(j, /^resultMsg$/i) || ""));
-        const items = findItems(j);
-        const total = num(findKey(j, /^totalCount$/i));
-        if (items[0] && (!S.debug.wsKeys || page === 1)) { S.debug.wsKeys = Object.keys(items[0]); S.debug.wsSample = items[0]; S.debug.wsAt = Date.now(); }
-        for (const it of items) {
-          rows++;
-          const n = normWs(it);
-          if (!n) continue;
-          if (n.mcd) seen[n.mcd] = n.mnm || n.mcd;
-          if (!n.grade || n.bad) continue;
-          matched++; addAgg(agg, n);
+    const agg = {};
+    let rows = 0, matched = 0, calls = 0, failed = 0;
+    for (const mcd of Object.keys(WS_MARKETS)) {
+      for (const lc of WS_CLASSES) {
+        try {
+          for (let page = 1; page <= MAX_PAGES; page++) {
+            const q = new URLSearchParams({ pageNo: String(page), numOfRows: "1000", returnType: "json" });
+            q.set("cond[whsl_mrkt_cd::EQ]", mcd);
+            q.set("cond[trd_clcln_ymd::EQ]", date);
+            q.set("cond[gds_lclsf_cd::EQ]", lc);
+            const r = await getRetry(WS_URL + "?serviceKey=" + encKey(key) + "&" + q.toString());
+            calls++; countCall();
+            if (r.status >= 400) throw new Error("경락가 API HTTP " + r.status + " " + r.body.slice(0, 120));
+            const j = parseJson(r.body, "경락가 API");
+            const rc = findKey(j, /^resultCode$/i);
+            if (rc != null && !/^0+$|^INFO-0+$/.test(String(rc))) throw new Error("경락가 API 오류 " + rc + " " + (findKey(j, /^resultMsg$/i) || ""));
+            const items = findItems(j);
+            const total = num(findKey(j, /^totalCount$/i));
+            if (items[0] && mcd === "110001" && page === 1) { S.debug.wsKeys = Object.keys(items[0]); S.debug.wsSample = items[0]; S.debug.wsAt = Date.now(); }
+            for (const it of items) {
+              rows++;
+              const n = normWs(it);
+              if (!n || !n.grade || n.bad) continue;
+              matched++; addAgg(agg, n);
+            }
+            if (items.length < 1000 || (total > 0 && page * 1000 >= total)) break;
+          }
+        } catch (e) {
+          if (/SERVICE_KEY|인증|등록되지/.test(e.message)) throw e;      // 키 문제면 그날 전체를 멈춘다
+          failed++; S.debug.wsLastFail = { date, mcd, lc, msg: e.message, at: Date.now() };
         }
-        if (items.length < 1000 || (total > 0 && page * 1000 >= total)) break;
       }
     }
-    if (!useCodes && Object.keys(seen).length) S.ws.learned = { codes: Object.keys(seen), names: seen, at: Date.now() };
-    return { agg: roundAgg(agg), rows, matched, calls };
+    if (failed > Object.keys(WS_MARKETS).length) throw new Error(`경락가 API 실패가 너무 많습니다 (${failed}건)`);
+    return { agg: roundAgg(agg), rows, matched, calls, failed };
   }
 
   /* ---------- ② 소매 KAMIS ---------- */
@@ -396,8 +431,8 @@ module.exports = function createPrices({ dir }) {
           for (let i = 2; i <= BACKFILL_DAYS && back < 3; i++) { const d = addDays(today, -i); if (!S.ws.days[d]) { want.push(d); back++; } }
           for (const d of want) {
             const r = await fetchWsDay(d);
-            S.ws.days[d] = { agg: r.agg, at: Date.now(), rows: r.rows, matched: r.matched, final: d < today };
-            done.push(`도매 ${d} ${r.matched}/${r.rows}줄 (${r.calls}회 호출)`);
+            S.ws.days[d] = { agg: r.agg, at: Date.now(), rows: r.rows, matched: r.matched, final: d < today && !r.failed, src: "katSale" };
+            done.push(`도매 ${d} ${r.matched}/${r.rows}줄 (${r.calls}회 호출${r.failed ? `, 실패 ${r.failed}` : ""})`);
           }
           S.ws.last = Date.now(); S.ws.error = null; prune(S.ws.days);
         } catch (e) { S.ws.error = { msg: e.message, at: Date.now() }; done.push("도매 오류: " + e.message); }
@@ -422,6 +457,7 @@ module.exports = function createPrices({ dir }) {
   function start() {
     if (MOCK) { mockFill(); save(); console.log("가격 연동: 시험용 가짜 자료 모드 (PRICES_MOCK=1)"); return; }
     if (S.mock) { S.ws.days = {}; S.rt.days = {}; S.mock = false; }          // 시험 자료가 남아 있으면 지운다
+    for (const [d, v] of Object.entries(S.ws.days)) if (v.src !== "katSale") delete S.ws.days[d];   // 예전 실시간 API 자료(등급 없음)는 다시 받는다
     const ready = [process.env.DATA_GO_KR_KEY ? "경락가" : null, process.env.KAMIS_CERT_KEY ? "KAMIS" : null].filter(Boolean);
     console.log("가격 연동: " + (ready.length ? ready.join("·") + " 자동 수집 (30분마다 확인)" : "인증키가 없어 꺼져 있음 (DATA_GO_KR_KEY / KAMIS_CERT_KEY·KAMIS_CERT_ID)"));
     if (!ready.length) return;
