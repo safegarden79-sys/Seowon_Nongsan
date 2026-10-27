@@ -69,7 +69,7 @@ if (!state.history) state.history = {};
 if (!state.inv)     state.inv = {};
 if (!state.shipped) state.shipped = {};
 if (!state.pollers) state.pollers = {};
-if (!state.pickup)  state.pickup = {};    // 우선 픽업 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
+if (!state.pickup)  state.pickup = {};    // 대기 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 if (!state.pushSubs) state.pushSubs = {};
 if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at}
@@ -375,11 +375,11 @@ function applyOp(user, op, meta = {}) {
       bump(by, `선입선출 · ${item} ${말}`);
       return;
     }
-    case "pickup": {                                 // 우선 픽업 표시 켜기/끄기
+    case "pickup": {                                 // 대기 표시 켜기/끄기
       if (!op.id) return;
       if (op.on) state.pickup[op.id] = { by, at: now };
       else delete state.pickup[op.id];
-      bump(by, `${lotName(op.id)} 우선 픽업${op.on ? "" : " 해제"}`);
+      bump(by, `${lotName(op.id)} 대기${op.on ? "" : " 해제"}`);
       return;
     }
     case "reauc": {                                  // 재경매로 분류 / 일반 낙찰로 되돌리기 (줄을 세 번 연속 탭)
@@ -693,9 +693,9 @@ function invCutDay() {
   if (k.getUTCHours() * 60 + k.getUTCMinutes() >= INV_CUT_MIN) k.setUTCDate(k.getUTCDate() + 1);
   return k.toISOString().slice(0, 10);
 }
-/* 오늘 작업 목록(챙김 체크·주석·우선 픽업)을 닫는 기준 — 새벽 0시 30분 전에 다 못 가져오는 날이 있어
+/* 오늘 작업 목록(챙김 체크·주석·대기)을 닫는 기준 — 새벽 0시 30분 전에 다 못 가져오는 날이 있어
    챙김 여부는 새벽 5시 30분까지 열어 둔다. 재고 관리에는 0시 30분부터 보이고(invCutDay, 화면 재고기준KST),
-   오늘 작업 목록에서는 5시 30분에 빠진다(이때 챙김·주석·우선 픽업도 정리). */
+   오늘 작업 목록에서는 5시 30분에 빠진다(이때 챙김·주석·대기도 정리). */
 const LOT_CLOSE_MIN = 5 * 60 + 30;                     // 새벽 5시 30분
 function lotCloseDay() {
   const k = new Date(Date.now() + 9 * 3600e3);
