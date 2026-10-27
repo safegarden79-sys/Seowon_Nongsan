@@ -1049,6 +1049,10 @@ function renderLots(chips){
     bindEmpty(); return;
   }
   const groups=invGroups(rows);
+  /* 챙김을 다 끝낸 줄은 품목 안에서 아래로, 안 챙긴 줄(대기 포함)은 위로. 단가 오름차순은 그 안에서 그대로.
+     품목의 모든 줄을 다 챙겼으면 그 품목 묶음도 맨 아래로 내린다. */
+  groups.forEach(g=>{ g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)]; });
+  groups.sort((x,y)=>x.rows.every(isDone)-y.rows.every(isDone));
   const buy=rows.filter(l=>!isReauc(l));     // 재경매 줄은 합계에서 뺀다
   const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
   list.innerHTML=groups.map(g=>{
