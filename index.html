@@ -1018,8 +1018,8 @@ function renderCk(force){
     }
     if(editing) body=`<textarea class="ckedit" id="ckedit" placeholder="${c.n}에서 받은 주문 글을 붙여 넣으세요 (길게 누르기 → 붙여넣기)">${esc(text)}</textarea>
       <div class="ckact"><button class="pri" data-ck="save" data-w="${c.k}">저장</button><button data-ck="cancel">취소</button>${text?`<button data-ck="clear" data-w="${c.k}">글 지우기</button>`:""}</div>`;
-    else { const long=text.split("\n").length>8||text.length>360, open=ckOpen[c.k];
-      body=`<p class="cktxt${long&&!open?" clamp":""}">${esc(text)}</p>${long?`<button class="ckmore" data-ck="more" data-w="${c.k}">${open?"접기 ▴":"전체 보기 ▾"}</button>`:""}
+    else {                 // 붙여 넣은 글 길이만큼 칸이 늘고 준다 (자르지 않음). 앞뒤 빈 줄은 빼고 보인다
+      body=`<p class="cktxt">${esc(text.replace(/^\s*\n/,"").replace(/\s+$/,""))}</p>
       <div class="ckact"><button data-ck="edit" data-w="${c.k}">✏️ 고치기</button><button data-ck="copy" data-w="${c.k}">복사</button></div>`; }
     return `<div class="ckcard ${c.c}" data-w="${c.k}"><div class="ckh"><b>${c.n}</b><span class="meta">${text?`${esc(v.by||"")} ${ckWhen(v.at)}`:""}</span></div>${body}</div>`;
   }).join("");
