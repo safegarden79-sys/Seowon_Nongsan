@@ -73,7 +73,13 @@ if (!state.pickup)  state.pickup = {};    // 대기 표시 (오늘 작업용 —
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 if (!state.pushSubs) state.pushSubs = {};
 if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at}
-if (!state.prep)    state.prep = {};      // 경매 전 준비 양식 — 경매일 → 줄(품목|규격) → 칸 → 수량
+if (!state.prep)    state.prep = {};      // 경매 전 준비 양식 — 경매일 → 줄(품목|규격) → 칸 → 수량 (화면에서는 뺐다)
+/* ✅ 챙길 품목 = 거래처 주문 원본 — 경매일 → { segyero|ilil|chorok: {imgs:[{f,by,at}], text, by, at} }
+   붙여 넣은 글·사진을 그대로 둔다. 사진 파일은 DATA_DIR/orders/ (40일 지나면 함께 정리) */
+if (!state.orders)  state.orders = {};
+const ORD_DIR = path.join(DIR, "orders");
+try { fs.mkdirSync(ORD_DIR, { recursive: true }); } catch (e) {}
+const ORD_WHO = { segyero: "세계로", ilil: "일일향", chorok: "초록" };
 
 /* ---------- 새 낙찰 알림 ----------
    ① 웹 푸시: 아이폰(홈 화면에 추가한 앱)·크롬이 '알림 허용'하면 구독을 받아 두고, 새 낙찰 때 보낸다.
@@ -120,6 +126,13 @@ function pruneHistory() {
   for (const d of Object.keys(state.fifo || {})) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (isNaN(t) || t < cutoff) delete state.fifo[d];
+  }
+  for (const d of Object.keys(state.orders || {})) {          // 주문 원본도 같은 기간만 두고, 사진 파일도 지운다
+    const t = new Date(d + "T00:00:00+09:00").getTime();
+    if (!isNaN(t) && t >= cutoff) continue;
+    for (const w of Object.keys(state.orders[d] || {}))
+      for (const im of ((state.orders[d][w] || {}).imgs || [])) { try { fs.unlinkSync(path.join(ORD_DIR, im.f)); } catch (e) {} }
+    delete state.orders[d];
   }
   /* 재경매 표시도 그 날짜 기록과 함께 정리한다 (id = K|시장|날짜|번호|수량|단가) */
   for (const id of Object.keys(state.reauc || {})) {
@@ -333,6 +346,32 @@ function applyOp(user, op, meta = {}) {
       const { shippedAt, shippedBy, ...rest } = it;
       state.inv[op.id] = Object.assign(rest, { left: Number(it.qty) || 0 });
       bump(by, `${[it.item, it.who].filter(Boolean).join(" · ")} 출고 되돌림`);
+      return;
+    }
+    case "ordtext": {                                // 챙길 품목 — 거래처 주문 글 (붙여 넣은 그대로)
+      const d = String(op.date || ""), who = String(op.who || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !ORD_WHO[who]) return;
+      const day = state.orders[d] = state.orders[d] || {};
+      const text = String(op.text || "").slice(0, 8000).replace(/\s+$/, "");
+      const cur = day[who] = day[who] || {};
+      if (text) Object.assign(cur, { text, by, at: now }); else { delete cur.text; delete cur.by; delete cur.at; }
+      if (!Object.keys(cur).length) delete day[who];
+      if (!Object.keys(day).length) delete state.orders[d];
+      bump(by, `${ORD_WHO[who]} 주문 글 ${text ? "저장" : "지움"} (${d.slice(5)})`);
+      return;
+    }
+    case "ordimgdel": {                              // 챙길 품목 — 주문 사진 한 장 지우기
+      const d = String(op.date || ""), f = String(op.f || ""), who = String(op.who || "");
+      const s = ((state.orders[d] || {})[who]);
+      if (!s || !ORD_WHO[who]) return;
+      const before = (s.imgs || []).length;
+      s.imgs = (s.imgs || []).filter(im => im.f !== f);
+      if (s.imgs.length === before) return;
+      if (/^[\w.-]+\.jpg$/.test(f)) { try { fs.unlinkSync(path.join(ORD_DIR, f)); } catch (e) {} }
+      if (!s.imgs.length) delete s.imgs;
+      if (!Object.keys(s).length) delete state.orders[d][who];
+      if (!Object.keys(state.orders[d]).length) delete state.orders[d];
+      bump(by, `${ORD_WHO[who]} 주문 사진 지움 (${d.slice(5)})`);
       return;
     }
     case "prepsave": {                               // 준비 양식 저장 — 수량을 적은 품목만 남겨 보여준다 (on:false 면 다시 전체 양식)
@@ -595,6 +634,40 @@ const server = http.createServer((req, res) => {
 
   /* 주문 사진 → 글자. 구글 Vision 열쇠(GOOGLE_VISION_KEY)가 있을 때만. 없으면 503 → 폰이 직접 읽는다.
      글자만 돌려준다. 품목·수량 해석은 화면 쪽(parseOrder)이 한다. */
+  /* 챙길 품목 — 주문 사진 올리기 {date, who, user, data:"data:image/jpeg;base64,..."} (폰에서 1800px 로 줄여 보낸다) */
+  if (u.pathname === "/api/ordimg" && req.method === "POST") {
+    const parts = []; let size = 0;
+    req.on("data", c => { size += c.length; if (size > 1.5e7) return req.destroy(); parts.push(c); });
+    req.on("end", () => {
+      try {
+        const j = JSON.parse(Buffer.concat(parts).toString("utf8"));
+        const d = String(j.date || ""), who = String(j.who || "");
+        const m = /^data:image\/jpeg;base64,(.+)$/.exec(j.data || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !ORD_WHO[who] || !m) throw new Error("사진·날짜·거래처가 올바르지 않습니다");
+        const f = `${d}_${Date.now()}_${crypto.randomBytes(3).toString("hex")}.jpg`;
+        fs.writeFileSync(path.join(ORD_DIR, f), Buffer.from(m[1], "base64"));
+        const by = String(j.user || "?").slice(0, 12);
+        const day = state.orders[d] = state.orders[d] || {};
+        const s = day[who] = day[who] || {};
+        (s.imgs = s.imgs || []).push({ f, by, at: Date.now() });
+        bump(by, `${ORD_WHO[who]} 주문 사진 올림 (${d.slice(5)})`);
+        res.writeHead(200, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: true, f }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": TYPES[".json"] });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+  if (u.pathname.startsWith("/ordimg/")) {
+    const f = decodeURIComponent(u.pathname.slice(8));
+    const file = path.join(ORD_DIR, f);
+    if (!/^[\w.-]+\.jpg$/.test(f) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=604800", "Access-Control-Allow-Origin": "*" });
+    return fs.createReadStream(file).pipe(res);
+  }
+
   if (u.pathname === "/api/ocr" && req.method === "POST") {
     if (!VISION_KEY) {
       res.writeHead(503, { "Content-Type": TYPES[".json"] });

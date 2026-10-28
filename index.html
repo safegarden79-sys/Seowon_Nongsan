@@ -256,7 +256,49 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .reconn{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--hot);
   background:var(--surface);color:var(--hot);white-space:nowrap}
 .reconn:disabled{opacity:.6}
-/* 📷 주문 올리기 — 글자·사진에서 필요 수량을 읽어 준비 양식 칸에 넣는다 */
+/* ✅ 챙길 품목 — 거래처별 카드: 사진 줄(가로로 넘김, 누르면 크게) + 붙여 넣은 글(줄바꿈 그대로) */
+.ckview{display:grid;gap:10px;margin:2px 0 6px}
+.ckday{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.ckday b{color:var(--text);font-size:13px}
+.ckday button{margin-left:auto;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:700;color:var(--text)}
+.ckcard{border:1px solid var(--line);border-radius:12px;background:#FFFFFF;padding:10px 11px;border-left-width:5px}
+.ckcard.c-seg{border-left-color:#3B7DD8}.ckcard.c-ili{border-left-color:#E58DB0}.ckcard.c-cho{border-left-color:#3E9B4F}
+.ckcard.drag{background:#F2F8FF;outline:2px dashed #3B7DD8}
+.ckh{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
+.ckh b{font-size:15px;font-weight:800}
+.ckh .cnt{font-size:11px;font-weight:700;color:var(--muted)}
+.ckh .meta{flex:1;text-align:right;font-size:11px;color:var(--dim)}
+.ckpics{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:8px}
+.ckpics button{flex:none;position:relative;width:132px;height:176px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface2);scroll-snap-align:start}
+.ckpics.one button{width:100%;height:240px}
+.ckpics img{display:block;width:100%;height:100%;object-fit:cover}
+.ckpics.one img{object-position:top}
+.ckpics .zoomhint{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px}
+.ckpics .n{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:1px 7px}
+.cktxt{position:relative;white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.65;margin:0;padding:10px 12px;background:#F7F8FA;border:1px solid var(--line);border-radius:10px}
+.cktxt.clamp{max-height:13.2em;overflow:hidden}
+.cktxt.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3em;background:linear-gradient(transparent,#F7F8FA)}
+.ckmore{display:block;width:100%;margin-top:4px;padding:6px;border:0;background:none;color:var(--accent);font-size:12px;font-weight:700}
+.ckempty{font-size:12px;color:var(--dim);margin:0 0 6px}
+.ckact{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.ckact button,.ckact label{padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer}
+.ckact .pri{background:var(--ok);border-color:var(--ok);color:#FFFFFF}
+.ckact .busy{font-size:12px;color:var(--muted)}
+.ckedit{width:100%;min-height:140px;padding:10px 12px;border-radius:10px;font-size:15px;line-height:1.6;resize:vertical}
+.ckhint{font-size:11px;color:var(--dim);margin:4px 0 0}
+/* 사진 크게 보기 — 옆으로 넘기고, 두 번 누르면 확대 */
+#ckphoto{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column}
+#ckphoto .ckbar{background:#000;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;color:#fff;font-size:13px;font-weight:700}
+#ckphoto .ckbar span{flex:1}
+#ckphoto .ckbar button{padding:8px 14px;border-radius:99px;border:0;background:#FFFFFF;color:#111;font-weight:800;font-size:13px}
+#ckphoto .ckbar .del{background:#C62828;color:#fff}
+#ckphoto .strip{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+#ckphoto .pg{flex:none;width:100%;height:100%;overflow:auto;scroll-snap-align:center;display:flex;align-items:center;justify-content:center}
+#ckphoto .pg img{max-width:100%;max-height:100%;object-fit:contain;touch-action:pan-x pan-y pinch-zoom}
+#ckphoto .pg.zoom{display:block}
+#ckphoto .pg.zoom img{max-width:none;max-height:none;width:250%}
+#ckphoto .tip{color:#aaa;font-size:11px;text-align:center;padding:6px 0 calc(10px + env(safe-area-inset-bottom))}
+/* 📷 주문 올리기 — 글자·사진에서 필요 수량을 읽어 준비 양식 칸에 넣는다 (예전 기능, 화면에서 뺐다) */
 .ordcols{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
 .ordcols .chip{flex:none}
 #ordtext{min-height:110px;padding:10px 12px;resize:vertical}
@@ -534,6 +576,14 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
   <section id="lotview" class="sec">
     <button class="sechead" data-fold="lot"><b>📦 낙찰 내역</b><span class="secsub" id="lotsub"></span><i class="secarr">▾</i></button>
     <div class="secbody">
+    <!-- ✅ 챙길 품목 = 거래처 주문 원본(붙여 넣은 글·사진). 낙찰내역조회 날짜 줄 바로 위.
+         예전 준비 양식 표(세계로·일일향·초록 칸, 📷 주문 올리기)는 요청으로 지웠다 -->
+    <section id="prepview" class="sec">
+      <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
+      <div class="secbody">
+        <div id="ckview" class="ckview"></div>
+      </div>
+    </section>
     <div class="datebar">
       <span class="dtitle">낙찰내역조회</span>
       <button class="datebtn" id="datebtn">📅 <span id="datetxt">날짜</span></button>
@@ -541,14 +591,6 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
     <div class="chips mktchips" id="mktchips"></div>
     <p class="hint" id="pollstat"></p>
     <div class="chips" id="lotchips"></div>
-    <!-- 챙길 품목(세계로·일일향·초록 준비 양식, 📷 주문 올리기)은 낙찰 내역 칩(전체·미완료·완료·대기·재경매)과 낙찰 품목 표 사이에 둔다 -->
-    <section id="prepview" class="sec">
-      <button class="sechead" data-fold="prep"><b>✅ 챙길 품목</b><span class="secsub" id="prepsub"></span><i class="secarr">▾</i></button>
-      <div class="secbody">
-        <p class="hint" id="prepstat"></p>
-        <div id="prepbody"></div>
-      </div>
-    </section>
     <p class="hint" id="lotstat"></p>
     <div id="lotlist"></div>
 
@@ -927,6 +969,155 @@ function lotGroups(vis){
       return { key:"m:"+m, title:m, tone:m.startsWith("서울")?"amber":"cyan",
                items:rows, cats, qty:sumQty(rows), got:sumGot(rows), amt:sumAmt(rows) };
     });
+}
+
+/* ==================== ✅ 챙길 품목 = 거래처 주문 원본 ====================
+   세계로·일일향·초록에서 받은 주문을 붙여 넣은 그대로 다섯 명이 같이 본다 (state.orders[날짜][거래처] = {imgs:[{f,by,at}], text, by, at}).
+   - 날짜: 낙찰내역조회에서 날짜를 골랐으면 그 날짜, 아니면 경매일(오후 3시부터 내일).
+   - 글: '📋 붙여넣기' → 클립보드 글을 바로 넣거나 입력 칸에 붙여 넣고 저장. 줄바꿈 그대로, 길면 접어서 '전체 보기'.
+   - 사진: 입력 칸에 사진을 붙여 넣거나(캡처·복사한 이미지), '📷 사진'으로 고르거나, PC 에서는 카드에 끌어다 놓는다.
+     폰에서 1800px JPEG 로 줄여 /api/ordimg 로 올린다. 사진 줄은 옆으로 넘기고, 누르면 전체 화면(넘기기·두 번 눌러 확대·지우기).
+   - 글을 고치거나 사진을 올리는 동안에는 다시 그리지 않는다(ckEdit·ckBusy). */
+var CK_CUST=[{k:"segyero",n:"세계로",c:"c-seg"},{k:"ilil",n:"일일향",c:"c-ili"},{k:"chorok",n:"초록",c:"c-cho"}];
+var ckEdit=null, ckBusy=null, ckOpen={};
+function ckDay(){ return lotDatePicked&&lotDate?lotDate:경매일KST(); }
+function ckName(w){ return (CK_CUST.find(c=>c.k===w)||{}).n||""; }
+function ckWhen(t){ if(!t) return ""; const d=new Date(t+9*3600e3); return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`; }
+function ckImgUrl(f){ return `${serverUrl||""}/ordimg/${encodeURIComponent(f)}`; }
+function renderCk(force){
+  const box=document.getElementById("ckview"); if(!box) return;
+  const d=ckDay(), o=(state.orders||{})[d]||{};
+  const part=c=>{ const v=o[c.k]||{}, n=(v.imgs||[]).length; return `${c.n} ${[n?n+"장":"",v.text?"글":""].filter(Boolean).join("+")||"—"}`; };
+  const sub=document.getElementById("prepsub"); if(sub) sub.textContent=`${mmdd(d)} · ${CK_CUST.map(part).join(" · ")}`;
+  if((ckEdit||ckBusy)&&!force) return;          // 붙여 넣는 중·올리는 중 — 손가락·키보드가 튀지 않게
+  box.innerHTML=`<div class="ckday"><span>경매일 <b>${dateKo(d)}</b> 주문</span>${lotDatePicked?`<span>(낙찰내역조회 날짜)</span>`:""}</div>`
+  +CK_CUST.map(c=>{
+    const v=o[c.k]||{}, imgs=v.imgs||[], last=imgs[imgs.length-1];
+    const meta=[v.text?`글 ${esc(v.by||"")} ${ckWhen(v.at)}`:"", last?`사진 ${esc(last.by||"")} ${ckWhen(last.at)}`:""].filter(Boolean).join(" · ");
+    const pics=imgs.length?`<div class="ckpics${imgs.length===1?" one":""}">${imgs.map((im,i)=>
+      `<button data-ck="view" data-w="${c.k}" data-i="${i}" aria-label="${c.n} 주문 사진 ${i+1} 크게 보기"><img src="${ckImgUrl(im.f)}" alt="" loading="lazy">${imgs.length>1?`<span class="n">${i+1}/${imgs.length}</span>`:`<span class="zoomhint">눌러서 크게 🔍</span>`}</button>`).join("")}</div>`:"";
+    let txt="";
+    if(ckEdit===c.k) txt=`<textarea class="ckedit" id="ckedit" placeholder="${c.n}에서 받은 주문 글이나 사진을 여기에 붙여 넣으세요 (길게 누르기 → 붙여넣기)">${esc(v.text||"")}</textarea>
+      <p class="ckhint">사진을 붙여 넣으면 바로 올라갑니다. 글은 '저장'을 눌러야 모두에게 보입니다.</p>
+      <div class="ckact"><button class="pri" data-ck="save" data-w="${c.k}">저장</button><button data-ck="cancel">취소</button>
+        ${v.text?`<button data-ck="clear" data-w="${c.k}">글 지우기</button>`:""}${ckBusy===c.k?`<span class="busy">사진 올리는 중…</span>`:""}</div>`;
+    else if(v.text){ const long=v.text.split("\n").length>8||v.text.length>360, open=ckOpen[c.k];
+      txt=`<p class="cktxt${long&&!open?" clamp":""}">${esc(v.text)}</p>${long?`<button class="ckmore" data-ck="more" data-w="${c.k}">${open?"접기 ▴":"전체 보기 ▾"}</button>`:""}`; }
+    const empty=!imgs.length&&!v.text&&ckEdit!==c.k?`<p class="ckempty">아직 받은 주문이 없습니다</p>`:"";
+    const acts=ckEdit===c.k?"":`<div class="ckact">
+        <button data-ck="paste" data-w="${c.k}">📋 붙여넣기</button>
+        <label>📷 사진<input type="file" accept="image/*" multiple hidden data-ck="up" data-w="${c.k}"></label>
+        ${v.text?`<button data-ck="edit" data-w="${c.k}">✏️ 글 고치기</button><button data-ck="copy" data-w="${c.k}">복사</button>`:""}
+        ${ckBusy===c.k?`<span class="busy">사진 올리는 중…</span>`:""}</div>`;
+    return `<div class="ckcard ${c.c}" data-w="${c.k}"><div class="ckh"><b>${c.n}</b><span class="cnt">${imgs.length?`사진 ${imgs.length}`:""}</span><span class="meta">${meta}</span></div>
+      ${pics}${txt}${empty}${acts}</div>`;
+  }).join("");
+}
+/* 사진 여러 장 올리기 (파일·붙여넣은 이미지·끌어다 놓은 이미지 공통) */
+async function ckUpload(w,files){
+  files=[...files].filter(f=>f&&/^image\//.test(f.type||"image/"));
+  if(!files.length) return;
+  if(!serverUrl){ alert("서버에 연결된 뒤에 사진을 올릴 수 있습니다."); return; }
+  const d=ckDay(); ckBusy=w; renderCk(true);
+  let ok=0, err="";
+  for(const f of files){
+    try{ const data=await ordShrink(f);
+      const r=await fetch(serverUrl+"/api/ordimg",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,who:w,user:me,data})});
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||r.status);
+      state.orders=state.orders||{}; const day=state.orders[d]=state.orders[d]||{}; const v=day[w]=day[w]||{};
+      (v.imgs=v.imgs||[]).push({f:j.f,by:me,at:Date.now()}); ok++; }
+    catch(x){ err=x.message||String(x); }
+  }
+  ckBusy=null; renderCk(true);
+  if(ckEdit===w){ const ta=document.getElementById("ckedit"); if(ta) ta.focus(); }
+  stat(err?`${ckName(w)} 사진 ${ok}장 올림 · 실패: ${err}`:`${ckName(w)} 주문 사진 ${ok}장을 올렸습니다.`);
+}
+function ckStartEdit(w,add){
+  ckEdit=w; renderCk(true);
+  const ta=document.getElementById("ckedit"); if(!ta) return;
+  if(add) ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n\n":"")+add;
+  ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length);
+}
+function ckSave(w,text){
+  ckEdit=null;
+  pushOp({t:"ordtext",date:ckDay(),who:w,text:String(text||"").replace(/\s+$/,"")});
+  renderCk(true);
+}
+const ckBox=document.getElementById("ckview");
+ckBox.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-ck]"); if(!t||t.dataset.ck==="up") return;
+  const a=t.dataset.ck, w=t.dataset.w, d=ckDay(), v=((state.orders||{})[d]||{})[w]||{};
+  if(a==="paste"){
+    /* 클립보드를 바로 읽을 수 있으면(크롬·안드로이드 등) 사진은 올리고 글은 입력 칸에 넣는다. 못 읽으면 입력 칸을 열어 직접 붙여 넣게 한다 */
+    let imgs=[], text="";
+    try{
+      if(navigator.clipboard&&navigator.clipboard.read){
+        for(const it of await navigator.clipboard.read()){
+          const im=it.types.find(x=>x.startsWith("image/"));
+          if(im) imgs.push(await it.getType(im));
+          else if(it.types.includes("text/plain")) text+=await (await it.getType("text/plain")).text();
+        }
+      } else if(navigator.clipboard&&navigator.clipboard.readText) text=await navigator.clipboard.readText();
+    }catch(_){}
+    ckStartEdit(w,text.trim()?text.replace(/\s+$/,""):"");
+    if(imgs.length) await ckUpload(w,imgs);
+    else if(!text.trim()) stat("입력 칸을 길게 눌러 '붙여넣기' 하세요. 사진도 붙여 넣을 수 있습니다.");
+    return;
+  }
+  if(a==="edit") return ckStartEdit(w,"");
+  if(a==="cancel"){ ckEdit=null; return renderCk(true); }
+  if(a==="save") return ckSave(w,(document.getElementById("ckedit")||{}).value||"");
+  if(a==="clear"){ if(!confirm(`${ckName(w)} 주문 글을 지울까요? 모두의 화면에서 사라집니다.`)) return; return ckSave(w,""); }
+  if(a==="more"){ ckOpen[w]=!ckOpen[w]; return renderCk(true); }
+  if(a==="copy"){ try{ await navigator.clipboard.writeText(v.text||""); stat(`${ckName(w)} 주문 글을 복사했습니다.`); }
+    catch(_){ stat("복사하지 못했습니다. 글을 길게 눌러 복사하세요."); } return; }
+  if(a==="view") return ckViewer(w,Number(t.dataset.i)||0);
+});
+ckBox.addEventListener("change",e=>{
+  const inp=e.target; if(inp.dataset.ck!=="up"||!inp.files.length) return;
+  ckUpload(inp.dataset.w,inp.files); inp.value="";
+});
+/* 입력 칸에 사진을 붙여 넣으면 바로 올린다 (글은 그대로 칸에 들어간다) */
+ckBox.addEventListener("paste",e=>{
+  if(e.target.id!=="ckedit"||!ckEdit) return;
+  const files=[...((e.clipboardData||{}).files||[])].filter(f=>/^image\//.test(f.type));
+  if(!files.length) return;
+  if(!(e.clipboardData.getData("text/plain")||"").trim()) e.preventDefault();
+  ckUpload(ckEdit,files);
+});
+/* PC: 카드에 사진을 끌어다 놓기 */
+ckBox.addEventListener("dragover",e=>{ const c=e.target.closest(".ckcard"); if(!c) return; e.preventDefault(); c.classList.add("drag"); });
+ckBox.addEventListener("dragleave",e=>{ const c=e.target.closest(".ckcard"); if(c) c.classList.remove("drag"); });
+ckBox.addEventListener("drop",e=>{ const c=e.target.closest(".ckcard"); if(!c) return; e.preventDefault(); c.classList.remove("drag");
+  ckUpload(c.dataset.w,(e.dataTransfer||{}).files||[]); });
+/* 사진 크게 보기 — 옆으로 넘기기, 두 번 눌러 확대/되돌리기, 지우기 */
+function ckViewer(w,start){
+  const d=ckDay(), imgs=((((state.orders||{})[d]||{})[w]||{}).imgs)||[];
+  if(!imgs.length) return;
+  const old=document.getElementById("ckphoto"); if(old) old.remove();
+  const v=document.createElement("div"); v.id="ckphoto";
+  v.innerHTML=`<div class="ckbar"><span id="ckpn"></span><button class="del" data-x="del">지우기</button><button data-x="close">닫기</button></div>
+    <div class="strip">${imgs.map(im=>`<div class="pg"><img src="${ckImgUrl(im.f)}" alt="${ckName(w)} 주문 사진"></div>`).join("")}</div>
+    <div class="tip">옆으로 넘기기 · 두 번 눌러 확대</div>`;
+  document.body.appendChild(v);
+  const strip=v.querySelector(".strip");
+  const cur=()=>Math.round(strip.scrollLeft/Math.max(1,strip.clientWidth));
+  const label=()=>{ const i=Math.min(cur(),imgs.length-1); v.querySelector("#ckpn").textContent=`${ckName(w)} ${i+1} / ${imgs.length} · ${imgs[i].by||""} ${ckWhen(imgs[i].at)}`; };
+  requestAnimationFrame(()=>{ strip.scrollLeft=start*strip.clientWidth; label(); });
+  strip.addEventListener("scroll",()=>requestAnimationFrame(label),{passive:true});
+  let lastTap=0;
+  strip.addEventListener("click",e=>{ const pg=e.target.closest(".pg"); if(!pg) return;
+    const now=Date.now(); if(now-lastTap<350){ pg.classList.toggle("zoom"); strip.style.overflowX=pg.classList.contains("zoom")?"hidden":""; lastTap=0; } else lastTap=now; });
+  const close=()=>{ v.remove(); document.removeEventListener("keydown",key); };
+  const key=e=>{ if(e.key==="Escape") close(); };
+  document.addEventListener("keydown",key);
+  v.querySelector(".ckbar").addEventListener("click",e=>{
+    const x=(e.target.closest("[data-x]")||{}).dataset; if(!x) return;
+    if(x.x==="close") return close();
+    if(x.x==="del"){ const i=Math.min(cur(),imgs.length-1);
+      if(!confirm(`이 ${ckName(w)} 주문 사진을 지울까요? 모두의 화면에서 사라집니다.`)) return;
+      pushOp({t:"ordimgdel",date:d,who:w,f:imgs[i].f}); close(); renderCk(true); }
+  });
 }
 
 /* ==================== 렌더 ==================== */
@@ -1346,18 +1537,8 @@ function prepTable(curDay){
     </tbody><tfoot><tr><td class="pitem">합계</td>${PREP_COLS.map(c=>`<td class="r c-${c}">${sum(c)}</td>`).join("")}</tr></tfoot></table></div>`;
 }
 
-/* 맨 위 '챙길 품목' 구역 = 경매 전 준비 양식 */
-function renderPrep(){
-  const box=document.getElementById("prepbody"); if(!box) return;
-  /* 칸에 적는 중이면 다시 그리지 않는다 (다른 사람이 바꿀 때마다 쓰던 글자가 날아가지 않게) */
-  const a=document.activeElement;
-  if(a&&a.tagName==="INPUT"&&box.contains(a)) return;
-  const curDay=경매일KST();
-  const day=(state.prep||{})[curDay]||{};
-  const n=PREP_ROWS.filter(r=>prepHas(day[r.key])).length;
-  document.getElementById("prepsub").textContent=`경매일 ${mmdd(curDay)} · ${prepSaved(curDay)?"💾 저장됨 · ":""}${n}품목`;
-  renderFifo(box,curDay);
-}
+/* '챙길 품목' 구역 = 거래처 주문 원본(붙여 넣은 글·사진) — renderCk. 예전 준비 양식 표(prepTable·renderFifo)는 화면에서 뺐다 */
+function renderPrep(){ renderCk(); }
 /* 챙길 품목 구역 = 경매 전 준비 양식만 (예전 '선입선출 — 품목별 재고' 카드는 요청으로 뺐다. 재고는 재고 관리 구역에서 본다) */
 function renderFifo(box,curDay){
   const saved=prepSaved(curDay), sv=((state.prep||{})[curDay]||{})._saved||{};
@@ -1386,7 +1567,7 @@ function refreshSoon(){ clearTimeout(refreshT); refreshT=setTimeout(()=>{
   if(a&&a.tagName==="INPUT"&&box&&box.contains(a)) return;   // 다음 칸에 적는 중이면 그 칸을 벗어날 때 다시
   render(); },400);
 }
-document.getElementById("prepview").addEventListener("focusout",()=>refreshSoon());
+
 
 function invCSV(prep){
   if(prep){                               // 경매 전 준비 양식을 그대로 엑셀로 (저장했으면 챙길 품목만)
@@ -1543,7 +1724,7 @@ function markJump(){
 window.addEventListener("scroll",()=>requestAnimationFrame(markJump),{passive:true});
 /* 구역 접기·펴기 — 앱을 새로 열면 챙길 품목·재고 관리는 접힌 채로 시작한다(낙찰 내역만 펼침).
    열어 둔 동안(새 판 자동 적용으로 다시 읽을 때 포함)은 sessionStorage 로 지금 상태를 유지한다. */
-const FOLD_DEFAULT={prep:true,inv:true};
+const FOLD_DEFAULT={prep:false,inv:true};
 let folds=Object.assign({},FOLD_DEFAULT);
 try{ const f=sessionStorage.getItem("seowon-folds"); if(f) folds=JSON.parse(f); }catch(e){}
 function toggleFold(k,on){
@@ -1767,7 +1948,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{};
+  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -2083,7 +2264,7 @@ let myBuild=null, waitingBuild=null, buildTimer=null, lastSvVersion=null;
 function busyNow(){
   if(pending.length) return true;                       // 아직 못 보낸 조작이 있다
   const open=id=>{const el=document.getElementById(id); return !!el&&!el.classList.contains("hidden");};
-  if(open("pick")||open("dpick")||open("ordsheet")) return true;
+  if(open("pick")||open("dpick")||open("ordsheet")||ckEdit||ckBusy||document.getElementById("ckphoto")) return true;
   const a=document.activeElement;
   return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }
@@ -2132,6 +2313,9 @@ function localEcho(op){
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
   if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
     if(op.on) d._saved={by:me||"나",at:Date.now()}; else delete d._saved; }
+  if(op.t==="ordtext"){ state.orders=state.orders||{}; const d=state.orders[op.date]=state.orders[op.date]||{};
+    if(op.text) d[op.who]=Object.assign({},d[op.who]||{},{text:op.text,by:me,at:Date.now()}); else if(d[op.who]) delete d[op.who].text; }
+  if(op.t==="ordimgdel"){ const v=((state.orders||{})[op.date]||{})[op.who]; if(v) v.imgs=(v.imgs||[]).filter(im=>im.f!==op.f); }
   if(op.t==="prep"){ state.prep=state.prep||{}; const d=state.prep[op.date]=state.prep[op.date]||{};
     const r=d[op.row]=Object.assign({},d[op.row]||{});
     if(op.unit==="kg") r[op.col+"U"]="kg"; else if(op.unit==="ea") delete r[op.col+"U"];
