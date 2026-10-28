@@ -521,7 +521,7 @@ table.xl td.c{text-align:center}
 table.xl td.xw{font-weight:800;font-size:13px;max-width:92px;
   white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
 /* 낙찰 내역 표는 한 낙찰 = 한 줄 (시장은 줄 색으로 구분, 거래금액은 소계·합계에만) */
-table.xl.lot td.xw{white-space:nowrap;max-width:none}
+table.xl.lot td.xw{white-space:nowrap;max-width:none}   /* 생산자 이름은 자르지 않는다 — 칸이 이름 길이만큼 넓어진다 */
 table.xl.lot th,table.xl.lot td{padding:5px 3px}
 table.xl td .sm{display:block;font-size:10px;color:var(--dim);font-weight:400;white-space:nowrap}
 table.xl .price{color:var(--accent);font-weight:700}
@@ -924,8 +924,6 @@ function visibleLots(){
 const mkCls=l=>String(l.mkt||"").startsWith("서울")?"mk-seoul":String(l.mkt||"").startsWith("동화")?"mk-dong":"";
 const isReauc=l=>!!(state.reauc||{})[l.id];
 const isPick=l=>!!(state.pickup||{})[l.id];
-/* 낙찰 표 생산자 칸 — 한 줄에 들어가게 4글자 넘으면 줄인다 (전체 이름은 길게 누르면/마우스를 올리면 보인다) */
-const shortWho=w=>{ const t=String(w||"-"); return [...t].length>4?[...t].slice(0,4).join("")+"…":t; };
 function lotRow(l){
   const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
   const note=live?(state.lotnotes||{})[l.id]:null;
@@ -934,7 +932,7 @@ function lotRow(l){
   return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),re?"reauc":"",isPick(l)?"pick":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
       <td class="c no mono">${esc(l.no||"")}</td>
-      <td class="xw" title="${esc(l.who||"")}">${esc(shortWho(l.who))}${re?`<span class="retag">재경매</span>`:""}</td>
+      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}</td>
       <td class="c">${esc([unitTxt(l.unit),l.grade].filter(Boolean).join(", "))}</td>
       <td class="r qn">${l.qty}</td>
       <td class="r"><b class="price">${won(l.price)}</b></td>
