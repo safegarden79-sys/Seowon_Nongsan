@@ -67,9 +67,9 @@ poller 가 그 역할을 대신하게 되어 앱에서 완전히 제거했습니
 ## 화면 배치 — 탭 없이 한 화면
 
 탭으로 나누지 않고 한 화면에 위에서부터 **📦 낙찰 내역**(`#lotview`, `renderLots`, 필터 칩 `#lotchips`)
-→ **✅ 챙길 품목**(`#prepview`: 경매 전 준비 양식만, `renderPrep`→`renderFifo`) → **📋 재고 관리**(`#invview`, `renderInv`, 재고/출고 기록 칩 `#invchips`)
+(그 안 날짜 줄 위에 **✅ 챙길 품목** `#prepview`: 거래처 주문 원본, `renderPrep`→`renderCk`) → **📋 재고 관리**(`#invview`, `renderInv`, 재고/출고 기록 칩 `#invchips`)
 순서로 이어진다. `render()` 가 세 구역을 모두 그린다. 머리의 세 버튼(`.tabs [data-jump]`)은 탭이 아니라 그 구역으로 내려가는
-바로가기이고, 지금 보이는 구역에 밑줄이 간다(`markJump`). 각 구역 머리(`.sechead`)를 누르면 접고 편다. 앱을 새로 열면 챙길 품목·재고 관리는 접힌 채 시작한다
+바로가기이고, 지금 보이는 구역에 밑줄이 간다(`markJump`). 각 구역 머리(`.sechead`)를 누르면 접고 편다. 앱을 새로 열면 재고 관리는 접힌 채 시작한다
 (`FOLD_DEFAULT`, 열어 둔 동안만 sessionStorage `seowon-folds` 로 유지).
 
 ## 🔄 연결 버튼 (오른쪽 위 '오프라인' 왼쪽)
@@ -79,11 +79,21 @@ poller 가 그 역할을 대신하게 되어 앱에서 완전히 제거했습니
 `failCauses`): 폰 인터넷 없음 / 서버 응답 없음 / PC 수집기 신호 끊김(수집 시간 안) / 수집 시간 밖 / 로그인 만료 / 사이트 확인 오류.
 수집기는 PC 에서 돌기 때문에 앱에서 다시 켤 수는 없다.
 
-## 📷 주문 올리기 (챙길 품목 → 경매 전 준비 양식)
+## ✅ 챙길 품목 = 거래처 주문 원본 (붙여 넣은 글·사진)
 
-거래처 주문 글을 붙여 넣거나 사진을 고르면 품목·규격·수량을 읽어(`parseOrder`, 별칭 `ORD_ALIAS`) 미리보기 표로 보여주고,
-고른 칸(세계로 box·봉지 대·봉지 소 / 일일향 / 초록)에 `prep` op 로 넣는다. 글 속 거래처 이름으로 칸을 먼저 골라 둔다.
-사진 글자 인식은 서버 환경변수 `GOOGLE_VISION_KEY` 가 있으면 `/api/ocr`(구글 Vision), 없으면 폰에서 Tesseract.js(한글)로 읽는다.
+낙찰 내역 구역 안, **낙찰내역조회 날짜 줄 바로 위**(`#prepview` → `#ckview`, `renderCk`). 예전 경매 전 준비 양식 표(세계로·일일향·초록 칸)와
+`📷 주문 올리기`(OCR→칸 넣기)는 2026-10-28 요청으로 **화면에서 지웠다**(코드 `prepTable`·`#ordsheet`·`prep` op·`state.prep` 은 남아 있음).
+
+- 거래처 카드 세 장: 세계로(파랑)·일일향(분홍)·초록(초록). 날짜 = 낙찰내역조회에서 고른 날짜, 안 골랐으면 경매일(`경매일KST`, 15시 이후 내일).
+- 자료: `state.orders[날짜][segyero|ilil|chorok] = {imgs:[{f,by,at}], text, by, at}` — SSE 에 실린다. 사진 파일은 `DATA_DIR/orders/`.
+  `HISTORY_DAYS`(40일) 지나면 글·사진 파일 함께 정리(`pruneHistory`).
+- 글: `📋 붙여넣기` → 클립보드를 읽을 수 있으면 바로 입력 칸에 넣고(사진이면 바로 올림), 못 읽으면 입력 칸을 열어 길게 눌러 붙여 넣게 한다.
+  `저장` = `ordtext` op. 줄바꿈 그대로, 8줄·360자 넘으면 접고 `전체 보기`. `복사`·`글 고치기`·`글 지우기`.
+- 사진: 입력 칸에 이미지 붙여넣기(`paste` 이벤트) · `📷 사진`(여러 장) · PC 는 카드에 끌어다 놓기. 폰에서 1800px JPEG 로 줄여(`ordShrink`)
+  `POST /api/ordimg {date, who, user, data}` → `GET /ordimg/파일`. 사진 줄은 옆으로 넘기는 썸네일(한 장이면 넓게),
+  누르면 전체 화면(`ckViewer`: 옆으로 넘기기·두 번 눌러 확대·지우기 = `ordimgdel` op).
+- 글을 고치거나 사진을 올리는 동안(`ckEdit`·`ckBusy`)과 사진 크게 보기 중에는 화면을 다시 그리지 않고 새 판 자동 적용도 미룬다.
+- 앱을 새로 열면 챙길 품목은 펼친 채 시작한다(`FOLD_DEFAULT.prep=false`).
 검색창은 세 구역 모두에 걸린다. 예전 `tab` 변수는 `"all"` 로 고정(옛 상차 체크 `carview` 는 숨김).
 
 ## 낙찰 내역 날짜별 조회 (예전 캘린더 탭)
@@ -189,7 +199,7 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
   (`invimport` op, 캘린더 기록 `state.history` 에서 기간을 골라 가져옴).
 - `📥 엑셀로 내려받기` 는 지금 보이는 목록을 엑셀에서 열리는 CSV(UTF-8 BOM)로 저장한다.
 - `dellot` 으로 지운 줄은 재고 목록에서도 빠진다.
-- **경매 전 준비 양식** (화면 맨 위 '챙길 품목' 구역의 첫 표, `prepTable`/`PREP_ROWS`): 품목·규격 한 줄씩
+- **경매 전 준비 양식** (2026-10-28 화면에서 지움 — 아래는 남은 코드 설명. 예전 '챙길 품목' 구역의 첫 표, `prepTable`/`PREP_ROWS`): 품목·규격 한 줄씩
   (빨강·노랑 파프리카 XL/L/M, 피망·홍피망·청양·홍청양·꽈리·홍고추(홍초) 특(L)/상(M), 롱그린·아삭이벌크 특/상, 아삭이팩)
   × 칸: **세계로**(수량 box · 봉지 대 · 봉지 소 — 머리글 병합, 파랑) · 일일향(연분홍 `c-ilil`) · 초록(연초록 `c-chorok`), 맨 아래 합계. 칸 값은 `prep` op 로
   `state.prep[경매일][품목|규격][box|bagL|bagS|ilil|chorok]` 에 저장(40일 지나면 정리). 줄을 바꾸려면 `PREP_ROWS` 만 고친다.
@@ -240,6 +250,7 @@ curl localhost:3000/api/health
 - `GET  /api/shipped`       재고 관리 출고 기록 전체 `{rows:[줄]}`
 - `GET  /api/push/key` · `POST /api/push/subscribe` · `POST /api/push/unsubscribe` · `POST /api/push/test` 웹 푸시
 - `GET  /api/notify` 안드로이드 앱 알림 서비스용 SSE (새 낙찰 때만 `event: lots`)
+- `POST /api/ordimg` 챙길 품목 주문 사진 올리기 · `GET /ordimg/파일` 사진 보기
 - `GET  /api/app` 안드로이드 앱 최신 판 `{versionCode, versionName, notes, url}` (APK 는 `/app/SEOWONY.apk`)
 - `GET  /api/health` 상태 점검
 
@@ -251,7 +262,8 @@ curl localhost:3000/api/health
 - `clearlots` 낙찰 내역만 삭제 (상차 체크는 유지, 캘린더 기록은 남는다)
 - `newday` 전체 초기화 (캘린더 기록·재고 관리 재고/출고 기록은 남는다)
 - `poll` 수집기 신호(시장별 로그인 세션 상태, 툴바용)
-- `prep` 준비 양식 한 칸, `prepsave` 준비 양식 저장/다시 고치기, `fifo` 선입선출 목표·메모·확인
+- `ordtext` 챙길 품목 주문 글, `ordimgdel` 주문 사진 지우기 (사진 올리기는 `POST /api/ordimg`)
+- `prep` 준비 양식 한 칸(화면에서 뺌), `prepsave` 준비 양식 저장/다시 고치기, `fifo` 선입선출 목표·메모·확인
 - `invlock` 재고 줄 고정/풀기, `invleft` 재고 관리 잔여 수량, `ship` 전량 출고, `unship` 출고 되돌리기, `invimport` 캘린더 기록에서 불러오기
 
 ## 손댈 때 주의할 점
