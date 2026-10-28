@@ -1273,7 +1273,6 @@ function renderLots(chips){
     <div class="xwrap"><table class="xl lot"><thead><tr>
       <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
-    <tfoot><tr><td></td><td class="c">소계</td><td></td><td></td><td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td></td><td></td></tr></tfoot>
     </table></div></div>`;}).join("")
     +`<div class="grand"><span>합계 ${buy.length}줄${rows.length>buy.length?`<small>재경매 ${rows.length-buy.length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
