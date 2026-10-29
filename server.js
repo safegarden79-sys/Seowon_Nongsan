@@ -79,7 +79,7 @@ if (!state.prep)    state.prep = {};      // 경매 전 준비 양식 — 경매
 if (!state.orders)  state.orders = {};
 const ORD_DIR = path.join(DIR, "orders");
 try { fs.mkdirSync(ORD_DIR, { recursive: true }); } catch (e) {}
-const ORD_WHO = { segyero: "세계로", ilil: "일일향", chorok: "초록" };
+const ORD_WHO = { segyero: "세계로", ilil: "일일향", baechu: "배추전", chorok: "초록" };
 
 /* ---------- 새 낙찰 알림 ----------
    ① 웹 푸시: 아이폰(홈 화면에 추가한 앱)·크롬이 '알림 허용'하면 구독을 받아 두고, 새 낙찰 때 보낸다.
