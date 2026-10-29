@@ -262,7 +262,7 @@ footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255
 .ckday b{color:var(--text);font-size:13px}
 .ckday button{margin-left:auto;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:700;color:var(--text)}
 .ckcard{border:1px solid var(--line);border-radius:12px;background:#FFFFFF;padding:10px 11px;border-left-width:5px}
-.ckcard.c-seg{border-left-color:#3B7DD8}.ckcard.c-ili{border-left-color:#E58DB0}.ckcard.c-cho{border-left-color:#3E9B4F}
+.ckcard.c-seg{border-left-color:#3B7DD8}.ckcard.c-ili{border-left-color:#E58DB0}.ckcard.c-cho{border-left-color:#3E9B4F}.ckcard.c-bae{border-left-color:#E0A030}
 .ckcard.drag{background:#F2F8FF;outline:2px dashed #3B7DD8}
 /* 아직 없는 거래처는 한 줄로 작게 */
 .ckcard.mini{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 11px;border-radius:10px}
@@ -991,7 +991,7 @@ function lotGroups(vis){
    - 사진: 입력 칸에 사진을 붙여 넣거나(캡처·복사한 이미지), '📷 사진'으로 고르거나, PC 에서는 카드에 끌어다 놓는다.
      폰에서 1800px JPEG 로 줄여 /api/ordimg 로 올린다. 사진 줄은 옆으로 넘기고, 누르면 전체 화면(넘기기·두 번 눌러 확대·지우기).
    - 글을 고치거나 사진을 올리는 동안에는 다시 그리지 않는다(ckEdit·ckBusy). */
-var CK_CUST=[{k:"segyero",n:"세계로",c:"c-seg",img:true},{k:"ilil",n:"일일향",c:"c-ili"},{k:"chorok",n:"초록",c:"c-cho"}];   // 세계로 = 사진만, 일일향·초록 = 글만
+var CK_CUST=[{k:"segyero",n:"세계로",c:"c-seg",img:true},{k:"ilil",n:"일일향",c:"c-ili"},{k:"baechu",n:"배추전",c:"c-bae"},{k:"chorok",n:"초록",c:"c-cho"}];   // 세계로 = 사진만, 일일향·배추전·초록 = 글만
 var ckEdit=null, ckBusy=null, ckOpen={};
 function ckDay(){ return lotDatePicked&&lotDate?lotDate:경매일KST(); }
 function ckName(w){ return (CK_CUST.find(c=>c.k===w)||{}).n||""; }
