@@ -775,13 +775,22 @@ function lotCloseDay() {
   if (k.getUTCHours() * 60 + k.getUTCMinutes() >= LOT_CLOSE_MIN) k.setUTCDate(k.getUTCDate() + 1);
   return k.toISOString().slice(0, 10);
 }
+/* 대기(★)로 표시한 줄은 마감하지 않고 다음 날 낙찰 내역으로 넘긴다(carry = 넘겨 간 날짜, 원래 경매일 date 는 그대로).
+   다음 날 화면에서 챙김·주석·대기를 이어서 하고, 그날도 대기면 또 다음 날로 넘어간다. 대기를 풀면 그날 5시 30분에 마감된다. */
+const lotDay = l => l.carry || l.date;
 function rollover() {
   const day = lotCloseDay();
-  const old = Object.values(state.lots).filter(l => !l.date || l.date < day);
+  const old = Object.values(state.lots).filter(l => !lotDay(l) || lotDay(l) < day);
   if (!old.length) return;
-  addToInv(old, Date.now());                           // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
-  for (const l of old) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
-  bump("서원이", `지난 경매 낙찰 ${old.length}줄의 챙김을 마감했습니다 (새벽 5시 30분, 재고 관리에서 계속 관리)`);
+  const keep = old.filter(l => l.date && state.pickup[l.id]);
+  const close = old.filter(l => !keep.includes(l));
+  for (const l of keep) state.lots[l.id] = Object.assign({}, l, { carry: day });
+  if (close.length) {
+    addToInv(close, Date.now());                       // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
+    for (const l of close) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
+  }
+  bump("서원이", [close.length && `지난 경매 낙찰 ${close.length}줄의 챙김을 마감했습니다 (새벽 5시 30분, 재고 관리에서 계속 관리)`,
+    keep.length && `대기 ${keep.length}줄은 ${day.slice(5).replace("-", "/")} 낙찰 내역으로 넘겼습니다`].filter(Boolean).join(" · "));
 }
 rollover();
 setInterval(rollover, 60 * 1000);
