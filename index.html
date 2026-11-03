@@ -420,6 +420,13 @@ table.xl tr.reauc .price{color:var(--dim)}
 .cytag{display:inline-block;margin-left:4px;font-size:10px;font-weight:800;color:#FFFFFF;background:#E07B00;
   border-radius:5px;padding:1px 5px;vertical-align:middle;white-space:nowrap}
 .cytag.mv{background:#FFFFFF;color:#E07B00;border:1px solid #E07B00}
+/* 1차 반입완료 버튼 줄 · 접어 둔 묶음 */
+.r1bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 10px;padding:8px 10px;border:1px solid var(--line,#ddd);border-radius:10px;font-size:12.5px;color:#000}
+.r1bar.on{background:#EAF7EA;border-color:#6BB52A}
+.r1btn{flex:none;border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:800;background:#1B6B1E;color:#FFFFFF}
+.r1btn.x{background:#FFFFFF;color:#1B6B1E;border:1px solid #1B6B1E;padding:6px 10px}
+.r1sec{margin-top:14px;border-top:2px dashed #6BB52A;padding-top:8px}
+.r1head{width:100%;text-align:left;border:0;background:#EAF7EA;border-radius:8px;padding:10px;font-size:13.5px;font-weight:800;color:#1B6B1E;margin-bottom:8px}
 /* 대기 칸 (맨 오른쪽) */
 table.xl td.pk{width:34px;padding:0}
 .pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
@@ -1215,6 +1222,7 @@ function defaultLotDate(){
   const ds=(state.lots||[]).map(l=>l.carry||l.date).filter(Boolean).sort();
   return ds.length?ds[ds.length-1]:경매일KST();
 }
+let r1Open=false;     // 1차 반입완료 묶음 펼침 (이 폰에서만)
 function dayRows(date){
   const by={};
   (calDayCache[date]||[]).forEach(l=>{ by[l.id]=Object.assign({},l); });
@@ -1278,14 +1286,17 @@ function renderLots(chips){
       : all.length?emptyHTML():`<div class="empty">${dateKo(lotDate)}에는 낙찰 기록이 없습니다.<br>위의 날짜를 눌러 다른 날짜를 골라 보세요.</div>`;
     bindEmpty(); return;
   }
-  const groups=invGroups(rows);
+  /* 1차 반입완료: 누른 때 다 챙긴 줄은 아래 '1차 반입완료' 묶음으로 접어 두고, 위에는 남은 줄만 보인다 */
+  const r1=(state.round1||{})[lotDate], r1Set=new Set((r1&&r1.ids)||[]);
+  const r1Rows=rows.filter(l=>r1Set.has(l.id)), mainRows=rows.filter(l=>!r1Set.has(l.id));
+  const groups=invGroups(mainRows);
   /* 챙김을 다 끝낸 줄은 품목 안에서 아래로, 안 챙긴 줄(대기 포함)은 위로. 단가 오름차순은 그 안에서 그대로.
      품목의 모든 줄을 다 챙겼으면 그 품목 묶음도 맨 아래로 내린다. */
   groups.forEach(g=>{ g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)]; });
   groups.sort((x,y)=>x.rows.every(isDone)-y.rows.every(isDone));
   const buy=rows.filter(l=>!isReauc(l)&&!l._carry);     // 재경매 줄·전날에서 넘어온 대기 줄은 합계에서 뺀다
   const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
-  list.innerHTML=groups.map(g=>{
+  const grpHTML=g=>{
     const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
     <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원${
@@ -1293,7 +1304,13 @@ function renderLots(chips){
     <div class="xwrap"><table class="xl lot"><thead><tr>
       <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
-    </table></div></div>`;}).join("")
+    </table></div></div>`;};
+  const hasLive=all.some(l=>l._live);
+  const r1Bar=r1?`<div class="r1bar on"><span>✅ <b>1차 반입완료</b> · ${esc(r1.by||"")} ${new Date(r1.at).toLocaleTimeString("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit"})} · ${r1Set.size}줄 정리 · 남은 ${mainRows.length}줄</span>${hasLive?`<button class="r1btn x" data-act="round1">취소</button>`:""}</div>`
+    :hasLive?`<div class="r1bar"><span>다 챙긴 줄을 아래로 접고 남은 줄만 보기</span><button class="r1btn" data-act="round1">✅ 1차 반입완료</button></div>`:"";
+  list.innerHTML=r1Bar
+    +(mainRows.length?groups.map(grpHTML).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
+    +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows).map(grpHTML).join(""):""}</div>`:"")
     +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
 
@@ -1818,6 +1835,14 @@ document.querySelector("main").addEventListener("click",e=>{
   }
   if(btn){
     const act=btn.dataset.act;
+    if(act==="round1"){
+      const r1=(state.round1||{})[lotDate];
+      if(r1){ if(confirm("1차 반입완료를 취소할까요? 정리해 둔 줄이 다시 위로 올라옵니다.")) pushOp({t:"round1",date:lotDate,on:false}); return; }
+      const ids=dayRows(lotDate).filter(l=>l._live&&(state.got[l.id]||0)>=l.qty&&l.qty>0).map(l=>l.id);
+      if(!ids.length){ alert("아직 챙김을 다 끝낸 줄이 없습니다."); return; }
+      pushOp({t:"round1",date:lotDate,on:true,ids}); return;
+    }
+    if(act==="r1fold"){ r1Open=!r1Open; return render(); }
     if(act==="fold"){const k=btn.dataset.k||btn.closest("section").dataset.g;collapsed[k]=!collapsed[k];return render();}
     const card=btn.closest(".card,tr[data-id]"); if(!card)return;
     const id=card.dataset.id;
@@ -1987,7 +2012,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.pickup=sv.pickup||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
+  state.pickup=sv.pickup||{}; state.round1=sv.round1||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -2349,6 +2374,7 @@ function localEcho(op){
     delete state.got[op.id]; if(state.lotnotes) delete state.lotnotes[op.id];
   }
   if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; state.pickup={}; }
+  if(op.t==="round1"){ state.round1=state.round1||{}; if(op.on) state.round1[op.date]={ids:op.ids||[],by:me,at:Date.now()}; else delete state.round1[op.date]; }
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
   if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
     if(op.on) d._saved={by:me||"나",at:Date.now()}; else delete d._saved; }
