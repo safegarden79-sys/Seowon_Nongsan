@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
         final EditText box = new EditText(this);
         box.setInputType(InputType.TYPE_TEXT_VARIATION_URI);
         box.setHint("http://192.168.0.10:3000");
-        box.setText(prefs().getString(KEY_URL, "https://seowon-nongsan-zjyr.onrender.com"));   // 새로 깔아도 주소를 다시 칠 필요 없게
+        box.setText(prefs().getString(KEY_URL, "https://seowon0372.onrender.com"));   // 새로 깔아도 주소를 다시 칠 필요 없게
 
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(48, 24, 48, 0);
