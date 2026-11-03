@@ -936,7 +936,7 @@ function lotRow(l){
   return `<tr data-id="${esc(l.id)}" data-tap="re" class="${[d?"got":"",mkCls(l),re?"reauc":"",isPick(l)?"pick":""].join(" ")}">
       <td class="ck">${live?`<button class="ckb" data-act="lottoggle" aria-label="챙김"><i>✓</i></button>`:""}</td>
       <td class="c no mono">${esc(l.no||"")}</td>
-      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}${l._carry?`<span class="cytag">${esc(mmdd(l.date).replace("-","/"))} 대기</span>`:""}${l._moved?`<span class="cytag mv">→ ${esc(mmdd(l._moved).replace("-","/"))} 이관</span>`:""}</td>
+      <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}${l._carry?`<span class="cytag">${esc(l._cyTxt||"어제")}</span>`:""}${l._moved?`<span class="cytag mv">→ ${esc(mmdd(l._moved).replace("-","/"))} 이관</span>`:""}</td>
       <td class="c">${esc([unitTxt(l.unit),l.grade].filter(Boolean).join(", "))}</td>
       <td class="r qn">${l.qty}</td>
       <td class="r"><b class="price">${won(l.price)}</b></td>
@@ -1225,8 +1225,16 @@ function dayRows(date){
       else if(l.date===date) by[l.id]=Object.assign({},by[l.id]||l,{_moved:l.carry});
     } else if(l.date===date) by[l.id]=Object.assign({},l,{_live:true});
   });
-  return Object.values(by);
+  /* id 의 날짜(원래 경매일)가 보고 있는 날짜보다 앞선 줄 = 전날에서 넘어온 줄. 손으로 날짜를 바꿔 옮긴 줄도 같이 잡는다.
+     '어제'(하루 전) 또는 'MM/DD' 표시를 붙이고 그날 합계에서는 뺀다 */
+  const prev=new Date(Date.parse(date+"T00:00:00Z")-864e5).toISOString().slice(0,10);
+  return Object.values(by).map(l=>{
+    const od=lotIdDate(l);
+    if(!od||od>=date) return l;
+    return Object.assign(l,{_carry:true,_cyTxt:od===prev?"어제":mmdd(od).replace("-","/")});
+  });
 }
+const lotIdDate=l=>{ const d=String(l.id||"").split("|")[2]||""; return /^\d{4}-\d{2}-\d{2}$/.test(d)?d:(l.carry&&l.carry!==l.date?l.date:""); };
 const dateKo=d=>`${d.slice(0,4)}년 ${d.slice(5,7)}월 ${d.slice(8,10)}일`;
 
 function renderLots(chips){
@@ -1280,12 +1288,12 @@ function renderLots(chips){
     const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
     <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원${
-      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.rows.filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0)}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}${g.cy?` · 전날 대기 ${g.cy}줄`:""}</span></div>
+      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.rows.filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0)}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}${g.cy?` · 어제 넘어온 ${g.cy}줄`:""}</span></div>
     <div class="xwrap"><table class="xl lot"><thead><tr>
       <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
     </table></div></div>`;}).join("")
-    +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>전날 대기 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
+    +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
 }
 
 /* 실시간 수집기(poller)가 마지막으로 낙찰을 올린 때. 사무실 PC 의 poller 가 살아 있는지
