@@ -431,13 +431,15 @@ table.xl tr.reauc .price{color:var(--dim)}
 .cyhead{background:#FFF1DF;border-radius:8px;padding:10px;font-size:13.5px;font-weight:800;color:#8A4B00;margin-bottom:8px}
 .cyhead small{font-weight:600;color:#8A4B00}
 /* 품목별 거래처 필요분 칸 */
-.needrow{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;padding:2px 2px;margin:0 0 3px;overflow-x:auto;white-space:nowrap;font-size:11.5px;color:#000;-webkit-overflow-scrolling:touch}
+.invgh.lotgh{align-items:center;gap:6px;flex-wrap:nowrap}
+.invgh.lotgh>b{flex:none;white-space:nowrap}
+.needrow{display:flex;flex:1 1 auto;min-width:0;flex-wrap:nowrap;align-items:center;gap:4px;padding:0;margin:0;overflow-x:auto;white-space:nowrap;font-size:11.5px;color:#000;-webkit-overflow-scrolling:touch}
 .needrow .ndlab{flex:none;font-weight:800;color:#555;display:inline-flex;flex-direction:column;line-height:1.05;font-size:11px}
 .needrow .ndlab small{font-weight:600;font-size:9.5px;color:#888}
 .needrow .nd{flex:none;display:inline-flex;align-items:center;gap:1px}
 .needrow .nd b{font-size:11.5px;margin-right:2px}
 .needrow .nd i{font-style:normal;color:#999;font-size:10px;margin:0 -1px}
-.needrow .nd input{width:25px;height:24px;padding:0;font-size:13px;text-align:center;border:1px solid #CCC;border-radius:4px;background:#FFFFFF;color:#000}
+.needrow .nd input{width:23px;height:24px;padding:0;font-size:13px;text-align:center;border:1px solid #CCC;border-radius:4px;background:#FFFFFF;color:#000}
 .needrow .nd input::placeholder{color:#C8C8C8;font-size:10px}
 .needrow .nd-segyero b{color:#2A64B8}.needrow .nd-ilil b{color:#C2557E}.needrow .nd-baechu b{color:#B57A10}.needrow .nd-chorok b{color:#2F7D3D}
 .needrow .ndtot{flex:none;margin-left:auto;font-weight:800;color:#8A4B00}
@@ -1240,14 +1242,12 @@ let r1Open=false;
 /* 품목별 거래처 필요분 — state.need[날짜][품목]["거래처|특"] = 수량. 품목 제목 줄 밑에 칸으로 적는다 (다섯 명 공통) */
 const NEED_GRADES=["특","상"];
 let needDirty=false;
+const NEED_CUST=["segyero","chorok","ilil"];   // 품목 제목 옆 필요분 칸: 세계로·초록·일일향 (배추전은 빼 달라고 함, 저장된 값은 그대로)
 function needRow(item){
   const v=(((state.need||{})[lotDate]||{})[item])||{};
-  const tot=g=>CK_CUST.reduce((a,c)=>a+(Number(v[c.k+"|"+g])||0),0);
-  const t1=tot("특"), t2=tot("상");
-  /* 한 줄: 필요(특/상) 세계로 [ ]/[ ] 일일향 [ ]/[ ] 배추전 [ ]/[ ] 초록 [ ]/[ ] 계 N/M */
-  return `<div class="needrow" data-nitem="${esc(item)}">${CK_CUST.map(c=>`<span class="nd nd-${c.k}"><b>${esc(c.n.slice(0,2))}</b>${NEED_GRADES.map(g=>
-    `<input type="number" inputmode="numeric" min="0" step="1" data-need="${c.k}|${g}" value="${v[c.k+"|"+g]??""}" placeholder="${g}" aria-label="${esc(c.n)} ${g}">`).join("<i>/</i>")}</span>`).join("")}${
-    t1||t2?`<span class="ndtot">${t1}/${t2}</span>`:""}</div>`;
+  /* 품목 이름 옆 한 줄: 세계 [특]/[상] 초록 [특]/[상] 일일 [특]/[상] */
+  return `<span class="needrow" data-nitem="${esc(item)}">${NEED_CUST.map(k=>CK_CUST.find(c=>c.k===k)).map(c=>`<span class="nd nd-${c.k}"><b>${esc(c.n.slice(0,2))}</b>${NEED_GRADES.map(g=>
+    `<input type="number" inputmode="numeric" min="0" step="1" data-need="${c.k}|${g}" value="${v[c.k+"|"+g]??""}" placeholder="${g}" aria-label="${esc(c.n)} ${g}">`).join("<i>/</i>")}</span>`).join("")}</span>`;
 }     // 1차 반입완료 묶음 펼침 (이 폰에서만)
 function dayRows(date){
   const by={};
@@ -1328,11 +1328,8 @@ function renderLots(chips){
   const buy=rows.filter(l=>!isReauc(l)&&!l._carry);     // 재경매 줄·전날에서 넘어온 대기 줄은 합계에서 뺀다
   const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
   const grpHTML=(g,withNeed)=>{
-    const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
-    <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.cy&&g.cy===g.rows.length?`${g.rows.length}줄 · 수량 ${g.rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}`:`${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원`}${
-      g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.rows.filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0)}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}${g.cy&&g.cy<g.rows.length?` · 어제 넘어온 ${g.cy}줄`:""}</span></div>
-    ${withNeed===true?needRow(g.title):""}
+    <div class="invgh lotgh"><b>${esc(g.title)}</b>${withNeed===true?needRow(g.title):""}</div>
     <div class="xwrap"><table class="xl lot"><thead><tr>
       <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
