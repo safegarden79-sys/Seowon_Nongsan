@@ -431,14 +431,16 @@ table.xl tr.reauc .price{color:var(--dim)}
 .cyhead{background:#FFF1DF;border-radius:8px;padding:10px;font-size:13.5px;font-weight:800;color:#8A4B00;margin-bottom:8px}
 .cyhead small{font-weight:600;color:#8A4B00}
 /* 품목별 거래처 필요분 칸 */
-.needrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 6px;margin:0 0 4px;background:#FAFAF5;border:1px solid #E6E3D6;border-radius:8px;font-size:12px;color:#000}
-.needrow .ndlab{font-weight:800;color:#555;margin-right:2px}
-.needrow .nd{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;border-radius:6px;border-left:3px solid #999;background:#FFFFFF}
-.needrow .nd b{font-size:12px;margin-right:1px}
-.needrow .nd label{display:inline-flex;align-items:center;gap:1px;font-size:11px;color:#333}
-.needrow .nd input{width:34px;height:26px;padding:0 2px;font-size:13px;text-align:center;border:1px solid #CCC;border-radius:5px;background:#FFFFFF;color:#000}
-.needrow .nd-segyero{border-left-color:#3B7DD8}.needrow .nd-ilil{border-left-color:#E58DB0}.needrow .nd-baechu{border-left-color:#E0A030}.needrow .nd-chorok{border-left-color:#3E9B4F}
-.needrow .ndtot{margin-left:auto;font-weight:800;color:#8A4B00}
+.needrow{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;padding:2px 2px;margin:0 0 3px;overflow-x:auto;white-space:nowrap;font-size:11.5px;color:#000;-webkit-overflow-scrolling:touch}
+.needrow .ndlab{flex:none;font-weight:800;color:#555;display:inline-flex;flex-direction:column;line-height:1.05;font-size:11px}
+.needrow .ndlab small{font-weight:600;font-size:9.5px;color:#888}
+.needrow .nd{flex:none;display:inline-flex;align-items:center;gap:1px}
+.needrow .nd b{font-size:11.5px;margin-right:2px}
+.needrow .nd i{font-style:normal;color:#999;font-size:10px;margin:0 -1px}
+.needrow .nd input{width:25px;height:24px;padding:0;font-size:13px;text-align:center;border:1px solid #CCC;border-radius:4px;background:#FFFFFF;color:#000}
+.needrow .nd input::placeholder{color:#C8C8C8;font-size:10px}
+.needrow .nd-segyero b{color:#2A64B8}.needrow .nd-ilil b{color:#C2557E}.needrow .nd-baechu b{color:#B57A10}.needrow .nd-chorok b{color:#2F7D3D}
+.needrow .ndtot{flex:none;margin-left:auto;font-weight:800;color:#8A4B00}
 /* 대기 칸 (맨 오른쪽) */
 table.xl td.pk{width:34px;padding:0}
 .pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
@@ -1242,9 +1244,10 @@ function needRow(item){
   const v=(((state.need||{})[lotDate]||{})[item])||{};
   const tot=g=>CK_CUST.reduce((a,c)=>a+(Number(v[c.k+"|"+g])||0),0);
   const t1=tot("특"), t2=tot("상");
-  return `<div class="needrow" data-nitem="${esc(item)}"><span class="ndlab">필요분</span>${CK_CUST.map(c=>`<span class="nd nd-${c.k}"><b>${esc(c.n)}</b>${NEED_GRADES.map(g=>
-    `<label>${g}<input type="number" inputmode="numeric" min="0" step="1" data-need="${c.k}|${g}" value="${v[c.k+"|"+g]??""}"></label>`).join("")}</span>`).join("")}${
-    t1||t2?`<span class="ndtot">계 특 ${t1} · 상 ${t2}</span>`:""}</div>`;
+  /* 한 줄: 필요(특/상) 세계로 [ ]/[ ] 일일향 [ ]/[ ] 배추전 [ ]/[ ] 초록 [ ]/[ ] 계 N/M */
+  return `<div class="needrow" data-nitem="${esc(item)}">${CK_CUST.map(c=>`<span class="nd nd-${c.k}"><b>${esc(c.n.slice(0,2))}</b>${NEED_GRADES.map(g=>
+    `<input type="number" inputmode="numeric" min="0" step="1" data-need="${c.k}|${g}" value="${v[c.k+"|"+g]??""}" placeholder="${g}" aria-label="${esc(c.n)} ${g}">`).join("<i>/</i>")}</span>`).join("")}${
+    t1||t2?`<span class="ndtot">${t1}/${t2}</span>`:""}</div>`;
 }     // 1차 반입완료 묶음 펼침 (이 폰에서만)
 function dayRows(date){
   const by={};
