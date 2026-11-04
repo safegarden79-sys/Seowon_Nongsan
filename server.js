@@ -810,8 +810,26 @@ function rollover() {
   bump("서원이", [close.length && `지난 경매 낙찰 ${close.length}줄의 챙김을 마감했습니다 (새벽 5시 30분, 재고 관리에서 계속 관리)`,
     keep.length && `대기 ${keep.length}줄은 ${day.slice(5).replace("-", "/")} 낙찰 내역으로 넘겼습니다`].filter(Boolean).join(" · "));
 }
-rollover();
-setInterval(rollover, 60 * 1000);
+/* 재고 자동 정리 — 낙찰 날짜(경매가 끝난 날)를 1일차로 영업일(경매가 있는 월~토, 일요일 제외)을 세어 6일차가 되면
+   재고 관리 목록(state.inv)에서 지운다. 고정(🔒)한 줄은 남긴다. 날짜별 기록(history)·출고 기록(shipped)은 그대로라
+   낙찰 내역에서 날짜를 골라 계속 볼 수 있다. */
+const INV_KEEP_BIZDAYS = 5;                            // 5영업일까지 보이고 6영업일째에 지운다
+function bizDayNo(date, today) {                        // date 를 1일차로 today 가 몇 번째 영업일인지
+  let n = 0;
+  for (let t = Date.parse(date + "T00:00:00Z"), end = Date.parse(today + "T00:00:00Z"); t <= end; t += 864e5)
+    if (new Date(t).getUTCDay() !== 0) n++;
+  return n;
+}
+function expireInv() {
+  const day = today();
+  const gone = Object.values(state.inv).filter(l => l && l.date && !l.lock && !state.lots[l.id] && bizDayNo(l.date, day) > INV_KEEP_BIZDAYS);
+  if (!gone.length) return;
+  for (const l of gone) delete state.inv[l.id];
+  bump("서원이", `재고 관리 — 낙찰 6영업일째 된 ${gone.length}줄을 정리했습니다`);
+}
+function rolloverAll() { rollover(); expireInv(); }
+rolloverAll();
+setInterval(rolloverAll, 60 * 1000);
 
 /* 예기치 못한 오류로 서버가 죽지 않게 막는다 */
 process.on("uncaughtException", e => { console.error("오류:", e.message); persist(); });
