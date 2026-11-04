@@ -430,6 +430,15 @@ table.xl tr.reauc .price{color:var(--dim)}
 .cysec{margin-top:14px;border-top:2px dashed #E07B00;padding-top:8px}
 .cyhead{background:#FFF1DF;border-radius:8px;padding:10px;font-size:13.5px;font-weight:800;color:#8A4B00;margin-bottom:8px}
 .cyhead small{font-weight:600;color:#8A4B00}
+/* 품목별 거래처 필요분 칸 */
+.needrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 6px;margin:0 0 4px;background:#FAFAF5;border:1px solid #E6E3D6;border-radius:8px;font-size:12px;color:#000}
+.needrow .ndlab{font-weight:800;color:#555;margin-right:2px}
+.needrow .nd{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;border-radius:6px;border-left:3px solid #999;background:#FFFFFF}
+.needrow .nd b{font-size:12px;margin-right:1px}
+.needrow .nd label{display:inline-flex;align-items:center;gap:1px;font-size:11px;color:#333}
+.needrow .nd input{width:34px;height:26px;padding:0 2px;font-size:13px;text-align:center;border:1px solid #CCC;border-radius:5px;background:#FFFFFF;color:#000}
+.needrow .nd-segyero{border-left-color:#3B7DD8}.needrow .nd-ilil{border-left-color:#E58DB0}.needrow .nd-baechu{border-left-color:#E0A030}.needrow .nd-chorok{border-left-color:#3E9B4F}
+.needrow .ndtot{margin-left:auto;font-weight:800;color:#8A4B00}
 /* 대기 칸 (맨 오른쪽) */
 table.xl td.pk{width:34px;padding:0}
 .pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
@@ -1225,7 +1234,18 @@ function defaultLotDate(){
   const ds=(state.lots||[]).map(l=>l.carry||l.date).filter(Boolean).sort();
   return ds.length?ds[ds.length-1]:경매일KST();
 }
-let r1Open=false;     // 1차 반입완료 묶음 펼침 (이 폰에서만)
+let r1Open=false;
+/* 품목별 거래처 필요분 — state.need[날짜][품목]["거래처|특"] = 수량. 품목 제목 줄 밑에 칸으로 적는다 (다섯 명 공통) */
+const NEED_GRADES=["특","상"];
+let needDirty=false;
+function needRow(item){
+  const v=(((state.need||{})[lotDate]||{})[item])||{};
+  const tot=g=>CK_CUST.reduce((a,c)=>a+(Number(v[c.k+"|"+g])||0),0);
+  const t1=tot("특"), t2=tot("상");
+  return `<div class="needrow" data-nitem="${esc(item)}"><span class="ndlab">필요분</span>${CK_CUST.map(c=>`<span class="nd nd-${c.k}"><b>${esc(c.n)}</b>${NEED_GRADES.map(g=>
+    `<label>${g}<input type="number" inputmode="numeric" min="0" step="1" data-need="${c.k}|${g}" value="${v[c.k+"|"+g]??""}"></label>`).join("")}</span>`).join("")}${
+    t1||t2?`<span class="ndtot">계 특 ${t1} · 상 ${t2}</span>`:""}</div>`;
+}     // 1차 반입완료 묶음 펼침 (이 폰에서만)
 function dayRows(date){
   const by={};
   (calDayCache[date]||[]).forEach(l=>{ by[l.id]=Object.assign({},l); });
@@ -1283,6 +1303,9 @@ function renderLots(chips){
     return [l.item,normItem(l.item),l.who,l.no,l.grade,l.mkt].filter(Boolean).join(" ").toLowerCase().includes(kw);
   });
   const list=document.getElementById("lotlist");
+  /* 필요분 칸에 적는 중이면 표를 다시 그리지 않는다 (칸을 벗어나면 다시 그린다) */
+  const ae=document.activeElement;
+  if(ae&&ae.dataset&&ae.dataset.need&&list.contains(ae)){ needDirty=true; return; }
   if(!rows.length){
     list.innerHTML=(!(lotDate in calDayCache)&&!all.length)
       ? `<div class="caldempty">불러오는 중…</div>`
@@ -1301,11 +1324,12 @@ function renderLots(chips){
   groups.sort((x,y)=>x.rows.every(isDone)-y.rows.every(isDone));
   const buy=rows.filter(l=>!isReauc(l)&&!l._carry);     // 재경매 줄·전날에서 넘어온 대기 줄은 합계에서 뺀다
   const tq=buy.reduce((a,l)=>a+(Number(l.qty)||0),0), ta=buy.reduce((a,l)=>a+lotAmt(l),0);
-  const grpHTML=g=>{
+  const grpHTML=(g,withNeed)=>{
     const gg=g.rows.filter(isDone).reduce((a,l)=>a+l.qty,0);
     return `<div class="invgrp">
     <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.cy&&g.cy===g.rows.length?`${g.rows.length}줄 · 수량 ${g.rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}`:`${g.rows.length}줄 · 수량 ${g.qty} · ${won(g.amt)}원`}${
       g.rows.some(l=>l._live)?` · 챙김 ${gg}/${g.rows.filter(l=>!isReauc(l)).reduce((a,l)=>a+(Number(l.qty)||0),0)}`:""}${g.re?` · 재경매 ${g.re}줄 제외`:""}${g.cy&&g.cy<g.rows.length?` · 어제 넘어온 ${g.cy}줄`:""}</span></div>
+    ${withNeed===true?needRow(g.title):""}
     <div class="xwrap"><table class="xl lot"><thead><tr>
       <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
@@ -1314,7 +1338,7 @@ function renderLots(chips){
   const r1Bar=r1?`<div class="r1bar on"><span>✅ <b>1차 반입완료</b> · ${esc(r1.by||"")} ${new Date(r1.at).toLocaleTimeString("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit"})} · ${r1Set.size}줄 정리 · 남은 ${restRows.length}줄</span>${hasLive?`<button class="r1btn x" data-act="round1">취소</button>`:""}</div>`
     :hasLive?`<div class="r1bar"><span>다 챙긴 줄을 아래로 접고 남은 줄만 보기</span><button class="r1btn" data-act="round1">✅ 1차 반입완료</button></div>`:"";
   list.innerHTML=r1Bar
-    +(mainRows.length?groups.map(grpHTML).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
+    +(mainRows.length?groups.map(g=>grpHTML(g,true)).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
     +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small></div>${(()=>{const gs=invGroups(cyRows);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
     +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows).map(grpHTML).join(""):""}</div>`:"")
     +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
@@ -2018,7 +2042,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.pickup=sv.pickup||{}; state.round1=sv.round1||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
+  state.pickup=sv.pickup||{}; state.round1=sv.round1||{}; state.need=sv.need||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -2380,6 +2404,8 @@ function localEcho(op){
     delete state.got[op.id]; if(state.lotnotes) delete state.lotnotes[op.id];
   }
   if(op.t==="clearlots"){ state.lots=[]; state.got={}; state.lotnotes={}; state.pickup={}; }
+  if(op.t==="need"){ state.need=state.need||{}; const d=state.need[op.date]=state.need[op.date]||{}; const it=d[op.item]=Object.assign({},d[op.item]||{});
+    const n=parseInt(op.value,10); if(n>0) it[op.key]=n; else delete it[op.key]; }
   if(op.t==="round1"){ state.round1=state.round1||{}; if(op.on) state.round1[op.date]={ids:op.ids||[],by:me,at:Date.now()}; else delete state.round1[op.date]; }
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
   if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
@@ -2445,6 +2471,16 @@ async function flush(){
     pending=pending.slice(batch.length); savePending(); setConn(true);
   }catch(e){ setConn(false); }
 }
+/* 필요분 칸 — 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
+document.getElementById("lotlist").addEventListener("change",e=>{
+  const inp=e.target.closest("[data-need]"); if(!inp) return;
+  const item=inp.closest("[data-nitem]").dataset.nitem;
+  pushOp({t:"need",date:lotDate,item,key:inp.dataset.need,value:inp.value},true);
+  needDirty=true;
+});
+document.getElementById("lotlist").addEventListener("focusout",()=>{
+  setTimeout(()=>{ const a=document.activeElement; if(a&&a.dataset&&a.dataset.need) return; if(needDirty){ needDirty=false; render(); } },300);
+});
 function pushOp(op,quiet){
   localEcho(op); save(); if(!quiet) render();     // quiet: 칸에 적는 중 — 화면을 다시 그리면 다음 칸으로 옮긴 손가락이 튕긴다
   if(!serverUrl) return;                   // 서버를 안 쓰면 이 폰에만 저장된다

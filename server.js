@@ -70,6 +70,7 @@ if (!state.inv)     state.inv = {};
 if (!state.shipped) state.shipped = {};
 if (!state.pollers) state.pollers = {};
 if (!state.pickup)  state.pickup = {};    // 대기 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
+if (!state.need)    state.need = {};      // 품목별 거래처 필요분 — 낙찰 날짜 → 품목 → {"segyero|특": 수량, ...}
 if (!state.round1)  state.round1 = {};    // 1차 반입완료 — 낙찰 날짜 → {ids:[그때 다 챙긴 줄], by, at}. 그 줄들을 따로 접어 둔다
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 if (!state.pushSubs) state.pushSubs = {};
@@ -134,6 +135,10 @@ function pruneHistory() {
     for (const w of Object.keys(state.orders[d] || {}))
       for (const im of ((state.orders[d][w] || {}).imgs || [])) { try { fs.unlinkSync(path.join(ORD_DIR, im.f)); } catch (e) {} }
     delete state.orders[d];
+  }
+  for (const d of Object.keys(state.need || {})) {
+    const t = new Date(d + "T00:00:00+09:00").getTime();
+    if (isNaN(t) || t < cutoff) delete state.need[d];
   }
   for (const d of Object.keys(state.round1 || {})) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
@@ -424,6 +429,17 @@ function applyOp(user, op, meta = {}) {
       if (op.on) state.pickup[op.id] = { by, at: now };
       else delete state.pickup[op.id];
       bump(by, `${lotName(op.id)} 대기${op.on ? "" : " 해제"}`);
+      return;
+    }
+    case "need": {                                   // 품목별 거래처 필요분 (낙찰 표 품목 제목 줄 밑 칸)
+      const date = String(op.date || ""), item = String(op.item || "").slice(0, 40), key = String(op.key || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !item || !/^(segyero|ilil|baechu|chorok)\|(특|상)$/.test(key)) return;
+      const day = state.need[date] = state.need[date] || {};
+      const it = day[item] = Object.assign({}, day[item] || {});
+      const n = parseInt(op.value, 10);
+      if (n > 0) it[key] = Math.min(n, 99999); else delete it[key];
+      if (!Object.keys(it).length) delete day[item];
+      bump(by, `필요분 · ${item} ${ORD_WHO[key.split("|")[0]] || ""} ${key.split("|")[1]} ${n > 0 ? n : "지움"}`);
       return;
     }
     case "round1": {                                 // 1차 반입완료 — 그때 다 챙긴 줄을 따로 묶어 접고, 남은 줄만 위에 보이게 한다
