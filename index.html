@@ -550,7 +550,25 @@ table.xl td.xw{font-weight:800;font-size:13px;max-width:92px;
   white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
 /* 낙찰 내역 표는 한 낙찰 = 한 줄 (시장은 줄 색으로 구분, 거래금액은 소계·합계에만) */
 table.xl.lot td.xw{white-space:nowrap;max-width:none}   /* 생산자 이름은 자르지 않는다 — 칸이 이름 길이만큼 넓어진다 */
-table.xl.lot th,table.xl.lot td{padding:5px 3px}
+table.xl.lot th,table.xl.lot td{padding:4px 1px}   /* 칸이 많아 여백을 줄여 한 줄로 */
+table.xl.lot th{font-size:10px;padding:3px 1px}
+table.xl.lot td.xw{font-size:12.5px}
+table.xl.lot td.ck{width:22px}
+table.xl.lot .ckb{width:22px}
+table.xl.lot .ckb i{width:16px;height:16px}
+table.xl.lot td.nb{width:18px}
+table.xl.lot .nbtn{width:18px}
+table.xl.lot td.pk{width:26px}
+table.xl.lot .pkb{width:26px}
+table.xl.lot .pkb i{width:18px;height:18px}
+table.xl.lot td.no{font-size:9.5px;letter-spacing:-.4px}
+table.xl.lot td.sp{padding:1px;width:26px}
+table.xl.lot td.sp input{width:26px;height:26px;padding:0;margin:0;font-size:13px;font-weight:700;text-align:center;border:1px solid #CCC;border-radius:4px;background:#FFFFFF;color:#000;-moz-appearance:textfield}
+table.xl.lot td.sp input::-webkit-outer-spin-button,table.xl.lot td.sp input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+table.xl.lot th.sph{font-size:9.5px;letter-spacing:-.3px}
+table.xl.lot td.spl{font-weight:800;font-size:13.5px;color:var(--ok)}
+table.xl.lot td.spl.cut{color:#C2410C}
+table.xl.lot td.spl.zero0{color:var(--dim)}
 table.xl td .sm{display:block;font-size:10px;color:var(--dim);font-weight:400;white-space:nowrap}
 table.xl .price{color:var(--accent);font-weight:700}
 table.xl tr.zero td{opacity:.6}
@@ -952,6 +970,14 @@ function visibleLots(){
 const mkCls=l=>String(l.mkt||"").startsWith("서울")?"mk-seoul":String(l.mkt||"").startsWith("동화")?"mk-dong":"";
 const isReauc=l=>!!(state.reauc||{})[l.id];
 const isPick=l=>!!(state.pickup||{})[l.id];
+/* 가게출·타출·잔여 — state.split[id] = {s: 가게출, o: 타출}. 잔여 = 낙찰 수량 − 가게출 − 타출 (다섯 명 공통) */
+const spOf=l=>((state.split||{})[l.id])||{};
+const spLeft=l=>{ const v=spOf(l); return (Number(l.qty)||0)-(Number(v.s)||0)-(Number(v.o)||0); };
+function spCells(l){
+  const v=spOf(l), lf=spLeft(l);
+  const inp=k=>`<td class="sp"><input type="number" inputmode="numeric" min="0" step="1" data-sp="${k}" value="${v[k]||""}" aria-label="${k==="s"?"가게출":"타출"}"></td>`;
+  return `${inp("s")}${inp("o")}<td class="r spl${lf<(Number(l.qty)||0)?" cut":""}${lf<=0?" zero0":""}">${lf}</td>`;
+}
 function lotRow(l){
   const live=!!l._live, g=state.got[l.id]||0, d=live&&g>=l.qty&&l.qty>0;
   const note=live?(state.lotnotes||{})[l.id]:null;
@@ -963,11 +989,12 @@ function lotRow(l){
       <td class="xw">${esc(l.who||"-")}${re?`<span class="retag">재경매</span>`:""}${l._carry?`<span class="cytag">${esc(l._cyTxt||"어제")}</span>`:""}${l._moved?`<span class="cytag mv">→ ${esc(mmdd(l._moved).replace("-","/"))} 이관</span>`:""}</td>
       <td class="c">${esc([unitTxt(l.unit),l.grade].filter(Boolean).join(", "))}</td>
       <td class="r qn">${l.qty}</td>
+      ${spCells(l)}
       <td class="r"><b class="price">${won(l.price)}</b></td>
       <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td>
       <td class="pk">${live?`<button class="pkb" data-act="pickup" aria-label="대기"><i>★</i></button>`:""}</td></tr>
-    ${note?`<tr class="noterow ${mkCls(l)}" data-id="${esc(l.id)}"><td></td><td colspan="7">✎ ${esc(note.text||note)}</td></tr>`:""}
-    ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="8">
+    ${note?`<tr class="noterow ${mkCls(l)}" data-id="${esc(l.id)}"><td></td><td colspan="10">✎ ${esc(note.text||note)}</td></tr>`:""}
+    ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="11">
       <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
       <div class="ebtns"><button class="ebtn g" data-act="lncancel">닫기</button><button class="ebtn r" data-act="lotdel">이 줄 삭제</button><button class="ebtn y" data-act="lnsave">주석 저장</button></div>
     </td></tr>`:""}`;
@@ -1308,7 +1335,7 @@ function renderLots(chips){
   const list=document.getElementById("lotlist");
   /* 필요분 칸에 적는 중이면 표를 다시 그리지 않는다 (칸을 벗어나면 다시 그린다) */
   const ae=document.activeElement;
-  if(ae&&ae.dataset&&ae.dataset.need&&list.contains(ae)){ needDirty=true; return; }
+  if(ae&&ae.dataset&&(ae.dataset.need||ae.dataset.sp)&&list.contains(ae)){ needDirty=true; return; }
   if(!rows.length){
     list.innerHTML=(!(lotDate in calDayCache)&&!all.length)
       ? `<div class="caldempty">불러오는 중…</div>`
@@ -1331,7 +1358,7 @@ function renderLots(chips){
     return `<div class="invgrp">
     <div class="invgh lotgh"><b>${esc(g.title)}</b>${withNeed===true?needRow(g.title):""}</div>
     <div class="xwrap"><table class="xl lot"><thead><tr>
-      <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
+      <th></th><th>번호</th><th class="xw">생산자</th><th>단량·등급</th><th>수량</th><th class="sph">가게출</th><th class="sph">타출</th><th class="sph">잔여</th><th>경락단가 ▲</th><th></th><th class="pkh">대기</th>
     </tr></thead><tbody>${g.rows.map(lotRow).join("")}</tbody>
     </table></div></div>`;};
   const hasLive=all.some(l=>l._live);
@@ -1341,7 +1368,7 @@ function renderLots(chips){
     +(mainRows.length?groups.map(g=>grpHTML(g,true)).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
     +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small></div>${(()=>{const gs=invGroups(cyRows);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
     +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows).map(grpHTML).join(""):""}</div>`:"")
-    +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}</span><span>${won(ta)}원</span></div>`;
+    +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}${buy.some(l=>spLeft(l)!==(Number(l.qty)||0))?` · 잔여 ${buy.reduce((a,l)=>a+spLeft(l),0)}`:""}</span><span>${won(ta)}원</span></div>`;
 }
 
 /* 실시간 수집기(poller)가 마지막으로 낙찰을 올린 때. 사무실 PC 의 poller 가 살아 있는지
@@ -1852,7 +1879,7 @@ function countTap(id){
 }
 document.querySelector("main").addEventListener("click",e=>{
   const btn=e.target.closest("[data-act]");
-  const tapRow=!btn&&e.target.closest("tr[data-tap='re']");
+  const tapRow=!btn&&!e.target.closest("input")&&e.target.closest("tr[data-tap='re']");
   if(tapRow){
     const id=tapRow.dataset.id;
     if(countTap(id)){
@@ -2042,7 +2069,7 @@ function applyServer(sv){
   state.notes={}; state.stampNote=sv.notes||{};
   Object.keys(sv.notes||{}).forEach(k=>state.notes[k]=sv.notes[k].text);
   state.lotnotes=sv.lotnotes||{};
-  state.pickup=sv.pickup||{}; state.round1=sv.round1||{}; state.need=sv.need||{}; state.reauc=sv.reauc||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
+  state.pickup=sv.pickup||{}; state.round1=sv.round1||{}; state.need=sv.need||{}; state.reauc=sv.reauc||{}; state.split=sv.split||{}; state.fifo=sv.fifo||{}; state.prep=sv.prep||{}; state.orders=sv.orders||{};
   state.inv=sv.inv||{};
   state.lastLots=sv.lastLots||null;
   if(sv.now) clockSkew=sv.now-Date.now();
@@ -2423,6 +2450,9 @@ function localEcho(op){
     const c=Object.assign({},d[op.item]||{},{by:me,at:Date.now()});
     if("plan" in op) c.plan=op.plan===""?null:Math.max(0,Math.round(Number(op.plan)||0));
     if("memo" in op) c.memo=op.memo; if("done" in op) c.done=!!op.done; d[op.item]=c; }
+  if(op.t==="split"){ state.split=state.split||{}; const q=Number(String(op.id).split("|")[4])||0, c=Object.assign({},state.split[op.id]||{}), o=op.k==="s"?"o":"s";
+    let n=parseInt(op.n,10); if(!(n>0)) n=0; n=Math.min(n,Math.max(0,q-(Number(c[o])||0))); if(n>0) c[op.k]=n; else delete c[op.k];
+    if(Object.keys(c).length) state.split[op.id]=c; else delete state.split[op.id]; }
   if(op.t==="reauc"){ state.reauc=state.reauc||{}; if(op.on) state.reauc[op.id]={by:me,at:Date.now()}; else delete state.reauc[op.id]; }
   state.inv=state.inv||{};
   if(op.t==="invlock"&&state.inv[op.id]){ const it=Object.assign({},state.inv[op.id]);
@@ -2473,13 +2503,16 @@ async function flush(){
 }
 /* 필요분 칸 — 다 적고 칸을 벗어날 때(또는 Enter) 저장한다 */
 document.getElementById("lotlist").addEventListener("change",e=>{
+  const sp=e.target.closest("[data-sp]");
+  if(sp){ const id=sp.closest("tr[data-id]").dataset.id; pushOp({t:"split",id,k:sp.dataset.sp,n:sp.value},true); needDirty=true;
+    const td=sp.closest("tr").querySelector("td.spl"); if(td) td.textContent=spLeft({id,qty:Number(id.split("|")[4])||0}); return; }
   const inp=e.target.closest("[data-need]"); if(!inp) return;
   const item=inp.closest("[data-nitem]").dataset.nitem;
   pushOp({t:"need",date:lotDate,item,key:inp.dataset.need,value:inp.value},true);
   needDirty=true;
 });
 document.getElementById("lotlist").addEventListener("focusout",()=>{
-  setTimeout(()=>{ const a=document.activeElement; if(a&&a.dataset&&a.dataset.need) return; if(needDirty){ needDirty=false; render(); } },300);
+  setTimeout(()=>{ const a=document.activeElement; if(a&&a.dataset&&(a.dataset.need||a.dataset.sp)) return; if(needDirty){ needDirty=false; render(); } },300);
 });
 function pushOp(op,quiet){
   localEcho(op); save(); if(!quiet) render();     // quiet: 칸에 적는 중 — 화면을 다시 그리면 다음 칸으로 옮긴 손가락이 튕긴다

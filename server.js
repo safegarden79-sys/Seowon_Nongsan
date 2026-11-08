@@ -72,6 +72,7 @@ if (!state.pollers) state.pollers = {};
 if (!state.pickup)  state.pickup = {};    // 대기 표시 (오늘 작업용 — 새 작업 시작·낙찰 전체 삭제로 비운다)
 if (!state.need)    state.need = {};      // 품목별 거래처 필요분 — 낙찰 날짜 → 품목 → {"segyero|특": 수량, ...}
 if (!state.round1)  state.round1 = {};    // 1차 반입완료 — 낙찰 날짜 → {ids:[그때 다 챙긴 줄], by, at}. 그 줄들을 따로 접어 둔다
+if (!state.split)   state.split = {};     // 낙찰 줄별 가게출·타출 수량 — id → {s: 가게출, o: 타출} (잔여 = 수량 − 둘)
 if (!state.reauc)   state.reauc = {};     // 재경매로 분류한 줄 (지난 날짜 합계에도 쓰이므로 기록처럼 남긴다)
 if (!state.pushSubs) state.pushSubs = {};
 if (!state.fifo)    state.fifo = {};      // 선입선출 준비표 — 경매일 → 품목 → {plan, memo, done, by, at}
@@ -143,6 +144,10 @@ function pruneHistory() {
   for (const d of Object.keys(state.round1 || {})) {
     const t = new Date(d + "T00:00:00+09:00").getTime();
     if (isNaN(t) || t < cutoff) delete state.round1[d];
+  }
+  for (const id of Object.keys(state.split || {})) {           // 가게출·타출도 그 날짜 기록과 함께 정리
+    const t = new Date(String(id).split("|")[2] + "T00:00:00+09:00").getTime();
+    if (!(t >= cutoff)) delete state.split[id];
   }
   /* 재경매 표시도 그 날짜 기록과 함께 정리한다 (id = K|시장|날짜|번호|수량|단가) */
   for (const id of Object.keys(state.reauc || {})) {
@@ -455,6 +460,19 @@ function applyOp(user, op, meta = {}) {
       }
       return;
     }
+    case "split": {                                  // 낙찰 표 가게출(s)·타출(o) 수량. 잔여 = 수량 − 가게출 − 타출 (0 밑으로 안 내려가게 막는다)
+      const id = String(op.id || ""), k = op.k === "o" ? "o" : op.k === "s" ? "s" : "";
+      const p = id.split("|");
+      if (!k || p.length < 6) return;
+      const qty = Number(p[4]) || 0;
+      const cur = Object.assign({}, state.split[id] || {});
+      let n = parseInt(op.n, 10); if (!(n > 0)) n = 0;
+      n = Math.min(n, Math.max(0, qty - (Number(cur[k === "s" ? "o" : "s"]) || 0)));
+      if (n > 0) cur[k] = n; else delete cur[k];
+      if (Object.keys(cur).length) state.split[id] = cur; else delete state.split[id];
+      bump(by, `${lotName(id)} ${k === "s" ? "가게출" : "타출"} ${n || "지움"} · 잔여 ${qty - (cur.s || 0) - (cur.o || 0)}`);
+      return;
+    }
     case "reauc": {                                  // 재경매로 분류 / 일반 낙찰로 되돌리기 (줄을 세 번 연속 탭)
       if (!op.id) return;
       if (op.on) state.reauc[op.id] = { by, at: now };
@@ -499,7 +517,7 @@ function applyOp(user, op, meta = {}) {
       delete state.got[op.id];
       delete state.lotnotes[op.id];
       if (lot.date && state.history[lot.date]) delete state.history[lot.date][op.id];
-      delete state.pickup[op.id]; delete state.reauc[op.id];
+      delete state.pickup[op.id]; delete state.reauc[op.id]; delete state.split[op.id];
       delete state.inv[op.id];                        // 잘못 들어간 줄이니 재고 관리 목록에서도 뺀다
       bump(by, `${[lot.item, lot.who].filter(Boolean).join(" · ") || "낙찰"} 줄 삭제`);
       return;
