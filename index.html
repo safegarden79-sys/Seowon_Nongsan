@@ -445,6 +445,10 @@ table.xl tr.reauc .price{color:var(--dim)}
 .needrow .ndtot{flex:none;margin-left:auto;font-weight:800;color:#8A4B00}
 /* 대기 칸 (맨 오른쪽) */
 table.xl td.pk{width:34px;padding:0}
+.pkx{display:flex;align-items:center;justify-content:flex-end}
+.xferb{flex:none;height:24px;padding:0 5px;margin-right:1px;border:1px solid #E07B00;border-radius:5px;background:#FFFFFF;color:#E07B00;font-size:11px;font-weight:800;white-space:nowrap}
+.xferb:active{background:#E07B00;color:#FFFFFF}
+.xferall{float:right;height:26px;margin-top:-4px;padding:0 9px;border:0;border-radius:6px;background:#E07B00;color:#FFFFFF;font-size:12px;font-weight:800}
 .pkb{width:34px;height:38px;background:none;border:0;display:flex;align-items:center;justify-content:center;padding:0}
 .pkb i{width:20px;height:20px;border-radius:50%;border:2px solid #E07B00;display:flex;align-items:center;justify-content:center;
   font-style:normal;font-size:12px;font-weight:900;color:transparent;background:#FFFFFF}
@@ -992,7 +996,7 @@ function lotRow(l){
       ${spCells(l)}
       <td class="r"><b class="price">${won(l.price)}</b></td>
       <td class="nb">${live?`<button class="nbtn" data-act="lotnote" aria-label="주석">+</button>`:""}</td>
-      <td class="pk">${live?`<button class="pkb" data-act="pickup" aria-label="대기"><i>★</i></button>`:""}</td></tr>
+      <td class="pk">${live?`<div class="pkx">${l._carry?`<button class="xferb" data-act="xfer" aria-label="이관">이관</button>`:""}<button class="pkb" data-act="pickup" aria-label="대기"><i>★</i></button></div>`:""}</td></tr>
     ${note?`<tr class="noterow ${mkCls(l)}" data-id="${esc(l.id)}"><td></td><td colspan="10">✎ ${esc(note.text||note)}</td></tr>`:""}
     ${live&&openLotNote===l.id?`<tr class="edrow" data-id="${esc(l.id)}"><td colspan="11">
       <textarea id="lta-${esc(l.id)}" placeholder="주석 (예: 파렛트 아래쪽, 3개 파손)">${esc(note?(note.text||note):"")}</textarea>
@@ -1366,7 +1370,7 @@ function renderLots(chips){
     :hasLive?`<div class="r1bar"><span>다 챙긴 줄을 아래로 접고 남은 줄만 보기</span><button class="r1btn" data-act="round1">✅ 1차 반입완료</button></div>`:"";
   list.innerHTML=r1Bar
     +(mainRows.length?groups.map(g=>grpHTML(g,true)).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
-    +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small></div>${(()=>{const gs=invGroups(cyRows);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
+    +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small>${cyRows.some(l=>l._live)?`<button class="xferall" data-act="xferall">전부 이관</button>`:""}</div>${(()=>{const gs=invGroups(cyRows);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
     +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows).map(grpHTML).join(""):""}</div>`:"")
     +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}${buy.some(l=>spLeft(l)!==(Number(l.qty)||0))?` · 잔여 ${buy.reduce((a,l)=>a+spLeft(l),0)}`:""}</span><span>${won(ta)}원</span></div>`;
 }
@@ -1899,6 +1903,12 @@ document.querySelector("main").addEventListener("click",e=>{
       if(!ids.length){ alert("아직 챙김을 다 끝낸 줄이 없습니다."); return; }
       pushOp({t:"round1",date:lotDate,on:true,ids}); return;
     }
+    if(act==="xferall"){
+      const ids=dayRows(lotDate).filter(l=>l._live&&l._carry).map(l=>l.id);
+      if(!ids.length) return;
+      if(!confirm(`넘어온 줄 ${ids.length}줄을 모두 이관합니다.\n낙찰 내역에서 빠지고 재고 관리에서 계속 관리합니다.`)) return;
+      pushOp({t:"transfer",ids}); stat(`넘어온 줄 ${ids.length}줄을 재고 관리로 이관했습니다.`); return;
+    }
     if(act==="r1fold"){ r1Open=!r1Open; return render(); }
     if(act==="fold"){const k=btn.dataset.k||btn.closest("section").dataset.g;collapsed[k]=!collapsed[k];return render();}
     const card=btn.closest(".card,tr[data-id]"); if(!card)return;
@@ -1914,6 +1924,12 @@ document.querySelector("main").addEventListener("click",e=>{
     else if(act==="nsave"){ const v=document.getElementById("ta-"+id).value.trim();
       const st=STOPS.find(x=>x.id===id);
       openNote=null; pushOp({t:"note",id,text:v,name:st?st.name:id}); }
+    else if(act==="xfer"){
+      const l=(state.lots||[]).find(x=>x.id===id); if(!l) return;
+      const 이름=[normItem(l.item),l.who].filter(Boolean).join(" · ")||"이 줄";
+      if(!confirm(`'${이름}' (${l.qty}개) 줄을 이관합니다.\n낙찰 내역에서 빠지고 재고 관리에서 계속 관리합니다.`)) return;
+      openLotNote=null; pushOp({t:"transfer",ids:[id]}); stat(`'${이름}' 줄을 재고 관리로 이관했습니다.`);
+    }
     else if(act==="pickup"){
       pushOp({t:"pickup",id,on:!(state.pickup||{})[id]});
     }
@@ -2434,6 +2450,8 @@ function localEcho(op){
   if(op.t==="need"){ state.need=state.need||{}; const d=state.need[op.date]=state.need[op.date]||{}; const it=d[op.item]=Object.assign({},d[op.item]||{});
     const n=parseInt(op.value,10); if(n>0) it[op.key]=n; else delete it[op.key]; }
   if(op.t==="round1"){ state.round1=state.round1||{}; if(op.on) state.round1[op.date]={ids:op.ids||[],by:me,at:Date.now()}; else delete state.round1[op.date]; }
+  if(op.t==="transfer"){ const set=new Set(op.ids||[]); state.lots=(state.lots||[]).filter(l=>!set.has(l.id));
+    set.forEach(id=>{ delete state.got[id]; if(state.lotnotes) delete state.lotnotes[id]; if(state.pickup) delete state.pickup[id]; }); }
   if(op.t==="pickup"){ state.pickup=state.pickup||{}; if(op.on) state.pickup[op.id]={by:me,at:Date.now()}; else delete state.pickup[op.id]; }
   if(op.t==="prepsave"){ state.prep=state.prep||{}; const d=state.prep[op.date]=Object.assign({},state.prep[op.date]||{});
     if(op.on) d._saved={by:me||"나",at:Date.now()}; else delete d._saved; }

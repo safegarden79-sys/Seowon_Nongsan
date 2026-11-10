@@ -174,10 +174,23 @@ function addToHistory(rows) {
    물건이 오늘도 창고에 남아 있을 수 있기 때문이다. '전량 출고'를 누르면 목록에서 빠지고
    출고 기록(state.shipped)으로 옮겨져 소요금액 적산에 쓰인다. 이미 출고한 줄은 같은 id 로
    다시 들어와도(poller 재전송) 목록에 되살리지 않는다. */
+/* 재고 관리 줄은 낙찰(경매일) 뒤 10일이 지나면 자동으로 지운다. 경매일 = id 안의 날짜(없으면 date).
+   예: 11/01 낙찰 → 11/11 이 되면 삭제. 🔒 고정한 줄은 손으로 풀기 전까지 지우지 않는다. */
+const INV_KEEP_DAYS = 10;
+const invDay = r => { const d = String((r && r.id) || "").split("|")[2] || ""; return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : String((r && r.date) || ""); };
+function invExpireDay() { return new Date(Date.parse(today() + "T00:00:00Z") - INV_KEEP_DAYS * 864e5).toISOString().slice(0, 10); }
+const invExpired = r => { const d = invDay(r); return !!d && d <= invExpireDay(); };
+function pruneInv() {
+  const gone = Object.values(state.inv).filter(r => invExpired(r) && !r.lock);
+  if (!gone.length) return 0;
+  for (const r of gone) delete state.inv[r.id];
+  return gone.length;
+}
 function addToInv(rows, now) {
   let n = 0;
   (rows || []).forEach(r => {
     if (!r || !r.id || state.shipped[r.id]) return;
+    if (invExpired(r) && !state.inv[r.id]) return;     // 10일 지난 낙찰은 재고에 새로 올리지 않는다
     const old = state.inv[r.id];
     const qty = Number(r.qty) || 0;
     if (old) {
@@ -244,6 +257,7 @@ function bump(by, text) {
 }
 
 /* 기록에 남길 줄 이름. 오늘 목록에 없으면 그 날짜 기록에서 찾는다. */
+const lotName0 = l => [l.item, l.who].filter(Boolean).join(" · ") || "낙찰 줄";
 function lotName(id) {
   const l = state.lots[id] || (state.history[String(id).split("|")[2]] || {})[id];
   return (l && [l.item, l.who].filter(Boolean).join(" · ")) || "낙찰 줄";
@@ -508,6 +522,22 @@ function applyOp(user, op, meta = {}) {
       if (op.text) state.lotnotes[op.id] = { text: String(op.text).slice(0, 200), by, at: now };
       else delete state.lotnotes[op.id];
       bump(by, `${lot ? lot.item : "품목"} 주석`);
+      return;
+    }
+    case "transfer": {                               // 지난 날짜에서 넘어온 대기 줄을 낙찰 내역에서 빼 재고 관리로 넘긴다(이관)
+      const ids = (Array.isArray(op.ids) ? op.ids : [op.id]).map(String).slice(0, 500);
+      const done = [];
+      for (const id of ids) {
+        const l = state.lots[id]; if (!l) continue;
+        const idDay = String(id).split("|")[2] || "";
+        const past = (l.carry && l.carry !== l.date) || (/^\d{4}-\d{2}-\d{2}$/.test(idDay) && idDay < lotDay(l));
+        if (!past) continue;                           // 오늘 낙찰 줄은 이관하지 않는다
+        addToInv([l], now);                            // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
+        delete state.lots[id]; delete state.got[id]; delete state.lotnotes[id]; delete state.pickup[id];
+        done.push(l);
+      }
+      if (!done.length) return;
+      bump(by, done.length === 1 ? `${lotName0(done[0])} 이관 (낙찰 내역 → 재고 관리)` : `넘어온 대기 ${done.length}줄 이관 (낙찰 내역 → 재고 관리)`);
       return;
     }
     case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다 (오늘 목록 + 그 날짜 기록 모두에서)
@@ -831,6 +861,8 @@ function lotCloseDay() {
    다음 날 화면에서 챙김·주석·대기를 이어서 하고, 그날도 대기면 또 다음 날로 넘어간다. 대기를 풀면 그날 5시 30분에 마감된다. */
 const lotDay = l => l.carry || l.date;
 function rollover() {
+  const pruned = pruneInv();
+  if (pruned) bump("서원이", `낙찰 뒤 ${INV_KEEP_DAYS}일 지난 재고 ${pruned}줄을 재고 관리에서 자동 삭제했습니다`);
   const day = lotCloseDay();
   const old = Object.values(state.lots).filter(l => !lotDay(l) || lotDay(l) < day);
   if (!old.length) return;
