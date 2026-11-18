@@ -264,6 +264,30 @@ function lotName(id) {
 }
 const 시장0 = rows => { const m = {}; (rows || []).forEach(r => { if (r && r.mkt) m[r.mkt] = 1; }); return m; };
 
+/* 서울청과 마이페이지(auction.asp)는 날짜 없이 '오늘' 치만 보여 주는데, 밤 22:30 수집을 시작할 때
+   사이트가 아직 어젯밤 경매 결과를 보여 주는 날이 있다. 수집기는 15시 이후 읽은 줄에 내일 경매일을 붙이므로
+   어제 낙찰이 오늘 경매일로 한 번 더 들어온다(2026-11-18 밤: 11/18 서울 8줄이 11/19 로 똑같이 들어옴).
+   그래서 한 번에 들어온 서울청과 줄이 그 날짜 '전날' 기록과 번호·생산자·품목·단위·등급·수량·단가까지
+   모두 같으면 그 묶음의 서울 줄을 지난 경매 줄로 보고 버린다. (새 낙찰이 하나라도 섞이면 사이트가 오늘 경매로
+   바뀐 것이므로 그대로 받는다 — 진짜로 어제와 똑같은 낙찰이 우연히 나와도 놓치지 않게.) */
+const lotSig = r => [r.mkt, r.no, r.who, r.item, r.unit, r.grade, r.qty, r.price].map(x => String(x ?? "").trim()).join("|");
+const prevDay = d => new Date(Date.parse(d + "T00:00:00Z") - 864e5).toISOString().slice(0, 10);
+function staleSeoulRows(rows) {
+  const byDate = {};
+  (rows || []).forEach(r => {
+    if (r && r.id && r.mkt === "서울청과" && /^\d{4}-\d{2}-\d{2}$/.test(String(r.date || "")) && !state.lots[r.id])
+      (byDate[r.date] = byDate[r.date] || []).push(r);
+  });
+  const out = new Set();
+  for (const [d, rs] of Object.entries(byDate)) {
+    const prev = state.history[prevDay(d)];
+    if (!prev) continue;
+    const sigs = new Set(Object.values(prev).map(lotSig));
+    if (rs.every(r => sigs.has(lotSig(r)))) rs.forEach(r => out.add(r));
+  }
+  return out;
+}
+
 /* ---------- 작업 처리 ---------- */
 function applyOp(user, op, meta = {}) {
   const now = Date.now();
@@ -273,6 +297,14 @@ function applyOp(user, op, meta = {}) {
 
   switch (op.t) {
     case "lots": {                                   // 실시간 수집기(또는 직접 추가)가 넣은 낙찰 줄 반영
+      if (!op.quiet) {
+        const stale = staleSeoulRows(op.rows);
+        if (stale.size) {
+          op = Object.assign({}, op, { rows: (op.rows || []).filter(r => !stale.has(r)) });
+          bump(by, `서울청과 지난 경매 줄 ${stale.size}줄 무시 (사이트가 아직 어제 낙찰을 보여 줌)`);
+          if (!op.rows.length) return;
+        }
+      }
       let added = 0, updated = 0; const fresh = [];
       (op.rows || []).forEach(r => {
         if (!r.id) return;
