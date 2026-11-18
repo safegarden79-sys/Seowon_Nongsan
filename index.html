@@ -1351,8 +1351,8 @@ function renderLots(chips){
   const r1Rows=rows.filter(l=>r1Set.has(l.id)), restRows=rows.filter(l=>!r1Set.has(l.id));
   /* 전날에서 넘어온 줄('어제')은 품목 묶음에 섞지 않고 맨 아래 따로 모은다 */
   const cyRows=restRows.filter(l=>l._carry), mainRows=restRows.filter(l=>!l._carry);
-  const groups=invGroups(mainRows);
-  /* 챙김을 다 끝낸 줄은 품목 안에서 아래로, 안 챙긴 줄(대기 포함)은 위로. 단가 오름차순은 그 안에서 그대로.
+  const groups=invGroups(mainRows,true);
+  /* 챙김을 다 끝낸 줄은 품목 안에서 아래로, 안 챙긴 줄(대기 포함)은 위로. 낙찰번호 오름차순은 그 안에서 그대로.
      품목의 모든 줄을 다 챙겼으면 그 품목 묶음도 맨 아래로 내린다. */
   groups.forEach(g=>{ g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)]; });
   groups.sort((x,y)=>x.rows.every(isDone)-y.rows.every(isDone));
@@ -1370,8 +1370,8 @@ function renderLots(chips){
     :hasLive?`<div class="r1bar"><span>다 챙긴 줄을 아래로 접고 남은 줄만 보기</span><button class="r1btn" data-act="round1">✅ 1차 반입완료</button></div>`:"";
   list.innerHTML=r1Bar
     +(mainRows.length?groups.map(g=>grpHTML(g,true)).join(""):(r1?`<div class="empty">남은 줄이 없습니다. 모두 1차에서 챙겼습니다.</div>`:""))
-    +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small>${cyRows.some(l=>l._live)?`<button class="xferall" data-act="xferall">전부 이관</button>`:""}</div>${(()=>{const gs=invGroups(cyRows);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
-    +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows).map(grpHTML).join(""):""}</div>`:"")
+    +(cyRows.length?`<div class="cysec"><div class="cyhead">어제 넘어온 줄 ${cyRows.length}줄 · 수량 ${cyRows.reduce((a,l)=>a+(Number(l.qty)||0),0)} <small>(합계에서 뺌)</small>${cyRows.some(l=>l._live)?`<button class="xferall" data-act="xferall">전부 이관</button>`:""}</div>${(()=>{const gs=invGroups(cyRows,true);gs.forEach(g=>{g.rows=[...g.rows.filter(l=>!isDone(l)),...g.rows.filter(isDone)];});return gs.map(grpHTML).join("");})()}</div>`:"")
+    +(r1Rows.length?`<div class="r1sec"><button class="r1head" data-act="r1fold">${r1Open?"▾":"▸"} 1차 반입완료 ${r1Rows.length}줄 · 수량 ${r1Rows.reduce((a,l)=>a+(Number(l.qty)||0),0)}</button>${r1Open?invGroups(r1Rows,true).map(grpHTML).join(""):""}</div>`:"")
     +`<div class="grand"><span>합계 ${buy.length}줄${rows.some(isReauc)?`<small>재경매 ${rows.filter(isReauc).length}줄 제외</small>`:""}${rows.some(l=>l._carry)?`<small>어제 넘어온 ${rows.filter(l=>l._carry).length}줄 제외</small>`:""}</span><span>수량 ${tq}${buy.some(l=>spLeft(l)!==(Number(l.qty)||0))?` · 잔여 ${buy.reduce((a,l)=>a+spLeft(l),0)}`:""}</span><span>${won(ta)}원</span></div>`;
 }
 
@@ -1452,13 +1452,17 @@ const unitTxt=u=>{const n=parseFloat(u); return isNaN(n)?String(u||""):n+"kg";};
 const INV_CATS=["고추","파프리카·피망","버섯","기타"];
 
 /* 품목별 묶음 — 품목은 큰 갈래(고추 → 파프리카·피망 → …) 다음 이름 순 */
-function invGroups(rows){
+/* 낙찰번호 오름차순 (숫자로 비교 — 서울 880100, 동화 030102 처럼 자릿수·앞자리 0이 달라도). 같으면 시장·단가 순 */
+const noNum=l=>{const n=parseInt(String(l.no||"").replace(/\D/g,""),10); return isNaN(n)?Infinity:n;};
+const byLotNo=(a,b)=>(noNum(a)-noNum(b))||String(a.no||"").localeCompare(String(b.no||""))||String(a.mkt||"").localeCompare(String(b.mkt||""),"ko")||(a.price-b.price);
+/* byNo=true: 낙찰 내역 표 — 품목 안 낙찰번호 오름차순. 아니면(재고 관리·출고 기록·엑셀) 단가 오름차순 */
+function invGroups(rows,byNo){
   const by={};
   rows.forEach(l=>{ const k=normItem(l.item); (by[k]=by[k]||[]).push(l); });
   return Object.keys(by)
     .sort((a,b)=>(INV_CATS.indexOf(catOf(a))-INV_CATS.indexOf(catOf(b)))||a.localeCompare(b,"ko"))
     .map(k=>({ title:k,
-      rows:by[k].slice().sort((a,b)=>(a.price-b.price)||(lotAmt(a)-lotAmt(b))||(a.who||"").localeCompare(b.who||"","ko")),
+      rows:by[k].slice().sort(byNo?byLotNo:(a,b)=>(a.price-b.price)||(lotAmt(a)-lotAmt(b))||(a.who||"").localeCompare(b.who||"","ko")),
       /* 재경매로 분류한 줄은 실제로 산 게 아니므로 수량·금액 합에서 뺀다 */
       qty:by[k].filter(l=>!isReauc(l)&&!l._carry).reduce((a,l)=>a+(Number(l.qty)||0),0),
       left:by[k].filter(l=>!isReauc(l)&&!l._carry).reduce((a,l)=>a+(Number(l.left)||0),0),
