@@ -585,6 +585,13 @@ table.xl tfoot td{background:var(--surface2);font-weight:800;color:var(--accent)
 .left .lv small{color:var(--dim);font-weight:600}
 .shipbtn{padding:6px 6px;border-radius:8px;font-size:11px;line-height:1.2;font-weight:800;border:0;
   background:var(--hot);color:#FFFFFF;white-space:nowrap}
+.waitb{height:30px;padding:0 6px;border-radius:8px;border:1.5px solid #E07B00;background:#FFFFFF;color:#E07B00;font-size:11px;font-weight:800;white-space:nowrap}
+.waitb:active{background:#E07B00;color:#FFFFFF}
+.waitb:disabled{opacity:.35}
+tr.mk-seoul .waitb{border-color:var(--seoul-pick);color:var(--seoul-pick)}
+tr.mk-seoul .waitb:active{background:var(--seoul-pick);color:#FFFFFF}
+tr.mk-dong .waitb{border-color:var(--dong-pick);color:var(--dong-pick)}
+tr.mk-dong .waitb:active{background:var(--dong-pick);color:#FFFFFF}
 .unshipbtn{padding:5px 7px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid var(--line);
   background:var(--surface2);color:var(--muted);white-space:nowrap}
 .importbox{display:flex;gap:6px;align-items:flex-end;margin-bottom:10px}
@@ -1497,8 +1504,11 @@ function renderInv(){
   const curDay=경매일KST();
   const allInv=Object.values(state.inv||{});
   const cut=재고기준KST();                             // 0시 30분이 지나면 그날 경매 낙찰도 재고
-  const inv=allInv.filter(l=>!l.date||l.date<cut);
-  const waiting=allInv.length-inv.length;
+  const lotIds=new Set((state.lots||[]).map(l=>l.id));
+  const onWait=l=>l.wait&&(lotIds.has(l.id)||Date.now()-(l.wait.at||0)<60e3);   // 대기로 옮긴 줄은 낙찰 내역에서 챙긴다
+  const waitN=allInv.filter(onWait).length;
+  const inv=allInv.filter(l=>(!l.date||l.date<cut)&&!onWait(l));
+  const waiting=allInv.filter(l=>!(!l.date||l.date<cut)&&!onWait(l)).length;
   const shipped=shippedRows||[];
   const chips=document.getElementById("invchips");
   document.getElementById("invsub").textContent=`재고 ${inv.length}줄`;
@@ -1545,7 +1555,7 @@ function renderInv(){
   const leftAmt=invBuy.reduce((a,l)=>a+(Number(l.price)||0)*(Number(l.left)||0),0);
   const leftQty=invBuy.reduce((a,l)=>a+(Number(l.left)||0),0);
   const d5=new Date(Date.now()+9*3600e3-4*86400e3).toISOString().slice(0,10);
-  box.innerHTML=`${waiting?`<p class="hint">오늘 경매(${mmdd(curDay)}) 낙찰 ${waiting}줄은 낙찰 내역에서 챙기고, 경매가 끝나면(새벽 0시 30분) 자동으로 여기로 넘어옵니다.</p>`:""}<div class="invsum">
+  box.innerHTML=`${waitN?`<p class="hint">대기로 옮긴 ${waitN}줄은 낙찰 내역 맨 아래 '어제 넘어온 줄'에서 챙깁니다. 대기를 풀면 새벽 5시 30분에, '이관'을 누르면 바로 재고로 돌아옵니다.</p>`:""}${waiting?`<p class="hint">오늘 경매(${mmdd(curDay)}) 낙찰 ${waiting}줄은 낙찰 내역에서 챙기고, 경매가 끝나면(새벽 0시 30분) 자동으로 여기로 넘어옵니다.</p>`:""}<div class="invsum">
       <div><small>재고 낙찰 소요금액</small><b class="tnum">${won(total)}원</b></div>
       <div><small>남은 물건 금액</small><b class="tnum">${won(leftAmt)}원</b></div>
       <div><small>남은 수량</small><b class="tnum">${won(leftQty)}</b></div></div>
@@ -1560,7 +1570,7 @@ function renderInv(){
     ${groups.length?groups.map(g=>`<div class="invgrp">
       <div class="invgh"><b>${esc(g.title)}</b><span class="tnum">${g.rows.length}줄 · 잔여 ${g.left}/${g.qty} · 소요 ${won(g.amt)}원</span></div>
       <div class="xwrap"><table class="xl inv"><thead><tr>
-        <th class="ck" title="체크하면 고정 — 풀기 전엔 수정·출고·삭제 안 됨">🔒</th><th class="xw">생산자</th><th>규격</th><th>수량</th><th>단가 ▲<br>소요금액</th><th>잔여 수량</th><th>출고</th>
+        <th class="ck" title="체크하면 고정 — 풀기 전엔 수정·출고·삭제 안 됨">🔒</th><th class="xw">생산자</th><th>규격</th><th>수량</th><th>단가 ▲<br>소요금액</th><th>잔여 수량</th><th>출고</th><th class="wth">대기</th>
       </tr></thead><tbody>${g.rows.map(l=>`<tr data-id="${esc(l.id)}" class="${[l.left>0?"":"zero",mkCls(l),isReauc(l)?"reauc":"",l.lock?"locked":""].join(" ")}">
         <td class="ck"><button class="ckb" data-iact="lock" aria-label="${l.lock?"고정 풀기":"고정"}" title="${l.lock?esc((l.lock.by||"")+" 고정 · 탭하면 풀기"):"탭하면 고정"}"><i>✓</i></button></td>
         <td class="xw">${esc(l.who||"-")}<span class="sm">${esc(mktShort(l.mkt))} · ${esc(mmdd(l.date))}</span></td>
@@ -1569,9 +1579,10 @@ function renderInv(){
         <td><div class="left"><button data-iact="dec" aria-label="하나 빼기"${l.lock?" disabled":""}>−</button>
           <button class="lv tnum" data-iact="setleft"${l.lock?" disabled":""}>${l.left}<small>/${l.qty}</small></button>
           <button data-iact="inc" aria-label="하나 더하기"${l.lock?" disabled":""}>+</button></div></td>
-        <td class="c"><button class="shipbtn" data-iact="ship"${l.lock?" disabled":""}>${l.lock?"고정":"전량<br>출고"}</button></td></tr>`).join("")}
+        <td class="c"><button class="shipbtn" data-iact="ship"${l.lock?" disabled":""}>${l.lock?"고정":"전량<br>출고"}</button></td>
+        <td class="c"><button class="waitb" data-iact="wait" aria-label="대기로 이관"${l.lock?" disabled":""}>대기</button></td></tr>`).join("")}
       </tbody><tfoot><tr><td></td><td class="xw">소계</td><td></td>
-        <td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td class="c">${g.left}</td><td></td></tr></tfoot></table></div></div>`).join("")
+        <td class="r">${g.qty}</td><td class="r">${won(g.amt)}</td><td class="c">${g.left}</td><td></td><td></td></tr></tfoot></table></div></div>`).join("")
       :`<div class="empty">재고 관리 목록이 비어 있습니다.<br>낙찰은 하루가 지나면 자동으로 넘어오고,
         위의 '지난 낙찰 불러오기'로 캘린더 기록에서 가져올 수도 있습니다.</div>`}`;
 }
@@ -1800,6 +1811,11 @@ function onInvClick(e){
     const n=Number(v);
     if(!Number.isFinite(n)||n<0||n>l.qty){ alert(`0부터 ${l.qty} 사이로 적어 주세요.`); return; }
     pushOp({t:"invleft",id,left:Math.round(n)});
+  } else if(act==="wait"){
+    const 이름=`${normItem(l.item)} · ${l.who||""}`, 시장=String(l.mkt||"").startsWith("서울")?"서울청과":String(l.mkt||"").startsWith("동화")?"동화청과":(l.mkt||"");
+    if(!confirm(`'${이름}' (${시장} · 잔여 ${l.left}/${l.qty})\n${시장} 대기로 이관합니다.\n낙찰 내역 맨 아래 '어제 넘어온 줄'에 대기(★)로 올라가고, 재고 목록에서는 잠시 빠집니다.`)) return;
+    pushOp({t:"invwait",id});
+    invStat(`'${이름}' — ${시장} 대기로 이관했습니다.`);
   } else if(act==="ship"){
     const 이름=`${normItem(l.item)} · ${l.who||""}`;
     if(!confirm(`'${이름}' (${l.qty}개 · ${won(lotAmt(l))}원)\n전량 출고 처리합니다.\n목록에서 빠지고 출고 기록으로 옮겨집니다.`)) return;
@@ -2481,6 +2497,8 @@ function localEcho(op){
     if(op.on) it.lock={by:me||"나",at:Date.now()}; else delete it.lock; state.inv[op.id]=it; }
   if(op.t==="invleft"&&state.inv[op.id]&&!state.inv[op.id].lock) state.inv[op.id]=Object.assign({},state.inv[op.id],{left:op.left});
   if(op.t==="ship") delete state.inv[op.id];
+  if(op.t==="invwait"&&state.inv[op.id]&&!state.inv[op.id].lock){ state.inv[op.id]=Object.assign({},state.inv[op.id],{wait:{by:me||"나",at:Date.now()}});
+    state.pickup=state.pickup||{}; state.pickup[op.id]={by:me||"나",at:Date.now()}; }
   if(op.t==="dellot") delete state.inv[op.id];
   if(op.t==="newday"){ state.lots=[]; state.got={}; state.done={}; state.notes={}; state.pickup={}; }
 }

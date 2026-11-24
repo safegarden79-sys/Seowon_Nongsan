@@ -214,6 +214,10 @@ history 는 하루치가 쌓이면 꽤 커질 수 있어서 실시간 SSE 로 �
 - **맨 왼쪽 체크(🔒) = 고정.** 탭하면 `invlock` op 로 `state.inv[id].lock={by,at}` 가 켜지고, 다시 탭해 풀기 전까지는
   잔여 수량(`invleft`)·전량 출고(`ship`)·줄 삭제(`dellot`)를 **서버가 거절**한다(다른 사람 폰에서도 못 고침). 화면에서는
   −/+·숫자·출고 버튼이 흐려지고 출고 칸에 '고정'이 보인다. poller 가 같은 줄을 다시 보내도 lock 은 유지된다.
+- **맨 오른쪽 `대기` 버튼 = 재고 줄을 대기로 이관**(`invwait` op): 한 번 묻고, 그 줄을 `state.lots` 에 다시 올려 `carry`=그때의 `lotCloseDay`,
+  `state.pickup` 켬 → 낙찰 내역 맨 아래 `어제 넘어온 줄`에 그 줄 자신의 시장(서울청과/동화청과) 색 대기(★)로 보인다. 재고 줄(`state.inv`)은 지우지 않고
+  `wait={by,at}` 만 붙여 재고 화면에서 가린다(잔여 수량·고정 유지). 낙찰 내역에서 `이관`(transfer) 하거나 대기를 풀어 5시 30분에 마감되면 `wait` 를 지워 재고에 다시 보인다
+  (`rollover` 가 낙찰 목록에 없는 줄의 `wait` 도 정리). 🔒 고정한 줄은 옮기지 않는다.
 - 맨 오른쪽 `전량 출고`(`ship` op) → `state.inv` 에서 빠지고 `state.shipped[id]` 로 옮겨진다
   (`shippedAt`, `shippedBy` 기록). 잘못 눌렀으면 출고 기록 화면의 `되돌리기`(`unship`).
   이미 출고한 id 는 poller 가 다시 보내도 재고 목록에 되살리지 않는다.
@@ -297,7 +301,7 @@ curl localhost:3000/api/health
 - `ordtext` 챙길 품목 주문 글, `ordimgdel` 주문 사진 지우기 (사진 올리기는 `POST /api/ordimg`)
 - `prep` 준비 양식 한 칸(화면에서 뺌), `prepsave` 준비 양식 저장/다시 고치기, `fifo` 선입선출 목표·메모·확인
 - `split` 낙찰 줄 가게출·타출 수량
-- `transfer` 넘어온 대기 줄 이관(낙찰 내역 → 재고 관리)
+- `transfer` 넘어온 대기 줄 이관(낙찰 내역 → 재고 관리), `invwait` 재고 줄을 대기로 이관(재고 관리 → 낙찰 내역)
 - `invlock` 재고 줄 고정/풀기, `invleft` 재고 관리 잔여 수량, `ship` 전량 출고, `unship` 출고 되돌리기, `invimport` 캘린더 기록에서 불러오기
 
 ## 손댈 때 주의할 점
