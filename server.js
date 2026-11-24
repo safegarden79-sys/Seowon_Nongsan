@@ -565,11 +565,26 @@ function applyOp(user, op, meta = {}) {
         const past = (l.carry && l.carry !== l.date) || (/^\d{4}-\d{2}-\d{2}$/.test(idDay) && idDay < lotDay(l));
         if (!past) continue;                           // 오늘 낙찰 줄은 이관하지 않는다
         addToInv([l], now);                            // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
+        if (state.inv[id]) delete state.inv[id].wait;   // 대기로 옮겼던 재고 줄은 다시 재고 화면에 보인다
         delete state.lots[id]; delete state.got[id]; delete state.lotnotes[id]; delete state.pickup[id];
         done.push(l);
       }
       if (!done.length) return;
       bump(by, done.length === 1 ? `${lotName0(done[0])} 이관 (낙찰 내역 → 재고 관리)` : `넘어온 대기 ${done.length}줄 이관 (낙찰 내역 → 재고 관리)`);
+      return;
+    }
+    case "invwait": {                                // 재고 줄을 대기로 이관 (재고 관리 → 낙찰 내역 '어제 넘어온 줄', 대기 ★ 켬)
+      const it = state.inv[op.id];
+      if (!it || it.lock) return;                    // 고정(체크)한 줄은 옮기지 않는다
+      const day = lotCloseDay();
+      if (!state.lots[it.id]) {
+        const { left, inAt, lock, leftBy, leftAt, wait, ...lot } = it;
+        if (lot.date && lot.date < day) lot.carry = day; else delete lot.carry;
+        state.lots[it.id] = lot;
+      }
+      state.pickup[it.id] = { by, at: now };
+      state.inv[it.id] = Object.assign({}, it, { wait: { by, at: now } });   // 잔여 수량은 그대로 두고 재고 화면에서만 가린다
+      bump(by, `${lotName0(it)} 대기로 이관 (${String(it.mkt || "").slice(0, 2)} · 재고 관리 → 낙찰 내역)`);
       return;
     }
     case "dellot": {                                 // 잘못 들어간 낙찰 줄 하나만 지운다 (오늘 목록 + 그 날짜 기록 모두에서)
@@ -895,6 +910,7 @@ const lotDay = l => l.carry || l.date;
 function rollover() {
   const pruned = pruneInv();
   if (pruned) bump("서원이", `낙찰 뒤 ${INV_KEEP_DAYS}일 지난 재고 ${pruned}줄을 재고 관리에서 자동 삭제했습니다`);
+  for (const r of Object.values(state.inv)) if (r.wait && !state.lots[r.id]) delete r.wait;   // 대기가 끝난(마감·삭제된) 줄은 재고 화면에 다시 보인다
   const day = lotCloseDay();
   const old = Object.values(state.lots).filter(l => !lotDay(l) || lotDay(l) < day);
   if (!old.length) return;
@@ -903,7 +919,7 @@ function rollover() {
   for (const l of keep) state.lots[l.id] = Object.assign({}, l, { carry: day });
   if (close.length) {
     addToInv(close, Date.now());                       // 이미 재고에 있으면 그대로, 전량 출고한 줄은 되살리지 않는다
-    for (const l of close) { delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
+    for (const l of close) { if (state.inv[l.id]) delete state.inv[l.id].wait; delete state.lots[l.id]; delete state.got[l.id]; delete state.lotnotes[l.id]; delete state.pickup[l.id]; }
   }
   bump("서원이", [close.length && `지난 경매 낙찰 ${close.length}줄의 챙김을 마감했습니다 (새벽 5시 30분, 재고 관리에서 계속 관리)`,
     keep.length && `대기 ${keep.length}줄은 ${day.slice(5).replace("-", "/")} 낙찰 내역으로 넘겼습니다`].filter(Boolean).join(" · "));
